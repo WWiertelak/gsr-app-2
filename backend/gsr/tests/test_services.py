@@ -10,7 +10,7 @@ from django.core.management import CommandError, call_command
 
 from gsr.models import Dataset, Project
 from gsr.pipeline.config import PipelineConfig
-from gsr.services.analysis import AnalysisError, analyze_files, run_project_analysis
+from gsr.services.analysis import AnalysisError, analyze_files, resolve_config, run_project_analysis
 from gsr.services.datasets import add_dataset
 
 from .sample_data import Participant, RecordingFormat, write_group
@@ -170,8 +170,77 @@ def test_gsr_analyze_command_writes_json(recordings, tmp_path: Path) -> None:
         (["A=a.csv", "A=b.csv"], "Duplicate alias"),
         (["A=a.csv", "--config", "[1]"], "JSON object"),
         (["A=a.csv", "--config", '{"segment_width": 5}'], "Unknown PipelineConfig fields"),
+        (["A=a.csv", "--config", '{"synchrony_window_seconds": "abc"}'], "synchrony_window_seconds"),
+        (["A=a.csv", "--config", '{"synchrony_surrogate_count": 1000000}'], "synchrony_surrogate_count"),
     ],
 )
 def test_gsr_analyze_command_rejects_bad_arguments(args, message) -> None:
     with pytest.raises(CommandError, match=message):
         call_command("gsr_analyze", *args)
+
+
+@pytest.mark.parametrize(
+    ("stored", "message"),
+    [
+        ({"synchrony_surrogate_count": 1000000}, "synchrony_surrogate_count"),
+        ({"synchrony_surrogate_method": "foo"}, "synchrony_surrogate_method"),
+        ({"synchrony_window_seconds": "abc"}, "synchrony_window_seconds"),
+        ({"synchrony_window_seconds": 10, "synchrony_step_seconds": 20}, "must not exceed"),
+        ({"contagion_low_z": 0.0, "contagion_high_z": 0.0}, "contagion_low_z must be lower"),
+        ({"clean_filter_physiological_min_us": 30.0}, "clean_filter_physiological_min_us"),
+        ({"synchrony_episode_min_size": 1}, "synchrony_episode_min_size"),
+        ({"median_kernel": 2.5}, "median_kernel"),
+        ({"scaling_enabled": "maybe"}, "scaling_enabled"),
+        ({"synchrony_threshold": None}, "synchrony_threshold"),
+    ],
+)
+@pytest.mark.django_db
+def test_run_project_analysis_rejects_invalid_config(recordings, stored, message) -> None:
+    project = Project.objects.create(name="Session", pipeline_config=stored)
+    for path in recordings.values():
+        add_dataset(project, _upload(path))
+    with pytest.raises(AnalysisError, match=message):
+        run_project_analysis(project, analyses=[])
+
+
+@pytest.mark.django_db
+def test_resolve_config_coerces_values_gsrv2_accepted() -> None:
+    project = Project.objects.create(
+        name="Session",
+        pipeline_config={
+            "median_kernel": "7",
+            "downsample_factor": 8.0,
+            "scaling_enabled": "true",
+            "synchrony_dtw_enabled": 0,
+            "synchrony_window_seconds": "45",
+            "synchrony_step_seconds": 45,
+            "synchrony_surrogate_count": 1000,
+            "synchrony_surrogate_method": "phase",
+            "time_range_from": None,
+            "segment_width": 5,
+        },
+    )
+    config = resolve_config(project, {"time_range_to": "12.5"})
+    assert config.median_kernel == 7 and config.downsample_factor == 8
+    assert config.scaling_enabled is True and config.synchrony_dtw_enabled is False
+    assert config.synchrony_window_seconds == 45.0 and isinstance(config.synchrony_window_seconds, float)
+    assert config.synchrony_surrogate_count == 1000 and config.synchrony_surrogate_method == "phase"
+    assert config.time_range_from is None and config.time_range_to == 12.5
+    assert config.model_fields_set == {
+        "median_kernel",
+        "downsample_factor",
+        "scaling_enabled",
+        "synchrony_dtw_enabled",
+        "synchrony_window_seconds",
+        "synchrony_step_seconds",
+        "synchrony_surrogate_count",
+        "synchrony_surrogate_method",
+        "time_range_from",
+        "time_range_to",
+    }
+
+
+@pytest.mark.django_db
+def test_admin_cannot_add_datasets_directly(admin_client) -> None:
+    assert admin_client.get("/admin/gsr/dataset/add/").status_code == 403
+    assert admin_client.get("/admin/gsr/dataset/").status_code == 200

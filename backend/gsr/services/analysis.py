@@ -20,7 +20,10 @@ class AnalysisError(ValueError):
 
 
 def resolve_config(project: Project, overrides: dict[str, Any] | None = None) -> PipelineConfig:
-    return PipelineConfig.from_dict({**(project.pipeline_config or {}), **(overrides or {})})
+    try:
+        return PipelineConfig.from_dict({**(project.pipeline_config or {}), **(overrides or {})})
+    except ValueError as exc:
+        raise AnalysisError(str(exc)) from exc
 
 
 def resolve_datasets(project: Project, dataset_ids: list[str] | None = None) -> list[Dataset]:

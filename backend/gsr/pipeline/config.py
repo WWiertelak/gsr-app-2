@@ -1,14 +1,104 @@
 from __future__ import annotations
 
+import contextlib
 import copy
 import dataclasses
 import os
+import re
 from dataclasses import dataclass
 from typing import Any
 
 # Read from the environment (not Django settings) so the pipeline package stays
 # importable without Django; settings.py reads the same variable.
 MAX_DATASETS = int(os.getenv("MAX_DATASETS", "20"))
+
+# Value rules of GSRv2's PipelineConfigSerializer, with DRF's coercion: numeric
+# strings become int/float and DRF boolean literals become bool.
+_MAX_STRING_LENGTH = 1000
+_INT_DECIMAL = re.compile(r"\.0*\s*$")
+_TRUE_VALUES = {"t", "y", "yes", "true", "on", "1", 1, True}
+_FALSE_VALUES = {"f", "n", "no", "false", "off", "0", 0, 0.0, False}
+_INT, _FLOAT, _BOOL, _CHOICE = "int", "float", "bool", "choice"
+_FIELD_RULES: dict[str, tuple[Any, ...]] = {
+    "median_kernel": (_INT, None, None),
+    "scaling_enabled": (_BOOL,),
+    "clean_filter_physiological_range": (_BOOL,),
+    "clean_filter_zscore": (_BOOL,),
+    "clean_filter_jump": (_BOOL,),
+    "clean_filter_iqr": (_BOOL,),
+    "clean_filter_butterworth": (_BOOL,),
+    "clean_filter_physiological_min_us": (_FLOAT, 0.0, 100.0),
+    "clean_filter_physiological_max_us": (_FLOAT, 0.0, 1000.0),
+    "clean_filter_zscore_threshold": (_FLOAT, 0.1, 20.0),
+    "clean_filter_jump_sigma": (_FLOAT, 0.1, 20.0),
+    "clean_filter_iqr_factor": (_FLOAT, 0.1, 10.0),
+    "clean_filter_butterworth_cutoff_hz": (_FLOAT, 0.001, 2.4),
+    "clean_filter_butterworth_order": (_INT, 1, 10),
+    "downsample_interval_seconds": (_INT, None, None),
+    "downsample_factor": (_INT, None, None),
+    "time_range_from": (_FLOAT, None, None),
+    "time_range_to": (_FLOAT, None, None),
+    "synchrony_window_seconds": (_FLOAT, 1.0, 600.0),
+    "synchrony_step_seconds": (_FLOAT, 0.5, 600.0),
+    "synchrony_threshold": (_FLOAT, 0.0, 1.0),
+    "synchrony_correlation_method": (_CHOICE, ("pearson", "spearman")),
+    "synchrony_max_lag_seconds": (_FLOAT, 0.0, 600.0),
+    "synchrony_dtw_enabled": (_BOOL,),
+    "synchrony_cluster_distance_threshold": (_FLOAT, 0.0, 2.0),
+    "synchrony_signed": (_BOOL,),
+    "synchrony_surrogate_enabled": (_BOOL,),
+    "synchrony_surrogate_count": (_INT, 0, 1000),
+    "synchrony_surrogate_method": (_CHOICE, ("circular", "phase")),
+    "synchrony_surrogate_seed": (_INT, 0, 2**31 - 1),
+    "synchrony_episode_min_size": (_INT, 2, 50),
+    "synchrony_episode_min_duration_seconds": (_FLOAT, 0.0, 3600.0),
+    "synchrony_episode_max_gap_seconds": (_FLOAT, 0.0, 600.0),
+    "contagion_high_z": (_FLOAT, 0.0, 10.0),
+    "contagion_low_z": (_FLOAT, -10.0, 0.0),
+    "contagion_window_seconds": (_FLOAT, 1.0, 600.0),
+    "contagion_step_seconds": (_FLOAT, 0.5, 600.0),
+    "contagion_min_participants": (_INT, 2, 50),
+    "contagion_min_agreement_pct": (_FLOAT, 0.0, 1.0),
+    "contagion_min_episode_gap_seconds": (_FLOAT, 0.0, 600.0),
+    "contagion_member_pct": (_FLOAT, 0.0, 1.0),
+    "contagion_contrib_rho": (_FLOAT, -1.0, 1.0),
+    "contagion_comovement_rho": (_FLOAT, -1.0, 1.0),
+    "contagion_surrogate_count": (_INT, 0, 1000),
+    "contagion_surrogate_seed": (_INT, 0, 2**31 - 1),
+}
+_NULLABLE = {"time_range_from", "time_range_to"}
+
+
+def _coerce(name: str, value: Any) -> Any:
+    if value is None:
+        if name in _NULLABLE:
+            return None
+        raise ValueError(f"{name} may not be null")
+    kind, *rule = _FIELD_RULES[name]
+    if kind == _BOOL:
+        lowered = value.lower() if isinstance(value, str) else value
+        with contextlib.suppress(TypeError):
+            if lowered in _TRUE_VALUES:
+                return True
+            if lowered in _FALSE_VALUES:
+                return False
+        raise ValueError(f"{name} must be a valid boolean")
+    if kind == _CHOICE:
+        if str(value) not in rule[0]:
+            raise ValueError(f"{name} must be one of: {', '.join(rule[0])}")
+        return str(value)
+    if isinstance(value, str) and len(value) > _MAX_STRING_LENGTH:
+        raise ValueError(f"{name} must be a valid number")
+    try:
+        number = int(_INT_DECIMAL.sub("", str(value))) if kind == _INT else float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a valid {'integer' if kind == _INT else 'number'}") from None
+    low, high = rule
+    if low is not None and number < low:
+        raise ValueError(f"{name} must be greater than or equal to {low}")
+    if high is not None and number > high:
+        raise ValueError(f"{name} must be less than or equal to {high}")
+    return number
 
 
 @dataclass(init=False)
@@ -18,7 +108,9 @@ class PipelineConfig:
     Field names and defaults are unchanged, so a GSRv2 project config loads as-is
     through ``from_dict`` (keys of the dropped segment/correlation analyses are
     ignored). ``model_fields_set`` keeps the GSRv2 explicitly-set-fields
-    semantics, which select the legacy sample-based downsampling mode.
+    semantics, which select the legacy sample-based downsampling mode. Values are
+    coerced and validated against GSRv2's serializer bounds; invalid input raises
+    ``ValueError``.
     """
 
     median_kernel: int = 5
@@ -98,7 +190,15 @@ class PipelineConfig:
                 value = spec.default_factory()  # type: ignore[misc]
             else:
                 value = spec.default
-            object.__setattr__(self, name, value)
+            object.__setattr__(self, name, _coerce(name, value))
+        if self.clean_filter_physiological_min_us >= self.clean_filter_physiological_max_us:
+            raise ValueError("clean_filter_physiological_min_us must be lower than clean_filter_physiological_max_us")
+        if self.synchrony_step_seconds > self.synchrony_window_seconds:
+            raise ValueError("synchrony_step_seconds must not exceed synchrony_window_seconds")
+        if self.contagion_step_seconds > self.contagion_window_seconds:
+            raise ValueError("contagion_step_seconds must not exceed contagion_window_seconds")
+        if self.contagion_low_z >= self.contagion_high_z:
+            raise ValueError("contagion_low_z must be lower than contagion_high_z")
         object.__setattr__(self, "model_fields_set", set(kwargs))
 
     def model_dump(self) -> dict[str, Any]:

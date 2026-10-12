@@ -46,7 +46,7 @@ class Command(BaseCommand):
             raise CommandError("--config must be a JSON object")
         try:
             config = PipelineConfig(**overrides)
-        except TypeError as exc:
+        except (TypeError, ValueError) as exc:
             raise CommandError(str(exc)) from exc
 
         try:

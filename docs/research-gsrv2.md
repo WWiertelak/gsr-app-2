@@ -155,6 +155,7 @@ Port of a standalone "emotional contagion" script, corrected in GSRv2:
 | shared helpers (`_zscore`, `_make_surrogate`, `_estimate_step_seconds`, `_resolve_aliases`, `PipelineError`) | `backend/gsr/pipeline/common.py` | moved, unchanged |
 | `Project` / `Dataset` models, upload storage + parse-on-upload | `backend/gsr/models.py`, `services/datasets.py` | minimal: no owner, notes, UI language; `Dataset.file` is a `FileField` under `STORAGE_ROOT` with the same path layout |
 | analysis guards in `views.py` (scaling required, ≥ 2 datasets, min size/participants ≤ dataset count) | `services/analysis.py` (`analyze_files`, `run_project_analysis`) | same rules, plain Python service |
+| `PipelineConfigSerializer` field types, bounds, choices and cross-field checks | `PipelineConfig.__init__` (`backend/gsr/pipeline/config.py`) | same rules and DRF-style coercion, enforced at construction; invalid values raise `ValueError` (`AnalysisError` from `resolve_config`, `CommandError` from `gsr_analyze`) |
 | — | `manage.py gsr_analyze A=a.csv B=b.csv --config '{…}'` | new CLI entry point (no UI yet) |
 
 Equivalence is enforced by `backend/gsr/tests/test_equivalence.py`: seven synthetic
@@ -184,8 +185,6 @@ All sample data is synthetic (`backend/gsr/tests/sample_data.py`); GSRv2's local
   bootstrap (incl. the uncommitted `PASSWORDLESS_LOGIN` setting), throttling,
   Celery jobs with progress/cancellation, stage-artifact caching by signature,
   legacy-import and owner-check commands, Docker/compose.
-- Config validation bounds (GSRv2's `PipelineConfigSerializer`) — to be re-added with
-  the API layer once the frontend/API choice is made.
 - `signal_colors` and `scaling_method` config fields (UI-only / unused: min-max is the
   only scaling).
 

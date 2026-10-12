@@ -24,3 +24,6 @@ class DatasetAdmin(admin.ModelAdmin):
     list_filter = ("project",)
     search_fields = ("alias", "original_filename")
     readonly_fields = ("file_sha256", "file_size", "parsed_metadata", "created_at")
+
+    def has_add_permission(self, request) -> bool:
+        return False
