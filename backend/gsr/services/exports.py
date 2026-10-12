@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from ..models import AnalysisResult, Project
 from ..pipeline.config import PipelineConfig
-from ..pipeline.preprocessing import build_stage_export_frame
+from ..pipeline.preprocessing import analysed_range, build_stage_export_frame
 from .results import stored_pipeline_result
 
 # Charts the Export screen captures from the same ECharts options as the screens,
@@ -171,7 +171,7 @@ def results_document(project: Project, stored: AnalysisResult) -> dict[str, Any]
         "versions": versions(),
         "datasets": datasets,
         "alignment": preview.get("alignment"),
-        "time_range_minutes": preview.get("range"),
+        "time_range_minutes": analysed_range(preview, PipelineConfig.from_dict(stored.config).model_dump()),
         "cleaning_summary": preview.get("cleaning_summary"),
         "synchrony": payload.get("synchrony"),
         "coarousal": payload.get("coarousal"),

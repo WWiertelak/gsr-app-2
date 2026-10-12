@@ -131,6 +131,14 @@ def test_report_prints_large_values_without_scientific_notation(payload) -> None
     assert not any("e+0" in text for text in texts)
 
 
+def test_report_states_the_analysed_window_not_the_full_span(payload) -> None:
+    preview = {**payload["preview"], "range": {"from": 0.0, "to": 9.93}}
+    config = {**payload["config"], "time_range_from": 1.0, "time_range_to": 9.0}
+    texts = _texts(build_story({**payload, "lang": "en", "preview": preview, "config": config}))
+    assert any(text.endswith("1–9 min") for text in texts)
+    assert not any("9.93" in text for text in texts)
+
+
 def test_render_report_pdf_embeds_unicode_font(payload) -> None:
     pdf = render_report_pdf({**payload, "lang": "pl", "stale": True})
     assert pdf.startswith(b"%PDF") and b"DejaVuSans" in pdf

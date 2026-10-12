@@ -24,6 +24,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from ..pipeline.preprocessing import analysed_range
 from .methodology import METHODOLOGY, METHODS_COMPARISON
 
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
@@ -570,7 +571,7 @@ def _section_title(story: list[Any], styles: dict[str, Any], payload: dict[str, 
 def _section_executive_summary(story: list[Any], styles: dict[str, Any], payload: dict[str, Any], lang: str) -> None:
     preview = payload.get("preview") or {}
     totals = (preview.get("cleaning_summary") or {}).get("totals") or {}
-    preview_range = preview.get("range") or {}
+    preview_range = analysed_range(preview, payload.get("config") or {})
     aliases = payload.get("dataset_aliases") or []
     synchrony = payload.get("synchrony") or {}
     sync_stats = synchrony.get("stats") or {}
@@ -666,7 +667,7 @@ def _section_cleaning(story: list[Any], styles: dict[str, Any], payload: dict[st
     _heading(story, styles, _tr(lang, "cleaning_heading"))
     preview = payload.get("preview") or {}
     cfg = payload.get("config") or {}
-    preview_range = preview.get("range") or {}
+    preview_range = analysed_range(preview, cfg)
     alignment = preview.get("alignment") or {}
 
     story.append(Paragraph(_tr(lang, "cleaning_params"), base["Heading2"]))
