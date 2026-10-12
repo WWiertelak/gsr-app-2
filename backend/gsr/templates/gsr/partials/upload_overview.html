@@ -1,0 +1,61 @@
+{% load i18n %}
+<h3>{% translate "Recording overlap" %}</h3>
+<p class="hint">{% translate "Group analysis uses only the shared absolute-time window of all recordings." %}</p>
+{% with overlap=overview.overlap %}
+  {% if overlap %}
+    <div class="overlap">
+      <div class="name"><strong>{% translate "Common window" %}</strong></div>
+      <div class="track">
+        {% if overlap.ok %}<div class="bar common" style="left: {{ overlap.bar_left_pct|stringformat:'s' }}%; width: {{ overlap.bar_width_pct|stringformat:'s' }}%"></div>{% endif %}
+      </div>
+      {% for row in overview.rows %}
+        <div class="name"><span class="dot" style="background: {{ row.color }}"></span>{{ row.dataset.alias }}</div>
+        <div class="track">
+          {% if not row.error %}<div class="bar" style="left: {{ row.bar_left_pct|stringformat:'s' }}%; width: {{ row.bar_width_pct|stringformat:'s' }}%; background: {{ row.color }}" title="{{ row.start|date:'H:i:s' }}–{{ row.end|date:'H:i:s' }}"></div>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+    {% if overlap.ok %}
+      <p class="alert success">{% blocktranslate with start=overlap.start|date:"H:i:s" end=overlap.end|date:"H:i:s" duration=overlap.duration_minutes|floatformat:1 %}Common window {{ start }}–{{ end }} · {{ duration }} min{% endblocktranslate %}</p>
+    {% else %}
+      <p class="alert error">{% translate "The recordings do not share an absolute-time window. Group analysis requires recordings from the same time window; remove or replace the file that does not overlap." %}</p>
+    {% endif %}
+  {% endif %}
+{% endwith %}
+
+<div class="table-wrap">
+  <table class="data">
+    <thead><tr><th>{% translate "Alias" %}</th><th>{% translate "Start" %}</th><th>{% translate "End" %}</th><th>{% translate "Duration" %}</th></tr></thead>
+    <tbody>
+      {% for row in overview.rows %}
+        <tr>
+          <td><span class="chip"><span class="dot" style="background: {{ row.color }}"></span>{{ row.dataset.alias }}</span></td>
+          {% if row.error %}
+            <td colspan="3" class="left alert error">{{ row.error }}</td>
+          {% else %}
+            <td>{{ row.start|date:"H:i:s" }}</td>
+            <td>{{ row.end|date:"H:i:s" }}</td>
+            <td>{{ row.duration_minutes|floatformat:1 }} min</td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h3>{% translate "RAW signals (import)" %}</h3>
+<p class="hint">{% translate "Raw GSR data (skin conductance in µS) read directly from CSV files. X-axis shows the original recording time. Proceed to Cleaning to synchronize signals, remove artifacts, and apply filtering." %}</p>
+<div class="chart-grid">
+  {% for series in raw_series %}
+    <div class="chart-card">
+      <h4><span class="dot" style="background: {{ series.color }}"></span>{{ series.alias }}</h4>
+      {% with index=forloop.counter0|stringformat:"s" %}{% include "gsr/partials/chart.html" with kind="rawSignal" data=series chart_id="raw-"|add:index name="raw_"|add:series.alias height=240 %}{% endwith %}
+    </div>
+  {% endfor %}
+</div>
+{% if raw_overlay %}
+  <div class="chart-card" style="margin-top: 0.7rem">
+    <h4>{% translate "Signal overlay" %}</h4>
+    {% include "gsr/partials/chart.html" with kind="overlay" data=raw_overlay chart_id="raw-overlay" name="raw_overlay" height=320 %}
+  </div>
+{% endif %}

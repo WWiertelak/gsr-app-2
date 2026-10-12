@@ -41,9 +41,11 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    # Serves collected static files (admin) under gunicorn in the container.
+    # Serves collected static files (admin, UI) under gunicorn in the container.
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    # UI language from the PL/EN switch (cookie), then Accept-Language.
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -61,8 +63,10 @@ TEMPLATES = [
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
+                "django.template.context_processors.i18n",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "gsr.context_processors.ui",
             ],
         },
     },
@@ -84,7 +88,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-LANGUAGE_CODE = "en-us"
+# Polish is the default UI language, as in GSRv2; the header switch selects English.
+LANGUAGE_CODE = "pl"
+LANGUAGES = [("pl", "Polski"), ("en", "English")]
+LOCALE_PATHS = [BASE_DIR / "gsr" / "locale"]
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True

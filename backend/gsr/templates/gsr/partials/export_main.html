@@ -1,0 +1,62 @@
+{% load i18n %}
+<div class="stack">
+  {% if not result %}
+    <section class="card">
+      <h2>{% translate "4. Export" %}</h2>
+      <p>{% translate "Run the analysis first; the export takes the results of the last run." %} <a href="{% url 'gsr:analysis' project.pk %}">{% translate "Go to Analysis" %}</a></p>
+    </section>
+  {% else %}
+    {% if stale %}
+      <div class="alert warning">{% translate "Settings or signals changed after the last run. The exports describe the last run; run the analysis again to include the changes." %}</div>
+    {% endif %}
+
+    <section class="card">
+      <h2>{% translate "PDF report" %}</h2>
+      <p class="hint">{% translate "The report for other researchers: project description, results summary, import, cleaning, synchronization and co-arousal results with charts, methodology, and the data needed to reproduce the run. Its language follows the UI language (PL/EN)." %}</p>
+      <form method="post" action="{% url 'gsr:export_pdf' project.pk %}" data-capture-charts>
+        {% csrf_token %}
+        {% for chart in report_charts %}<input type="hidden" name="chart_{{ chart.key }}" value="">{% endfor %}
+        <button type="submit">{% translate "Generate PDF report" %}</button>
+        <span class="muted small">{% blocktranslate with time=result.computed_at|date:"Y-m-d H:i" %}Results of the run from {{ time }}{% endblocktranslate %}</span>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>{% translate "Data" %}</h2>
+      <p class="hint">{% translate "A ZIP with every file below plus the report charts as PNG. Every chart on the screens also has its own “Save PNG” button." %}</p>
+      <form method="post" action="{% url 'gsr:export_zip' project.pk %}" data-capture-charts>
+        {% csrf_token %}
+        {% for chart in report_charts %}<input type="hidden" name="chart_{{ chart.key }}" value="">{% endfor %}
+        <button type="submit">{% translate "Download ZIP" %}</button>
+      </form>
+      <ul class="export-list">
+        <li><span><strong>{% translate "Cleaned signals CSV" %}</strong> <span class="muted small">{% translate "per participant, relative time, full resolution" %}</span></span>
+          <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'clean_signals.csv' %}">CSV</a></li>
+        <li><span><strong>{% translate "Analysis-ready merged CSV" %}</strong> <span class="muted small">{% translate "scaled, downsampled, shared time axis" %}</span></span>
+          <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'analysis_input_merged.csv' %}">CSV</a></li>
+        <li><span><strong>{% translate "Synchronization" %}</strong> <span class="muted small">{% translate "episodes, pairs, windows" %}</span></span>
+          <span class="row-form">
+            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'synchrony_episodes.csv' %}">{% translate "episodes" %}</a>
+            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'synchrony_pairs.csv' %}">{% translate "pairs" %}</a>
+            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'synchrony_windows.csv' %}">{% translate "windows" %}</a>
+          </span></li>
+        <li><span><strong>{% translate "Co-arousal" %}</strong> <span class="muted small">{% translate "episodes, state timeline, time in states" %}</span></span>
+          <span class="row-form">
+            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'coarousal_episodes.csv' %}">{% translate "episodes" %}</a>
+            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'coarousal_state_timeline.csv' %}">{% translate "states" %}</a>
+            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'coarousal_state_percentages.csv' %}">%</a>
+          </span></li>
+        <li><span><strong>{% translate "Run settings + results JSON" %}</strong> <span class="muted small">{% translate "reproducibility: settings, library versions, file SHA-256" %}</span></span>
+          <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'run_settings_and_results.json' %}">JSON</a></li>
+      </ul>
+    </section>
+
+    <div class="capture-area" aria-hidden="true">
+      {% for chart in report_charts %}
+        {% with data_id="capture-"|add:chart.key|add:"-data" %}{{ chart.data|json_script:data_id }}
+          <div data-capture-chart="{{ chart.kind }}" data-key="{{ chart.key }}" data-source="{{ data_id }}" style="width: 1100px; height: {% if chart.kind == 'heatmap' %}620{% else %}480{% endif %}px"></div>
+        {% endwith %}
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>

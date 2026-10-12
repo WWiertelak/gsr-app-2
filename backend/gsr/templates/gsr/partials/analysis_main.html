@@ -1,0 +1,267 @@
+{% load i18n gsr_tags %}
+<div class="layout-sidebar">
+  <form class="card sidebar" id="analysis-settings" method="post" action="{% url 'gsr:analysis' project.pk %}"
+        hx-post="{% url 'gsr:analysis' project.pk %}" hx-target="#main" hx-swap="innerHTML"
+        hx-indicator="#busy" hx-disabled-elt="find button">
+    {% csrf_token %}
+    <input type="hidden" name="tab" value="{{ tab }}" data-tab-input>
+    <h2>{% translate "Analysis controls" %}</h2>
+
+    <fieldset>
+      <legend>{% translate "Synchronization settings" %}</legend>
+      {% for row in sync_essential %}{% include "gsr/partials/param_field.html" %}{% endfor %}
+      <details class="advanced">
+        <summary>{% translate "Advanced settings" %}</summary>
+        {% for row in sync_advanced %}{% include "gsr/partials/param_field.html" %}{% endfor %}
+      </details>
+    </fieldset>
+
+    <fieldset>
+      <legend>{% translate "Co-arousal settings" %}</legend>
+      {% for row in coarousal_essential %}{% include "gsr/partials/param_field.html" %}{% endfor %}
+      <details class="advanced">
+        <summary>{% translate "Advanced settings" %}</summary>
+        {% for row in coarousal_advanced %}{% include "gsr/partials/param_field.html" %}{% endfor %}
+      </details>
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit"{% if included_count < 2 %} disabled{% endif %}>{% translate "Run analysis" %}</button>
+      <button type="submit" class="secondary" formaction="{% url 'gsr:analysis_reset' project.pk %}" hx-post="{% url 'gsr:analysis_reset' project.pk %}" formnovalidate>{% translate "Reset defaults" %}</button>
+    </div>
+    <p class="hint">{% translate "One run computes both synchronization and co-arousal with the cleaning settings from step 2." %}</p>
+  </form>
+
+  <div class="stack">
+    {% if error %}<div class="alert error"><strong>{% translate "Error" %}:</strong> {{ error }}</div>{% endif %}
+    {% if included_count < 2 %}
+      <div class="alert warning">{% translate "Select at least two signals to compute synchronization." %} <a href="{% url 'gsr:cleaning' project.pk %}">{% translate "Go to Cleaning" %}</a></div>
+    {% endif %}
+
+    <section class="card">
+      <div class="run-bar">
+        {% if result %}
+          <span>{% blocktranslate with time=result.computed_at|date:"Y-m-d H:i" seconds=result.duration_seconds|floatformat:1 %}Last run {{ time }} · {{ seconds }} s{% endblocktranslate %}</span>
+          {% if stale %}
+            <span class="badge stale">{% translate "Outdated result" %}</span>
+            <span class="muted small">{% translate "Settings or signals changed since this run. Run the analysis again." %}</span>
+          {% else %}
+            <span class="badge fresh">{% translate "settings unchanged" %}</span>
+          {% endif %}
+        {% else %}
+          <span class="muted">{% translate "No results for this step yet. Set the parameters and run the analysis." %}</span>
+        {% endif %}
+      </div>
+
+      <nav class="tabs" role="tablist">
+        <a href="?tab=synchronization" role="tab" data-tab="synchronization" class="{% if tab == 'synchronization' %}active{% endif %}" aria-selected="{% if tab == 'synchronization' %}true{% else %}false{% endif %}">{% translate "Synchronization" %}</a>
+        <a href="?tab=coarousal" role="tab" data-tab="coarousal" class="{% if tab == 'coarousal' %}active{% endif %}" aria-selected="{% if tab == 'coarousal' %}true{% else %}false{% endif %}">{% translate "Co-arousal" %}</a>
+      </nav>
+
+      <div role="tabpanel" data-tab-panel="synchronization"{% if tab != "synchronization" %} hidden{% endif %}>
+        <p class="hint">{% translate "We look for fragments where signals begin to synchronize and group them into clusters." %}</p>
+        {% if result and synchrony %}
+          <div class="stats">
+            <div class="stat"><div class="label">{% translate "Mean synchrony" %}</div><div class="value">{{ synchrony.stats.mean_synchrony|floatformat:3 }}</div></div>
+            <div class="stat">
+              <div class="label">{% translate "Whole-group test" %}</div>
+              <div class="value">{% if synchrony.stats.mean_synchrony_p_value is not None %}p={{ synchrony.stats.mean_synchrony_p_value|floatformat:3 }}{% if synchrony.stats.mean_synchrony_p_value < 0.05 %} *{% endif %}{% else %}—{% endif %}</div>
+              {% if synchrony.stats.surrogate_method %}<div class="sub">{{ synchrony.stats.surrogate_method }} · N={{ synchrony.stats.surrogate_count }}</div>{% endif %}
+            </div>
+            <div class="stat"><div class="label">{% translate "Episode count" %}</div><div class="value">{{ synchrony.stats.episode_count }}</div></div>
+            <div class="stat"><div class="label">{% translate "Cluster count" %}</div><div class="value">{{ synchrony.stats.cluster_count }}</div></div>
+          </div>
+
+          <h4>{% translate "Synchronization timeline" %}</h4>
+          {% include "gsr/partials/chart.html" with kind="syncTimeline" data=sync_timeline chart_id="sync-timeline" name="sync_timeline" height=360 %}
+
+          {% if sync_signals.series %}
+            <h4>{% translate "Signals with marked episodes" %}</h4>
+            {% include "gsr/partials/chart.html" with kind="episodeSignals" data=sync_signals chart_id="sync-signals" name="sync_signals" height=320 %}
+          {% endif %}
+
+          <h4>{% translate "Subgroup synchronization episodes" %}</h4>
+          <p class="hint">{% translate "Stretches where a subgroup of participants (at least 2) stays synchronized above the threshold." %}</p>
+          {% if sync_episodes %}
+            <div class="table-wrap">
+              <table class="data">
+                <thead><tr><th>#</th><th>{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Participants" %}</th><th>{% translate "People" %}</th><th>{% translate "Mean strength" %}</th><th>{% translate "Peak strength" %}</th></tr></thead>
+                <tbody>
+                  {% for episode in sync_episodes %}
+                    <tr>
+                      <td>{{ episode.number }}</td>
+                      <td>{{ episode.start_relative|mmss }} – {{ episode.end_relative|mmss }}</td>
+                      <td>{{ episode.duration|mmss }}</td>
+                      <td class="left"><div class="chips">{% for member in episode.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div></td>
+                      <td>{{ episode.size }}</td>
+                      <td>{{ episode.mean_strength|floatformat:3 }}</td>
+                      <td>{{ episode.peak_strength|floatformat:3 }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="muted">{% translate "No subgroup synchronization episodes detected." %}</p>
+          {% endif %}
+
+          <h4>{% translate "Pairwise metrics" %}</h4>
+          <div class="table-wrap">
+            <table class="data">
+              <thead>
+                <tr>
+                  <th>{% translate "Pair" %}</th>
+                  <th title="{% translate 'Highest cross-correlation of the z-scored pair at the best time shift within the max lag. From −1 to +1; closer to +1 = stronger synchronization.' %}">{% translate "Max correlation" %}</th>
+                  {% if has_pair_p %}<th>{% translate "p (surrogate)" %}</th>{% endif %}
+                  <th title="{% translate 'Time shift (in seconds) at which the pair correlation is highest.' %}">{% translate "Lag (s)" %}</th>
+                  <th title="{% translate 'Mean spectral coherence in the low-frequency band (Welch method, up to ~1 Hz). From 0 to 1; higher = shared rhythm.' %}">{% translate "Coherence" %}</th>
+                  <th title="{% translate 'Dynamic Time Warping distance normalized by signal length. Lower = more similar.' %}">DTW</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for pair in synchrony.pairs %}
+                  <tr>
+                    <td>{{ pair.alias_a }} · {{ pair.alias_b }}</td>
+                    <td>{{ pair.max_xcorr|floatformat:3 }}</td>
+                    {% if has_pair_p %}<td>{{ pair.p_value|floatformat:3 }}</td>{% endif %}
+                    <td>{{ pair.lag_seconds|floatformat:2 }}</td>
+                    <td>{{ pair.coherence|floatformat:3 }}</td>
+                    <td>{% if pair.dtw_distance is None %}—{% else %}{{ pair.dtw_distance|floatformat:3 }}{% endif %}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <h4>{% translate "Synchronization matrix" %}</h4>
+              {% include "gsr/partials/chart.html" with kind="heatmap" data=sync_matrix chart_id="sync-matrix" name="sync_matrix" height=360 %}
+            </div>
+            <div>
+              <h4>{% translate "Signal clusters" %}</h4>
+              <div class="cluster-list">
+                {% for cluster in synchrony.clusters.clusters %}
+                  <div class="cluster-card">
+                    <div class="head"><strong>{% translate "Cluster" %} {{ cluster.cluster|add:1 }}</strong>
+                      <span class="muted">{% translate "Mean synchrony" %}: {% if cluster.mean_synchrony is None %}—{% else %}{{ cluster.mean_synchrony|floatformat:3 }}{% endif %}</span></div>
+                    <div class="chips">{% for member in cluster.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        {% else %}
+          <p class="muted">{% translate "No results for this step yet." %}</p>
+        {% endif %}
+      </div>
+
+      <div role="tabpanel" data-tab-panel="coarousal"{% if tab != "coarousal" %} hidden{% endif %}>
+        <p class="hint">{% translate "We look for moments when many participants are simultaneously in the same arousal state (High/Low) or genuinely co-vary (correlation-based co-movement). Signals are standardized (z-score) within the analysis window." %}</p>
+        {% if result and coarousal %}
+          <div class="stats">
+            <div class="stat"><div class="label">{% translate "Co-arousal index" %}</div><div class="value">{{ coarousal.coarousal_index|floatformat:3 }}</div></div>
+            <div class="stat">
+              <div class="label">{% translate "Null mean ± SD" %}</div>
+              <div class="value">{% if coarousal.coarousal_null_mean is None %}—{% else %}{{ coarousal.coarousal_null_mean|floatformat:3 }} ± {{ coarousal.coarousal_null_sd|floatformat:3 }}{% endif %}</div>
+            </div>
+            <div class="stat">
+              <div class="label">p</div>
+              <div class="value">{% if coarousal.coarousal_p_value is None %}—{% else %}{{ coarousal.coarousal_p_value|floatformat:3 }}{% endif %}</div>
+              <div class="sub">{% if coarousal.coarousal_p_value is None %}{% translate "No surrogate test" %}{% elif coarousal.stats.coarousal_significant %}{% translate "Above chance (p<0.05)" %}{% else %}{% translate "Not significant (p≥0.05)" %}{% endif %}</div>
+            </div>
+            <div class="stat">
+              <div class="label">{% translate "Episode count" %}</div>
+              <div class="value">{{ coarousal.stats.episode_count }}</div>
+              <div class="sub">{% translate "High ↑" %} {{ coarousal.stats.high_episode_count }} · {% translate "Low ↓" %} {{ coarousal.stats.low_episode_count }} · {% translate "Co-move ↔" %} {{ coarousal.stats.comovement_episode_count }}</div>
+            </div>
+          </div>
+          <p class="hint">{% translate "Co-arousal index = time-average of max(number of people in High state, number in Low state). Compared with a circular-shift null distribution (preserves autocorrelation, destroys only shared timing)." %}</p>
+
+          {% if coarousal_states.rows %}
+            <h4>{% translate "Participant state map over time" %}</h4>
+            <p class="hint">{% translate "Mean state of each participant in 1-minute bins: red = High (+1), white = Neutral (0), blue = Low (−1)." %}</p>
+            {% include "gsr/partials/chart.html" with kind="coarousalStates" data=coarousal_states chart_id="coarousal-states" name="coarousal_states" height=coarousal_height %}
+          {% endif %}
+
+          <h4>{% translate "Co-arousal episodes" %}</h4>
+          <p class="hint">{% translate "Episodes where ≥ the required number of participants hold a shared state (High/Low), plus co-movement episodes (mean pairwise Spearman in the window ≥ threshold)." %}</p>
+          {% if coarousal_episodes %}
+            <div class="table-wrap">
+              <table class="data">
+                <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th>{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Contributors" %}</th><th>{% translate "Strength" %}</th><th class="left">{% translate "Not in sync" %}</th></tr></thead>
+                <tbody>
+                  {% for episode in coarousal_episodes %}
+                    <tr>
+                      <td>{{ episode.number }}</td>
+                      <td class="left">{% include "gsr/partials/direction.html" with direction=episode.direction %}</td>
+                      <td>{{ episode.start_s|seconds_mmss }} – {{ episode.end_s|seconds_mmss }}</td>
+                      <td>{{ episode.duration_s|seconds_mmss }}</td>
+                      <td class="left"><div class="chips">{% for member in episode.contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% empty %}—{% endfor %}</div></td>
+                      <td>{% if episode.strength == "full" %}{% translate "full" %}{% elif episode.strength == "strong" %}{% translate "strong" %}{% else %}{% translate "partial" %}{% endif %}</td>
+                      <td class="left">{{ episode.non_contributors|join:", "|default:"—" }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="muted">{% translate "No episodes detected." %}</p>
+          {% endif %}
+
+          <div class="grid-2">
+            <div>
+              <h4>{% translate "Timeline (non-overlapping)" %}</h4>
+              <p class="hint">{% translate "Each second gets one label by precedence: High/Low (joint extreme) > Co-movement. Adjacent same-label seconds are merged." %}</p>
+              {% if coarousal.primary_timeline %}
+                <div class="table-wrap">
+                  <table class="data">
+                    <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th>{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th></tr></thead>
+                    <tbody>
+                      {% for segment in coarousal.primary_timeline %}
+                        <tr>
+                          <td>{{ forloop.counter }}</td>
+                          <td class="left">{% include "gsr/partials/direction.html" with direction=segment.label %}</td>
+                          <td>{{ segment.start_min|mmss }} – {{ segment.end_min|mmss }}</td>
+                          <td>{{ segment.duration_s|seconds_mmss }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <p class="muted">{% translate "No episodes detected." %}</p>
+              {% endif %}
+            </div>
+            <div>
+              <h4>{% translate "Time in states (per signal)" %}</h4>
+              <p class="hint">{% translate "Percent of time each signal was in the High, Neutral and Low state (z-score relative to its own baseline within the analysis window)." %}</p>
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>{% translate "Signal" %}</th><th>{% translate "High ↑" %} %</th><th>{% translate "Neutral" %} %</th><th>{% translate "Low ↓" %} %</th></tr></thead>
+                  <tbody>
+                    {% for row in coarousal.state_percentages %}
+                      <tr>
+                        <td><span class="chip"><span class="dot" style="background: {{ colors|get_item:row.alias }}"></span>{{ row.alias }}</span></td>
+                        <td>{{ row.high_pct|floatformat:1 }}</td>
+                        <td>{{ row.neutral_pct|floatformat:1 }}</td>
+                        <td>{{ row.low_pct|floatformat:1 }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        {% else %}
+          <p class="muted">{% translate "No results for this step yet." %}</p>
+        {% endif %}
+      </div>
+
+      {% if result %}
+        <div class="actions end"><a class="button" href="{% url 'gsr:export' project.pk %}">{% translate "Next: Export" %} →</a></div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% if htmx %}{% include "gsr/partials/stepper.html" with oob=True %}{% endif %}

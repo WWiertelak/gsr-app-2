@@ -568,6 +568,17 @@ def serialize_signal_statistics(result: PipelineResult) -> list[dict[str, Any]]:
     ]
 
 
+def analysed_range(preview: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+    """The analysed window in minutes: the configured from/to clipped to the common cleaned span."""
+    available = preview.get("range") or {}
+    start, end = available.get("from"), available.get("to")
+    if config.get("time_range_from") is not None and start is not None:
+        start = max(start, float(config["time_range_from"]))
+    if config.get("time_range_to") is not None and end is not None:
+        end = min(end, float(config["time_range_to"]))
+    return {"from": start, "to": end}
+
+
 def serialize_preview(result: PipelineResult, max_points: int | None = None) -> dict[str, Any]:
     datasets_payload: list[dict[str, Any]] = []
     for alias in result.aliases:

@@ -1,0 +1,67 @@
+{% extends "gsr/base.html" %}
+{% load i18n %}
+{% block title %}{% translate "Projects" %}{% endblock %}
+{% block content %}
+<div class="layout-sidebar">
+  <section class="card sidebar">
+    <h2>{% translate "New project" %}</h2>
+    {% for error in form_errors %}<p class="alert error">{{ error }}</p>{% endfor %}
+    <form method="post" action="{% url 'gsr:projects' %}">
+      {% csrf_token %}
+      <div class="field">
+        <label for="project-name">{% translate "Project name" %}</label>
+        <input id="project-name" type="text" name="name" maxlength="200" required>
+      </div>
+      <div class="field">
+        <label for="project-description">{% translate "Project description" %}</label>
+        <textarea id="project-description" name="description" placeholder="{% translate 'Study goal, group, setting, and essential context…' %}"></textarea>
+      </div>
+      <p class="hint">{% translate "The description appears at the beginning of the PDF report." %}</p>
+      <div class="actions"><button type="submit">{% translate "Create" %}</button></div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>{% translate "Projects" %}</h2>
+    <p class="muted">{% translate "Create a new project or open an existing one to continue." %}</p>
+    {% if projects %}
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>{% translate "Project name" %}</th>
+              <th class="left">{% translate "Project description" %}</th>
+              <th>{% translate "Signals" %}</th>
+              <th>{% translate "Created" %}</th>
+              <th>{% translate "Updated" %}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for project in projects %}
+              <tr>
+                <td><a href="{% url 'gsr:project' project.pk %}"><strong>{{ project.name }}</strong></a></td>
+                <td class="left muted">{{ project.description|default:_("No description")|truncatechars:120 }}</td>
+                <td>{{ project.dataset_count }}</td>
+                <td>{{ project.created_at|date:"Y-m-d H:i" }}</td>
+                <td>{{ project.updated_at|date:"Y-m-d H:i" }}</td>
+                <td>
+                  <div class="row-form" style="justify-content: flex-end">
+                    <a class="button small" href="{% url 'gsr:project' project.pk %}">{% translate "Open" %}</a>
+                    <form method="post" action="{% url 'gsr:project_delete' project.pk %}" data-confirm="{% translate 'Are you sure you want to delete this project?' %}">
+                      {% csrf_token %}
+                      <button type="submit" class="danger small">{% translate "Delete" %}</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted">{% translate "No saved projects yet. Create one to get started." %}</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

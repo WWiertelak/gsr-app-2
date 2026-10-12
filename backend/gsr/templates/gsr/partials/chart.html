@@ -1,0 +1,3 @@
+{% comment %}One ECharts chart: kind = builder in static/gsr/js/charts.js, data = its JSON, name = PNG file name.{% endcomment %}
+{% with data_id=chart_id|add:"-data" %}{{ data|json_script:data_id }}
+<div class="chart" id="{{ chart_id }}" data-chart="{{ kind }}" data-source="{{ data_id }}" data-name="{{ name|default:chart_id }}" style="height: {{ height|default:320 }}px"></div>{% endwith %}
