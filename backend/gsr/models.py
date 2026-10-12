@@ -51,6 +51,8 @@ class Dataset(models.Model):
     file_sha256 = models.CharField(max_length=64, blank=True, default="")
     file_size = models.BigIntegerField(null=True, blank=True)
     parsed_metadata = models.JSONField(default=dict, blank=True)
+    # Unchecked on the Cleaning screen: kept in the project, left out of every run.
+    included = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -61,6 +63,37 @@ class Dataset(models.Model):
 
     def __str__(self) -> str:
         return f"{self.project_id}/{self.alias}"
+
+
+class AnalysisResult(models.Model):
+    """The last computed result of one UI stage, so reloading a page does not recompute.
+
+    ``signature`` hashes the datasets and the settings the result was computed
+    from; a project whose current signature differs shows the result as stale.
+    """
+
+    KIND_CLEANING = "cleaning"
+    KIND_ANALYSIS = "analysis"
+    KIND_CHOICES = [(KIND_CLEANING, "Cleaning preview"), (KIND_ANALYSIS, "Synchronization and co-arousal")]
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="results")
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES)
+    signature = models.CharField(max_length=64)
+    # Resolved PipelineConfig values and the ordered dataset ids the result was computed from.
+    config = models.JSONField(default=dict)
+    dataset_ids = models.JSONField(default=list)
+    payload = models.JSONField(default=dict)
+    duration_seconds = models.FloatField(default=0.0)
+    computed_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["project", "kind"], name="uq_project_result_kind"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.project_id}/{self.kind}"
 
 
 @receiver(post_delete, sender=Dataset)

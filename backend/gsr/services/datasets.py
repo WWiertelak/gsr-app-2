@@ -37,6 +37,13 @@ def normalize_original_filename(value: str) -> str:
     return _normalize_label(value, field="Filename", max_length=512)
 
 
+def recording_range(frame) -> dict[str, str]:
+    """Absolute start/end of a parsed recording (ISO), shown on the Upload screen."""
+    if frame.empty:
+        return {}
+    return {"recorded_start": frame["time"].min().isoformat(), "recorded_end": frame["time"].max().isoformat()}
+
+
 def add_dataset(project: Project, upload: UploadedFile, alias: str | None = None) -> Dataset:
     """Persist one uploaded recording; rejects files the pipeline parser cannot read."""
     original_filename = normalize_original_filename(Path(upload.name or "upload.csv").name)
@@ -65,8 +72,8 @@ def add_dataset(project: Project, upload: UploadedFile, alias: str | None = None
     )
     dataset.file.save(original_filename, upload, save=False)
     try:
-        _, metadata = load_esense_csv(Path(dataset.file.path))
-        dataset.parsed_metadata = metadata
+        frame, metadata = load_esense_csv(Path(dataset.file.path))
+        dataset.parsed_metadata = {**metadata, **recording_range(frame)}
         with transaction.atomic():
             dataset.save()
     except ParseError as exc:
