@@ -1,0 +1,31 @@
+services:
+  app:
+    build:
+      context: ./backend
+      target: runtime
+    image: gsr-app-2:latest
+    env_file: .env
+    environment:
+      SQLITE_PATH: /data/db.sqlite3
+      STORAGE_ROOT: /data/storage
+    ports:
+      - "127.0.0.1:${APP_PORT:-8000}:8000"
+    volumes:
+      - gsr_data:/data
+    healthcheck:
+      # The forwarded-proto header keeps SECURE_SSL_REDIRECT from redirecting the probe.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://localhost:8000/admin/login/', headers={'X-Forwarded-Proto': 'https'}))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  test:
+    profiles: ["test"]
+    build:
+      context: ./backend
+      target: test
+    image: gsr-app-2:test
+
+volumes:
+  gsr_data:
