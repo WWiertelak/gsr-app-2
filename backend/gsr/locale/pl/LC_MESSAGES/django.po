@@ -1028,16 +1028,12 @@ msgid "windows"
 msgstr "okna"
 
 #: gsr/templates/gsr/partials/export_main.html:43
-msgid "episodes, state timeline, time in states, primary timeline"
-msgstr "epizody, stany w czasie, udział czasu w stanach, oś czasu"
+msgid "episodes, state timeline, time in states"
+msgstr "epizody, stany w czasie, udział czasu w stanach"
 
 #: gsr/templates/gsr/partials/export_main.html:46
 msgid "states"
 msgstr "stany"
-
-#: gsr/templates/gsr/partials/export_main.html:48
-msgid "timeline"
-msgstr "oś czasu"
 
 #: gsr/templates/gsr/partials/export_main.html:50
 msgid "Run settings + results JSON"

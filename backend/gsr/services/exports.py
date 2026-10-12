@@ -142,11 +142,6 @@ def coarousal_state_percentages_csv(coarousal: dict[str, Any]) -> bytes:
     return _csv(pd.DataFrame(coarousal.get("state_percentages", []), columns=columns))
 
 
-def coarousal_primary_timeline_csv(coarousal: dict[str, Any]) -> bytes:
-    columns = ["label", "start_min", "end_min", "duration_s"]
-    return _csv(pd.DataFrame(coarousal.get("primary_timeline", []), columns=columns))
-
-
 def versions() -> dict[str, str]:
     found = {"python": platform.python_version()}
     for package in VERSIONED_PACKAGES:
@@ -161,10 +156,10 @@ def results_document(project: Project, stored: AnalysisResult) -> dict[str, Any]
     """Run settings, input files and results: enough for a recipient to check what was run."""
     payload = stored.payload
     preview = payload.get("preview", {})
-    files = {dataset.alias: dataset for dataset in project.datasets.all()}
+    files = {str(dataset.id): dataset for dataset in project.datasets.all()}
     datasets = []
-    for row in payload.get("datasets", []):
-        dataset = files.get(row["alias"])
+    for dataset_id, row in zip(stored.dataset_ids, payload.get("datasets", [])):
+        dataset = files.get(dataset_id)
         datasets.append({**row, "file_size": dataset.file_size if dataset is not None else None})
     return {
         "app": "GSR_APP 2.0",
@@ -194,7 +189,6 @@ def table_exports(stored: AnalysisResult) -> dict[str, bytes]:
         "coarousal_episodes.csv": coarousal_episodes_csv(coarousal),
         "coarousal_state_timeline.csv": coarousal_states_csv(coarousal),
         "coarousal_state_percentages.csv": coarousal_state_percentages_csv(coarousal),
-        "coarousal_primary_timeline.csv": coarousal_primary_timeline_csv(coarousal),
     }
 
 

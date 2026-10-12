@@ -427,9 +427,12 @@ def _fmt(value: Any) -> str:
     if isinstance(value, bool):
         return str(value)
     if isinstance(value, float):
-        # Up to 3 significant figures; avoids long decimals in narrow cells.
-        if value == 0.0:
-            return "0"
+        # Whole numbers as integers, large values (durations, minutes, distances) with one decimal,
+        # small statistics with up to 3 significant figures; avoids long decimals in narrow cells.
+        if value.is_integer():
+            return str(int(value))
+        if abs(value) >= 100:
+            return f"{value:.1f}"
         return f"{value:.3g}"
     if isinstance(value, int):
         return str(value)

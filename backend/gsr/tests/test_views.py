@@ -419,7 +419,7 @@ def test_export_csv_files(client, project) -> None:
     assert set(states[0]) == {"minute", "A", "B", "C"}
     percentages = _csv_rows(download("coarousal_state_percentages.csv"))
     assert [row["alias"] for row in percentages] == ["A", "B", "C"]
-    download("coarousal_primary_timeline.csv")
+    assert client.get(reverse("gsr:export_file", args=[project.pk, "coarousal_primary_timeline.csv"])).status_code == 404
 
     assert client.get(reverse("gsr:export_file", args=[project.pk, "secrets.csv"])).status_code == 404
 
@@ -443,6 +443,19 @@ def test_export_json_records_settings_versions_and_inputs(client, project) -> No
 
 
 @pytest.mark.django_db
+def test_exports_keep_the_aliases_of_the_last_run_after_a_rename(client, project) -> None:
+    _run_analysis(client, project)
+    dataset = project.datasets.get(alias="A")
+    client.post(reverse("gsr:dataset_rename", args=[project.pk, dataset.pk]), {"alias": "Anna"})
+
+    clean = _csv_rows(client.get(reverse("gsr:export_file", args=[project.pk, "clean_signals.csv"])).content)
+    assert "microsiemens_A" in clean[0] and not any("Anna" in column for column in clean[0])
+    document = json.loads(client.get(reverse("gsr:export_file", args=[project.pk, "run_settings_and_results.json"])).content)
+    sizes = {row["alias"]: row["file_size"] for row in document["datasets"]}
+    assert sizes["A"] == dataset.file_size
+
+
+@pytest.mark.django_db
 def test_export_zip_bundles_tables_json_and_posted_chart_pngs(client, project) -> None:
     _run_analysis(client, project)
     response = client.post(
@@ -459,7 +472,7 @@ def test_export_zip_bundles_tables_json_and_posted_chart_pngs(client, project) -
     assert {
         "clean_signals.csv", "analysis_input_merged.csv", "synchrony_episodes.csv", "synchrony_pairs.csv",
         "synchrony_windows.csv", "coarousal_episodes.csv", "coarousal_state_timeline.csv",
-        "coarousal_state_percentages.csv", "coarousal_primary_timeline.csv", "run_settings_and_results.json",
+        "coarousal_state_percentages.csv", "run_settings_and_results.json",
         "charts/sync_timeline.png",
     } == names
     assert archive.read("charts/sync_timeline.png").startswith(b"\x89PNG")

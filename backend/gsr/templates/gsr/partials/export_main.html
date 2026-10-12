@@ -40,12 +40,11 @@
             <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'synchrony_pairs.csv' %}">{% translate "pairs" %}</a>
             <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'synchrony_windows.csv' %}">{% translate "windows" %}</a>
           </span></li>
-        <li><span><strong>{% translate "Co-arousal" %}</strong> <span class="muted small">{% translate "episodes, state timeline, time in states, primary timeline" %}</span></span>
+        <li><span><strong>{% translate "Co-arousal" %}</strong> <span class="muted small">{% translate "episodes, state timeline, time in states" %}</span></span>
           <span class="row-form">
             <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'coarousal_episodes.csv' %}">{% translate "episodes" %}</a>
             <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'coarousal_state_timeline.csv' %}">{% translate "states" %}</a>
             <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'coarousal_state_percentages.csv' %}">%</a>
-            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'coarousal_primary_timeline.csv' %}">{% translate "timeline" %}</a>
           </span></li>
         <li><span><strong>{% translate "Run settings + results JSON" %}</strong> <span class="muted small">{% translate "reproducibility: settings, library versions, file SHA-256" %}</span></span>
           <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'run_settings_and_results.json' %}">JSON</a></li>

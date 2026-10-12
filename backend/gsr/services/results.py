@@ -205,7 +205,9 @@ def stored_pipeline_result(project: Project, stored: AnalysisResult) -> tuple[Pi
         config = PipelineConfig.from_dict(stored.config)
     except ValueError as exc:
         raise AnalysisError(str(exc)) from exc
-    return run_cleaning_pipeline(_dataset_files(datasets), config), config
+    aliases = [row["alias"] for row in stored.payload["datasets"]]
+    files = {alias: Path(dataset.file.path) for alias, dataset in zip(aliases, datasets)}
+    return run_cleaning_pipeline(files, config), config
 
 
 def recording_overview(datasets: list[Dataset], max_points: int = PREVIEW_MAX_POINTS) -> dict[str, Any]:

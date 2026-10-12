@@ -13,7 +13,7 @@ from reportlab.platypus import Image, KeepTogether, Paragraph, Table
 from gsr.pipeline.config import PipelineConfig
 from gsr.reporting.methodology import METHODOLOGY, METHODS_COMPARISON
 from gsr.reporting.pdf import build_story, render_report_pdf
-from gsr.services.analysis import analyze_files
+from gsr.services.analysis import analyze_files_with_result
 
 from .sample_data import Participant, RecordingFormat, write_group
 
@@ -30,7 +30,7 @@ def payload(tmp_path_factory) -> dict[str, Any]:
         seed=2,
     )
     config = PipelineConfig(scaling_enabled=True, synchrony_surrogate_count=20, contagion_surrogate_count=20)
-    result = analyze_files(files, config, max_points=500)
+    result = analyze_files_with_result(files, config, max_points=500)[1]
     return {
         "project_name": "Sesja łódzka",
         "project_description": "Zajęcia <b>grupowe</b>\ndruga linia",
@@ -121,6 +121,14 @@ def test_report_embeds_captured_charts_in_their_sections(payload) -> None:
     texts = _texts(story)
     assert "Oś czasu synchronizacji" in texts and "Sygnały RAW (nałożenie)" in texts
     assert texts.index("Sygnały RAW (nałożenie)") < texts.index("Czyszczenie") < texts.index("Oś czasu synchronizacji")
+
+
+def test_report_prints_large_values_without_scientific_notation(payload) -> None:
+    preview = {**payload["preview"], "alignment": {**payload["preview"]["alignment"], "duration_seconds": 5400.0},
+               "range": {"from": 0.0, "to": 123.45}}
+    texts = _texts(build_story({**payload, "lang": "en", "preview": preview}))
+    assert "5400" in texts and "123.5" in texts
+    assert not any("e+0" in text for text in texts)
 
 
 def test_render_report_pdf_embeds_unicode_font(payload) -> None:

@@ -433,7 +433,6 @@ EXPORT_FILES = {
         "coarousal_episodes.csv",
         "coarousal_state_timeline.csv",
         "coarousal_state_percentages.csv",
-        "coarousal_primary_timeline.csv",
     )},
 }
 

@@ -93,16 +93,14 @@ def analyze_files(
     config: PipelineConfig,
     analyses: Iterable[str] = ANALYSES,
     cancel_callback: Callable[[], None] | None = None,
-    max_points: int | None = None,
 ) -> dict[str, Any]:
     """Clean and synchronize the recordings, then run the requested group analyses.
 
-    The returned ``preview`` payload is the cleaning/synchronization summary
-    (``max_points`` caps the samples per preview series); the analysis payloads
-    are keyed by analysis name. The guards mirror the GSRv2 analysis endpoint:
-    analyses run on scaled signals of at least two recordings.
+    The returned ``preview`` payload is the cleaning/synchronization summary; the
+    analysis payloads are keyed by analysis name. The guards mirror the GSRv2
+    analysis endpoint: analyses run on scaled signals of at least two recordings.
     """
-    return analyze_files_with_result(dataset_files, config, analyses, cancel_callback, max_points)[1]
+    return analyze_files_with_result(dataset_files, config, analyses, cancel_callback)[1]
 
 
 def run_project_analysis(
