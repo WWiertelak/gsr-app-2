@@ -5,9 +5,6 @@ services:
       target: runtime
     image: gsr-app-2:latest
     env_file: .env
-    environment:
-      SQLITE_PATH: /data/db.sqlite3
-      STORAGE_ROOT: /data/storage
     ports:
       - "127.0.0.1:${APP_PORT:-8000}:8000"
     volumes:

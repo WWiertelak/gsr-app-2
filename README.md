@@ -45,8 +45,9 @@ Without compose: `docker build -t gsr-app-2 backend` and
 | --- | --- | --- |
 | `SECRET_KEY` | none (required when `DEBUG=0`) | Django secret key |
 | `DEBUG` | `1` in settings, `0` in `.env.example` | Django debug mode |
-| `ALLOWED_HOSTS` | `localhost` (`*` when `DEBUG=1`) | Comma-separated host names |
+| `ALLOWED_HOSTS` | `localhost` (`*` when `DEBUG=1`) | Comma-separated host names; keep `localhost` for the container healthcheck |
 | `SECURE_SSL_REDIRECT` | `1` when `DEBUG=0` | Redirect HTTP to HTTPS; set `0` for plain local HTTP |
+| `SECURE_COOKIES` | `1` when `DEBUG=0` | Secure flag on session/CSRF cookies; set `0` for plain local HTTP |
 | `SECURE_HSTS_SECONDS` | `31536000` when `DEBUG=0` | HSTS max-age; set `0` without TLS |
 | `MAX_UPLOAD_MB` | `100` | Upload size limit |
 | `MAX_DATASETS` | `20` | Datasets per analysis |
