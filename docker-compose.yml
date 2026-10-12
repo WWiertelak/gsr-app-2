@@ -4,7 +4,11 @@ services:
       context: ./backend
       target: runtime
     image: gsr-app-2:latest
-    env_file: .env
+    # Defaults come from .env.example; an optional .env next to this file overrides them.
+    env_file:
+      - .env.example
+      - path: .env
+        required: false
     ports:
       - "127.0.0.1:${APP_PORT:-8000}:8000"
     volumes:

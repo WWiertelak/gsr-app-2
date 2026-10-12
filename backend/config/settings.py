@@ -1,16 +1,41 @@
 from __future__ import annotations
 
 import os
+import secrets
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-insecure-secret-key")
 DEBUG = os.getenv("DEBUG", "1") == "1"
-if not DEBUG and SECRET_KEY == "dev-insecure-secret-key":
-    raise ImproperlyConfigured("SECRET_KEY must be set in production")
+SQLITE_PATH = Path(os.getenv("SQLITE_PATH", BASE_DIR / "db.sqlite3"))
+
+
+def _load_or_create_secret_key(path: Path) -> str:
+    """Read the secret key from ``path``, creating it (mode 0600) on first use."""
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        key = path.read_text().strip()
+        if not key:
+            raise ImproperlyConfigured(f"Secret key file {path} is empty; delete it to regenerate") from None
+        return key
+    key = secrets.token_urlsafe(50)
+    with os.fdopen(fd, "w") as handle:
+        handle.write(key)
+    return key
+
+
+# SECRET_KEY from the environment wins. Otherwise debug mode uses a fixed dev key and
+# non-debug mode keeps a generated key in a secret_key file next to the database (in Docker
+# it lives on the data volume and survives rebuilds).
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "dev-insecure-secret-key"
+    else:
+        SECRET_KEY = _load_or_create_secret_key(SQLITE_PATH.parent / "secret_key")
 ALLOWED_HOSTS_DEFAULT = "*" if DEBUG else "localhost"
 ALLOWED_HOSTS = [
     host.strip() for host in os.getenv("ALLOWED_HOSTS", ALLOWED_HOSTS_DEFAULT).split(",") if host.strip()
@@ -77,7 +102,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": Path(os.getenv("SQLITE_PATH", BASE_DIR / "db.sqlite3")),
+        "NAME": SQLITE_PATH,
     }
 }
 
