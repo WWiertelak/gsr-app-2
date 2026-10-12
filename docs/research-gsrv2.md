@@ -156,7 +156,7 @@ Port of a standalone "emotional contagion" script, corrected in GSRv2:
 | `Project` / `Dataset` models, upload storage + parse-on-upload | `backend/gsr/models.py`, `services/datasets.py` | minimal: no owner, notes, UI language; `Dataset.file` is a `FileField` under `STORAGE_ROOT` with the same path layout |
 | analysis guards in `views.py` (scaling required, ≥ 2 datasets, min size/participants ≤ dataset count) | `services/analysis.py` (`analyze_files`, `run_project_analysis`) | same rules, plain Python service |
 | `PipelineConfigSerializer` field types, bounds, choices and cross-field checks | `PipelineConfig.__init__` (`backend/gsr/pipeline/config.py`) | same rules and DRF-style coercion, enforced at construction; invalid values raise `ValueError` (`AnalysisError` from `resolve_config`, `CommandError` from `gsr_analyze`) |
-| — | `manage.py gsr_analyze A=a.csv B=b.csv --config '{…}'` | new CLI entry point (no UI yet) |
+| — | `manage.py gsr_analyze A=a.csv B=b.csv --config '{…}'` | new CLI entry point, alongside the UI |
 
 Equivalence is enforced by `backend/gsr/tests/test_equivalence.py`: seven synthetic
 scenarios (app defaults, unscaled full rate, legacy factor downsampling, strict
