@@ -4,24 +4,11 @@ services:
       context: ./backend
       target: runtime
     image: gsr-app-2:latest
-    # Works without a .env file: these are safe local defaults (plain HTTP on
-    # localhost). A .env next to this file overrides them and can add other variables
-    # such as DJANGO_SUPERUSER_USERNAME/PASSWORD.
+    # Defaults come from .env.example; an optional .env next to this file overrides them.
     env_file:
+      - .env.example
       - path: .env
         required: false
-    environment:
-      # Empty means the app generates a key once and keeps it on the gsr_data volume.
-      SECRET_KEY: ${SECRET_KEY:-}
-      DEBUG: ${DEBUG:-0}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
-      SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-0}
-      SECURE_COOKIES: ${SECURE_COOKIES:-0}
-      SECURE_HSTS_SECONDS: ${SECURE_HSTS_SECONDS:-0}
-      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-100}
-      MAX_DATASETS: ${MAX_DATASETS:-20}
-      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
-      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-300}
     ports:
       - "127.0.0.1:${APP_PORT:-8000}:8000"
     volumes:

@@ -22,9 +22,7 @@ docker compose exec app python manage.py createsuperuser
 ```
 
 Enter a username, an optional email and a password when asked, then log in at
-<http://localhost:8000/admin/> with that username and password. (Alternatively, set
-`DJANGO_SUPERUSER_USERNAME` and `DJANGO_SUPERUSER_PASSWORD` in a `.env` file and the account
-is created on start; see [Environment variables](#environment-variables).)
+<http://localhost:8000/admin/> with that username and password.
 
 The processing pipeline is extracted from GSRv2 with unchanged results; the
 segment-based analysis was dropped. See [docs/research-gsrv2.md](docs/research-gsrv2.md)
@@ -81,21 +79,19 @@ Without compose: `docker build -t gsr-app-2 backend` and
 
 ### Environment variables
 
-None are required. `docker-compose.yml` sets safe local defaults (plain HTTP on
-localhost, the same values as `.env.example`). To change them, copy `.env.example` to `.env`
-and edit it; compose reads `.env` automatically. Hosting the app beyond localhost needs at
+None are required. `docker-compose.yml` loads safe local defaults (plain HTTP on
+localhost) from `.env.example`. To change them, copy `.env.example` to `.env` and edit it;
+values in `.env` override the defaults. Hosting the app beyond localhost needs at
 least `ALLOWED_HOSTS` and, behind TLS, the `SECURE_*` settings.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SECRET_KEY` | generated once into `SECRET_KEY_FILE` when `DEBUG=0` | Django secret key; set it only to use your own |
-| `SECRET_KEY_FILE` | `secret_key` next to the SQLite file (`/data/secret_key` in the image) | Where the generated key is kept |
+| `SECRET_KEY` | generated once into `secret_key` next to the SQLite file (`/data/secret_key` in the image) when `DEBUG=0` | Django secret key; set it only to use your own |
 | `DEBUG` | `1` in settings, `0` in compose | Django debug mode |
 | `ALLOWED_HOSTS` | `localhost` (`*` when `DEBUG=1`); `localhost,127.0.0.1` in compose | Comma-separated host names; keep `localhost` for the container healthcheck |
 | `SECURE_SSL_REDIRECT` | `1` when `DEBUG=0`; `0` in compose | Redirect HTTP to HTTPS; set `1` behind a TLS proxy |
 | `SECURE_COOKIES` | `1` when `DEBUG=0`; `0` in compose | Secure flag on session/CSRF cookies; set `1` with TLS |
 | `SECURE_HSTS_SECONDS` | `31536000` when `DEBUG=0`; `0` in compose | HSTS max-age; keep `0` without TLS |
-| `DJANGO_SUPERUSER_USERNAME`, `DJANGO_SUPERUSER_PASSWORD`, `DJANGO_SUPERUSER_EMAIL` | unset | When username and password are set, the container creates this admin user on start if it does not exist (an existing user is not changed) |
 | `MAX_UPLOAD_MB` | `100` | Upload size limit |
 | `MAX_DATASETS` | `20` | Datasets per analysis |
 | `SQLITE_PATH` | `/data/db.sqlite3` in the image | SQLite database file |

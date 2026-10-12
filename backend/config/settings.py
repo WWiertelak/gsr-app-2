@@ -28,16 +28,14 @@ def _load_or_create_secret_key(path: Path) -> str:
 
 
 # SECRET_KEY from the environment wins. Otherwise debug mode uses a fixed dev key and
-# non-debug mode keeps a generated key in SECRET_KEY_FILE (next to the database by default,
-# so in Docker it lives on the data volume and survives rebuilds).
+# non-debug mode keeps a generated key in a secret_key file next to the database (in Docker
+# it lives on the data volume and survives rebuilds).
 SECRET_KEY = os.getenv("SECRET_KEY", "")
 if not SECRET_KEY:
     if DEBUG:
         SECRET_KEY = "dev-insecure-secret-key"
     else:
-        SECRET_KEY = _load_or_create_secret_key(
-            Path(os.getenv("SECRET_KEY_FILE", SQLITE_PATH.parent / "secret_key"))
-        )
+        SECRET_KEY = _load_or_create_secret_key(SQLITE_PATH.parent / "secret_key")
 ALLOWED_HOSTS_DEFAULT = "*" if DEBUG else "localhost"
 ALLOWED_HOSTS = [
     host.strip() for host in os.getenv("ALLOWED_HOSTS", ALLOWED_HOSTS_DEFAULT).split(",") if host.strip()
