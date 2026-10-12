@@ -28,7 +28,8 @@ docker compose logs -f app
 # Create an admin user / run the CLI analysis inside the container:
 docker compose exec app python manage.py createsuperuser
 docker compose cp a.csv app:/data/a.csv && docker compose cp b.csv app:/data/b.csv
-docker compose exec app python manage.py gsr_analyze A=/data/a.csv B=/data/b.csv --output /data/result.json
+docker compose exec app python manage.py gsr_analyze A=/data/a.csv B=/data/b.csv \
+    --config '{"scaling_enabled": true}' --output /data/result.json
 
 # Run the test suite in the test image (adds dev dependencies):
 docker compose --profile test run --rm test
