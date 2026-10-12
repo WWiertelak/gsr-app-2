@@ -1,0 +1,9 @@
+-r requirements.txt
+pytest==9.0.3
+pytest-django==4.9.0
+ruff==0.12.10
+# Needed only by the frozen GSRv2 reference pipeline (gsr/tests/legacy_gsrv2)
+# that the equivalence tests run side by side with the new pipeline.
+ruptures==1.1.10
+kneed==0.8.5
+statsmodels==0.14.4
