@@ -172,6 +172,7 @@ def test_gsr_analyze_command_writes_json(recordings, tmp_path: Path) -> None:
         (["A=a.csv", "--config", '{"segment_width": 5}'], "Unknown PipelineConfig fields"),
         (["A=a.csv", "--config", '{"synchrony_window_seconds": "abc"}'], "synchrony_window_seconds"),
         (["A=a.csv", "--config", '{"synchrony_surrogate_count": 1000000}'], "synchrony_surrogate_count"),
+        (["A=a.csv", "--config", '{"synchrony_window_seconds": 1' + "0" * 400 + "}"], "must be a valid number"),
     ],
 )
 def test_gsr_analyze_command_rejects_bad_arguments(args, message) -> None:
@@ -185,6 +186,7 @@ def test_gsr_analyze_command_rejects_bad_arguments(args, message) -> None:
         ({"synchrony_surrogate_count": 1000000}, "synchrony_surrogate_count"),
         ({"synchrony_surrogate_method": "foo"}, "synchrony_surrogate_method"),
         ({"synchrony_window_seconds": "abc"}, "synchrony_window_seconds"),
+        ({"synchrony_window_seconds": 10**400}, "synchrony_window_seconds must be a valid number"),
         ({"synchrony_window_seconds": 10, "synchrony_step_seconds": 20}, "must not exceed"),
         ({"contagion_low_z": 0.0, "contagion_high_z": 0.0}, "contagion_low_z must be lower"),
         ({"clean_filter_physiological_min_us": 30.0}, "clean_filter_physiological_min_us"),

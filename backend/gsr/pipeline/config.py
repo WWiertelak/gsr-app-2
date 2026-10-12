@@ -91,7 +91,7 @@ def _coerce(name: str, value: Any) -> Any:
         raise ValueError(f"{name} must be a valid number")
     try:
         number = int(_INT_DECIMAL.sub("", str(value))) if kind == _INT else float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         raise ValueError(f"{name} must be a valid {'integer' if kind == _INT else 'number'}") from None
     low, high = rule
     if low is not None and number < low:
