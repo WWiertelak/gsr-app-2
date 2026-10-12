@@ -2,6 +2,30 @@
 
 GSR_APP 2.0 - GSR sensor data upload, cleaning, joint synchronization and co-arousal analysis (Django)
 
+## Quick start
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker
+   Engine with the Compose plugin) and start it.
+2. Get the code: `git clone https://github.com/WWiertelak/gsr-app-2.git && cd gsr-app-2`
+3. Start the app: `docker compose up -d --build` (the first build takes a few minutes).
+   No configuration file is needed.
+4. Open <http://localhost:8000/> in your browser.
+
+To stop it, run `docker compose down`. Your projects and uploaded files are kept.
+
+### Log in to the admin
+
+The admin panel is at <http://localhost:8000/admin/>. Create an admin account once:
+
+```bash
+docker compose exec app python manage.py createsuperuser
+```
+
+Enter a username, an optional email and a password when asked, then log in at
+<http://localhost:8000/admin/> with that username and password. (Alternatively, set
+`DJANGO_SUPERUSER_USERNAME` and `DJANGO_SUPERUSER_PASSWORD` in a `.env` file and the account
+is created on start; see [Environment variables](#environment-variables).)
+
 The processing pipeline is extracted from GSRv2 with unchanged results; the
 segment-based analysis was dropped. See [docs/research-gsrv2.md](docs/research-gsrv2.md)
 for how the pipeline works and what was carried over.
@@ -32,11 +56,11 @@ authentication before hosting the app for more than one person.
 ## Run with Docker
 
 The app runs as one container: on start it applies migrations, then serves Django with
-gunicorn on port 8000. The SQLite database (`/data/db.sqlite3`) and uploaded files
-(`/data/storage`) live on the `gsr_data` volume, so they survive restarts and rebuilds.
+gunicorn on port 8000. The SQLite database (`/data/db.sqlite3`), uploaded files
+(`/data/storage`) and the generated secret key (`/data/secret_key`) live on the `gsr_data`
+volume, so they survive restarts and rebuilds.
 
 ```bash
-cp .env.example .env            # then set SECRET_KEY (see the comment in the file)
 docker compose up -d --build    # UI at http://localhost:8000/ (admin at /admin/)
 docker compose logs -f app
 
@@ -53,18 +77,25 @@ docker compose down             # keeps data; add -v to delete the gsr_data volu
 ```
 
 Without compose: `docker build -t gsr-app-2 backend` and
-`docker run --env-file .env -p 127.0.0.1:8000:8000 -v gsr_data:/data gsr-app-2`.
+`docker run --env-file .env.example -p 127.0.0.1:8000:8000 -v gsr_data:/data gsr-app-2`.
 
 ### Environment variables
 
+None are required. `docker-compose.yml` sets safe local defaults (plain HTTP on
+localhost, the same values as `.env.example`). To change them, copy `.env.example` to `.env`
+and edit it; compose reads `.env` automatically. Hosting the app beyond localhost needs at
+least `ALLOWED_HOSTS` and, behind TLS, the `SECURE_*` settings.
+
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SECRET_KEY` | none (required when `DEBUG=0`) | Django secret key |
-| `DEBUG` | `1` in settings, `0` in `.env.example` | Django debug mode |
-| `ALLOWED_HOSTS` | `localhost` (`*` when `DEBUG=1`) | Comma-separated host names; keep `localhost` for the container healthcheck |
-| `SECURE_SSL_REDIRECT` | `1` when `DEBUG=0` | Redirect HTTP to HTTPS; set `0` for plain local HTTP |
-| `SECURE_COOKIES` | `1` when `DEBUG=0` | Secure flag on session/CSRF cookies; set `0` for plain local HTTP |
-| `SECURE_HSTS_SECONDS` | `31536000` when `DEBUG=0` | HSTS max-age; set `0` without TLS |
+| `SECRET_KEY` | generated once into `SECRET_KEY_FILE` when `DEBUG=0` | Django secret key; set it only to use your own |
+| `SECRET_KEY_FILE` | `secret_key` next to the SQLite file (`/data/secret_key` in the image) | Where the generated key is kept |
+| `DEBUG` | `1` in settings, `0` in compose | Django debug mode |
+| `ALLOWED_HOSTS` | `localhost` (`*` when `DEBUG=1`); `localhost,127.0.0.1` in compose | Comma-separated host names; keep `localhost` for the container healthcheck |
+| `SECURE_SSL_REDIRECT` | `1` when `DEBUG=0`; `0` in compose | Redirect HTTP to HTTPS; set `1` behind a TLS proxy |
+| `SECURE_COOKIES` | `1` when `DEBUG=0`; `0` in compose | Secure flag on session/CSRF cookies; set `1` with TLS |
+| `SECURE_HSTS_SECONDS` | `31536000` when `DEBUG=0`; `0` in compose | HSTS max-age; keep `0` without TLS |
+| `DJANGO_SUPERUSER_USERNAME`, `DJANGO_SUPERUSER_PASSWORD`, `DJANGO_SUPERUSER_EMAIL` | unset | When username and password are set, the container creates this admin user on start if it does not exist (an existing user is not changed) |
 | `MAX_UPLOAD_MB` | `100` | Upload size limit |
 | `MAX_DATASETS` | `20` | Datasets per analysis |
 | `SQLITE_PATH` | `/data/db.sqlite3` in the image | SQLite database file |
