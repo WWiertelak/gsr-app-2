@@ -1,0 +1,280 @@
+"""Settings form fields of the Cleaning and Analysis screens.
+
+Each field is one ``PipelineConfig`` value; labels and help texts come from
+GSRv2 (``frontend/src/i18n/labels.ts``). Posted values are validated by
+``PipelineConfig`` itself, so the bounds live in one place.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from django.http import QueryDict
+from django.utils.translation import gettext_lazy as _
+
+from .pipeline.config import PipelineConfig
+
+DEFAULTS = PipelineConfig().model_dump()
+
+
+@dataclass(frozen=True)
+class Param:
+    name: str
+    label: Any
+    help: Any = ""
+    kind: str = "float"  # float | int | bool | choice
+    step: str = "any"
+    choices: tuple[tuple[str, Any], ...] = ()
+    nullable: bool = False
+
+    @property
+    def default(self) -> Any:
+        return DEFAULTS[self.name]
+
+
+@dataclass(frozen=True)
+class Group:
+    key: str
+    title: Any
+    help: Any
+    params: tuple[Param, ...]
+    # A toggle parameter that switches the whole group on or off (cleaning filters).
+    toggle: Param | None = None
+
+
+TIME_WINDOW = Group(
+    "time_window",
+    _("Time window"),
+    _(
+        "Time range (in minutes) defines which part of the recording is analyzed. After import, signals are "
+        "synchronized to a common window. Narrow the range, e.g. to skip warm-up or end-of-session noise."
+    ),
+    (
+        Param("time_range_from", _("From (min)"), nullable=True),
+        Param("time_range_to", _("To (min)"), nullable=True),
+    ),
+)
+
+CLEANING_FILTERS = (
+    Group(
+        "physiological",
+        _("Physiological range"),
+        _("Rejects values outside the configured physiological GSR range."),
+        (
+            Param("clean_filter_physiological_min_us", _("Min (µS)")),
+            Param("clean_filter_physiological_max_us", _("Max (µS)")),
+        ),
+        toggle=Param(
+            "clean_filter_physiological_range",
+            _("Physiological range"),
+            _("Protects against non-physiological values caused by measurement glitches or sensor issues."),
+            kind="bool",
+        ),
+    ),
+    Group(
+        "zscore",
+        _("Z-score deviation"),
+        _("Rejects points that are statistical outliers against the full signal."),
+        (Param("clean_filter_zscore_threshold", _("Threshold (SD)")),),
+        toggle=Param(
+            "clean_filter_zscore",
+            _("Z-score deviation"),
+            _("The farther from the mean (in SD units), the more likely a point is an artifact."),
+            kind="bool",
+        ),
+    ),
+    Group(
+        "jump",
+        _("Abrupt jumps"),
+        _("Rejects samples with unnaturally large changes between consecutive points."),
+        (Param("clean_filter_jump_sigma", _("Sigma")),),
+        toggle=Param(
+            "clean_filter_jump",
+            _("Abrupt jumps"),
+            _("Helps remove sudden spikes typically caused by electrode movement or transient interference."),
+            kind="bool",
+        ),
+    ),
+    Group(
+        "iqr",
+        _("Interquartile range (IQR)"),
+        _("Rejects points outside [Q1-k*IQR, Q3+k*IQR]."),
+        (Param("clean_filter_iqr_factor", _("IQR factor")),),
+        toggle=Param(
+            "clean_filter_iqr",
+            _("Interquartile range (IQR)"),
+            _("IQR filtering is robust for non-normal distributions and catches heavy-tail points well."),
+            kind="bool",
+        ),
+    ),
+    Group(
+        "butterworth",
+        _("Butterworth filter"),
+        _("Smooths the signal with a low-pass filter after interpolation."),
+        (
+            Param("clean_filter_butterworth_cutoff_hz", _("Cutoff (Hz)")),
+            Param("clean_filter_butterworth_order", _("Order"), kind="int", step="1"),
+        ),
+        toggle=Param(
+            "clean_filter_butterworth",
+            _("Butterworth filter"),
+            _("Removes high-frequency noise and keeps slower GSR signal dynamics."),
+            kind="bool",
+        ),
+    ),
+)
+
+MEDIAN_FILTER = Group(
+    "median",
+    _("Median filter"),
+    _(
+        "Filter window size (in samples). 0 disables the filter. Small values (e.g. 3–11) preserve details but "
+        "reduce noise less. Large values (e.g. 51–201) smooth more aggressively. Only odd values are used — even "
+        "values are rounded up automatically."
+    ),
+    (Param("median_kernel", _("Window size (samples)"), kind="int", step="1"),),
+)
+
+CLEANING_GROUPS = (TIME_WINDOW, *CLEANING_FILTERS, MEDIAN_FILTER)
+
+SYNCHRONY_ESSENTIAL = (
+    Param(
+        "synchrony_threshold",
+        _("Synchronization threshold"),
+        _("Pairs whose windowed correlation reaches this value count as synchronized in that window."),
+    ),
+    Param("synchrony_window_seconds", _("Window (s)")),
+)
+SYNCHRONY_ADVANCED = (
+    Param("synchrony_step_seconds", _("Step (s)")),
+    Param(
+        "synchrony_correlation_method",
+        _("Correlation method"),
+        kind="choice",
+        choices=(("pearson", "Pearson"), ("spearman", "Spearman")),
+    ),
+    Param("synchrony_max_lag_seconds", _("Max lag (s)")),
+    Param("synchrony_signed", _("Signed mode (positive agreement only)"), kind="bool"),
+    Param("synchrony_dtw_enabled", _("Compute DTW"), kind="bool"),
+    Param("synchrony_surrogate_enabled", _("Synchronization surrogate test"), kind="bool"),
+    Param("synchrony_surrogate_count", _("Synchronization surrogate count"), kind="int", step="1"),
+    Param(
+        "synchrony_surrogate_method",
+        _("Surrogate method"),
+        kind="choice",
+        choices=(("circular", _("circular shift")), ("phase", _("phase randomization"))),
+    ),
+    Param("synchrony_surrogate_seed", _("Surrogate seed"), kind="int", step="1"),
+    Param("synchrony_episode_min_size", _("Min. people per episode"), kind="int", step="1"),
+    Param("synchrony_episode_min_duration_seconds", _("Min. episode duration (s)")),
+    Param("synchrony_episode_max_gap_seconds", _("Max gap (s)")),
+    Param("synchrony_cluster_distance_threshold", _("Clustering threshold")),
+    Param(
+        "downsample_interval_seconds",
+        _("Downsampling interval (s)"),
+        _(
+            "The downsampling interval defines time sampling: 1 s = 1 Hz, 2 s = every 2 seconds, etc. It reduces "
+            "the number of analyzed points in whole seconds while preserving the signal trend."
+        ),
+        kind="int",
+        step="1",
+    ),
+)
+
+COAROUSAL_ESSENTIAL = (
+    Param(
+        "contagion_high_z",
+        _("High threshold (z)"),
+        _("z above this = High-arousal state (relative to the participant's own baseline)."),
+    ),
+    Param("contagion_low_z", _("Low threshold (z)"), _("z below this = Low-arousal state.")),
+    Param(
+        "contagion_min_participants",
+        _("Min. participants"),
+        _("Minimum number of participants in the same state for a second to count toward an episode."),
+        kind="int",
+        step="1",
+    ),
+)
+COAROUSAL_ADVANCED = (
+    Param(
+        "contagion_window_seconds",
+        _("Window (s)"),
+        _(
+            "Length of the sliding window for episode detection. Note: with the 0.05 Hz filter the signal is very "
+            "smooth, so pairwise correlation in a short window can be inflated by a shared slow trend."
+        ),
+    ),
+    Param("contagion_step_seconds", _("Step (s)")),
+    Param(
+        "contagion_min_agreement_pct",
+        _("Agreement threshold"),
+        _("Fraction of the window where the condition (≥ min. participants in state) must hold to form an episode."),
+    ),
+    Param(
+        "contagion_comovement_rho",
+        _("Co-movement threshold (ρ)"),
+        _("Minimum mean pairwise Spearman correlation in a window to count it as co-movement."),
+    ),
+    Param(
+        "contagion_surrogate_count",
+        _("Surrogate count"),
+        _("Number of random circular shifts for the co-arousal index null distribution. 0 = skip the significance test."),
+        kind="int",
+        step="1",
+    ),
+    Param(
+        "contagion_surrogate_seed",
+        _("Surrogate seed"),
+        _("A fixed seed makes the co-arousal surrogate test reproducible."),
+        kind="int",
+        step="1",
+    ),
+)
+
+ANALYSIS_PARAMS = (*SYNCHRONY_ESSENTIAL, *SYNCHRONY_ADVANCED, *COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED)
+
+
+def cleaning_params() -> tuple[Param, ...]:
+    params: list[Param] = []
+    for group in CLEANING_GROUPS:
+        if group.toggle is not None:
+            params.append(group.toggle)
+        params.extend(group.params)
+    return tuple(params)
+
+
+def parse_params(params: tuple[Param, ...], data: QueryDict) -> dict[str, Any]:
+    """Read posted form values; an empty numeric field means "use the default" (or "none" for a range bound)."""
+    values: dict[str, Any] = {}
+    for param in params:
+        if param.kind == "bool":
+            values[param.name] = param.name in data
+            continue
+        raw = (data.get(param.name) or "").strip()
+        if not raw:
+            values[param.name] = None if param.nullable else param.default
+            continue
+        values[param.name] = raw.replace(",", ".") if param.kind in ("float", "int") else raw
+    return values
+
+
+def apply_settings(stored: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]:
+    """Merge validated updates into stored settings; raises ``ValueError`` with the reason when invalid."""
+    merged = {**(stored or {}), **updates}
+    config = PipelineConfig.from_dict(merged)
+    values = config.model_dump()
+    # Store the coerced values ("5" -> 5) of the fields the form sent, keep the rest untouched.
+    return {**merged, **{name: values[name] for name in updates}}
+
+
+def field_rows(params: tuple[Param, ...], values: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "param": param,
+            "value": values.get(param.name),
+            "modified": values.get(param.name) != param.default,
+        }
+        for param in params
+    ]

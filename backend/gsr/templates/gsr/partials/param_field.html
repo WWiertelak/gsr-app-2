@@ -1,0 +1,18 @@
+{% load i18n gsr_tags %}{% with p=row.param %}
+{% if p.kind == "bool" %}
+<label class="toggle"><input type="checkbox" name="{{ p.name }}" value="1"{% if row.value %} checked{% endif %}> {{ p.label }}</label>
+{% else %}
+<div class="field">
+  <label for="f-{{ p.name }}">{{ p.label }}</label>
+  {% if p.kind == "choice" %}
+    <select id="f-{{ p.name }}" name="{{ p.name }}">
+      {% for value, label in p.choices %}<option value="{{ value }}"{% if value == row.value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  {% else %}
+    <input id="f-{{ p.name }}" type="number" name="{{ p.name }}" step="{{ p.step }}" value="{{ row.value|input_value }}"{% if p.nullable %} placeholder="{% translate 'full range' %}"{% endif %}>
+  {% endif %}
+  {% if not p.nullable %}<span class="default-note{% if row.modified %} modified{% endif %}">{% if row.modified %}{% blocktranslate with value=p.default|input_value %}changed (default {{ value }}){% endblocktranslate %}{% else %}{% translate "default" %}{% endif %}</span>{% endif %}
+</div>
+{% endif %}
+{% if p.help %}<p class="hint">{{ p.help }}</p>{% endif %}
+{% endwith %}

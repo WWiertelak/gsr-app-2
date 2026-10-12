@@ -1,0 +1,16 @@
+{% extends "gsr/base.html" %}
+{% load i18n %}
+{% block title %}{{ project.name }}{% endblock %}
+{% block content %}
+<nav class="project-bar">
+  <div class="crumbs">
+    <a href="{% url 'gsr:projects' %}">{% translate "Projects" %}</a>
+    <span class="muted">/</span>
+    <h1>{{ project.name }}</h1>
+  </div>
+  {% include "gsr/partials/stepper.html" %}
+</nav>
+<div id="main">
+  {% include partial %}
+</div>
+{% endblock %}

@@ -4,14 +4,29 @@ GSR_APP 2.0 - GSR sensor data upload, cleaning, joint synchronization and co-aro
 
 The processing pipeline is extracted from GSRv2 with unchanged results; the
 segment-based analysis was dropped. See [docs/research-gsrv2.md](docs/research-gsrv2.md)
-for how the pipeline works and what was carried over. The frontend is not chosen yet.
+for how the pipeline works and what was carried over.
+
+The UI is server-rendered Django templates with HTMX and ECharts (no Node build), in
+Polish or English (switch in the header). The workflow is
+Projects → 1 Upload → 2 Cleaning → 3 Analysis (Synchronization | Co-arousal tabs, one run)
+→ 4 Export (bilingual PDF report for other researchers, CSV tables, a run settings +
+results JSON, chart PNGs, or all of it as a ZIP). There is no login yet: add Django
+authentication before hosting the app for more than one person.
 
 ## Layout
 
 - `backend/gsr/pipeline/` - Django-free pipeline: `parser` (eSense CSV), `preprocessing`
   (synchronization, cleaning, scaling, merge, downsampling), `synchrony` (joint
   synchronization), `coarousal` (co-arousal), `config` (`PipelineConfig`).
-- `backend/gsr/models.py`, `backend/gsr/services/` - projects, dataset upload, analysis service.
+- `backend/gsr/models.py`, `backend/gsr/services/` - projects, dataset upload, analysis service,
+  stored last results per screen (`results`), exports (`exports`).
+- `backend/gsr/views.py`, `backend/gsr/templates/gsr/`, `backend/gsr/static/gsr/` - UI screens;
+  `static/gsr/js/charts.js` holds the ECharts option builders ported from GSRv2,
+  `static/gsr/vendor/` the pinned htmx and ECharts builds.
+- `backend/gsr/reporting/` - PDF report (ReportLab, bundled DejaVu fonts) and its methodology text.
+- `backend/gsr/locale/pl/` - Polish UI strings. After changing UI text run
+  `python manage.py makemessages -l pl --no-obsolete --ignore=.venv --ignore=staticfiles`, translate,
+  then `python manage.py compilemessages --ignore=.venv` (needs gettext) and commit both files.
 - `backend/gsr/tests/` - unit tests and old-vs-new equivalence tests (synthetic data only).
 
 ## Run with Docker
@@ -22,7 +37,7 @@ gunicorn on port 8000. The SQLite database (`/data/db.sqlite3`) and uploaded fil
 
 ```bash
 cp .env.example .env            # then set SECRET_KEY (see the comment in the file)
-docker compose up -d --build    # http://localhost:8000/admin/
+docker compose up -d --build    # UI at http://localhost:8000/ (admin at /admin/)
 docker compose logs -f app
 
 # Create an admin user / run the CLI analysis inside the container:
@@ -65,6 +80,7 @@ cd backend
 python3.12 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 python manage.py migrate
+python manage.py runserver      # UI at http://127.0.0.1:8000/
 pytest -q
 ruff check config gsr
 

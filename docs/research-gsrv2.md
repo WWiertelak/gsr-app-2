@@ -180,7 +180,8 @@ All sample data is synthetic (`backend/gsr/tests/sample_data.py`); GSRv2's local
   (`correlation_*` config, statsmodels) — not segment-based, but outside the
   "joint synchronization and co-arousal" scope.
 - PDF reports and methodology text (`reporting.py`, `methodology.py`, including the
-  uncommitted methodology notes), presentations, `output/`.
+  uncommitted methodology notes), presentations, `output/`. (The UI later brought the
+  report back for synchronization and co-arousal: `backend/gsr/reporting/`.)
 - API/UI layer: DRF endpoints and OpenAPI, React frontend, auth and first-run
   bootstrap (incl. the uncommitted `PASSWORDLESS_LOGIN` setting), throttling,
   Celery jobs with progress/cancellation, stage-artifact caching by signature,
