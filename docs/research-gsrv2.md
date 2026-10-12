@@ -184,7 +184,8 @@ All sample data is synthetic (`backend/gsr/tests/sample_data.py`); GSRv2's local
 - API/UI layer: DRF endpoints and OpenAPI, React frontend, auth and first-run
   bootstrap (incl. the uncommitted `PASSWORDLESS_LOGIN` setting), throttling,
   Celery jobs with progress/cancellation, stage-artifact caching by signature,
-  legacy-import and owner-check commands, Docker/compose.
+  legacy-import and owner-check commands, the GSRv2 Docker/compose setup (GSR_APP 2.0
+  has its own container setup, see the README).
 - `signal_colors` and `scaling_method` config fields (UI-only / unused: min-max is the
   only scaling).
 
