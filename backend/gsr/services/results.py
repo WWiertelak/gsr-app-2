@@ -37,11 +37,11 @@ REJECTED_MAX_POINTS = 2000
 
 # One colour per dataset, by upload order: Dark2 with two colours darkened so each
 # reaches 3:1 on white. RESERVED_SCIENCE_COLORS are never a participant colour:
-# red (High), blue (Low), slate grey (co-move) and amber (threshold).
+# red (High), blue (Low), slate grey (co-move) and crimson (threshold).
 # From the 9th dataset the colours repeat and the charts dash the repeated line.
 PARTICIPANT_PALETTE = ("#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#55901c", "#a87d00", "#a6761d", "#666666")
 # Mirrored by app.css --high/--low/--comove/--threshold and static/gsr/js/charts.js.
-RESERVED_SCIENCE_COLORS = {"high": "#b2182b", "low": "#2166ac", "comove": "#3f4b57", "threshold": "#b45309"}
+RESERVED_SCIENCE_COLORS = {"high": "#b2182b", "low": "#2166ac", "comove": "#3f4b57", "threshold": "#9f1239"}
 FALLBACK_SIGNAL_COLOR = "#617080"
 
 ANALYSIS_FIELD_PREFIXES = ("synchrony_", "contagion_")

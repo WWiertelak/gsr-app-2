@@ -23,7 +23,7 @@
   var NEUTRAL_STATE = "#f7f7f7";
   var COMOVE = "#3f4b57";
   var GROUP_MEAN = "#0b6e74";
-  var THRESHOLD = "#b45309";
+  var THRESHOLD = "#9f1239";
   var REJECTED = "#b42318";
   var EPISODE_AREA_COLOR = "rgba(20,33,43,0.07)";
   var EPISODE_LABEL_COLOR = "#4a5a68";
