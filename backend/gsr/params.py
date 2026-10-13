@@ -338,3 +338,33 @@ def analysis_summary(values: dict[str, Any]) -> list[str]:
         gettext("Min. participants: %(value)s") % {"value": value["contagion_min_participants"]},
         *_changed_note(ANALYSIS_PARAMS, values),
     ]
+
+
+def _labelled_params() -> list[tuple[Param, str]]:
+    """Every setting with the label a change note shows; a filter's own fields carry the filter name."""
+    labelled: list[tuple[Param, str]] = []
+    for group in CLEANING_GROUPS:
+        if group.toggle is not None:
+            labelled.append((group.toggle, str(group.toggle.label)))
+        labelled.extend((param, f"{group.title} · {param.label}") for param in group.params)
+    labelled.extend((param, str(param.label)) for param in ANALYSIS_PARAMS)
+    return labelled
+
+
+def _change_value(param: Param, value: Any) -> str:
+    if value is None:
+        return "—"
+    if param.kind == "bool":
+        return gettext("on") if value else gettext("off")
+    if param.choices:
+        return str(dict(param.choices).get(value, value))
+    return display_number(value)
+
+
+def changed_settings(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    """The settings that differ between two runs, as "label: old → new" (e.g. "Threshold (SD): 5 → 4")."""
+    return [
+        f"{label}: {_change_value(param, before.get(param.name))} → {_change_value(param, after.get(param.name))}"
+        for param, label in _labelled_params()
+        if before.get(param.name) != after.get(param.name)
+    ]

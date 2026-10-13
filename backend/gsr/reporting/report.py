@@ -416,6 +416,11 @@ def _tr(lang: str, key: str) -> str:
     return _TR.get(lang, _TR["pl"]).get(key, key)
 
 
+def report_text(lang: str, key: str) -> str:
+    """One report string in the report language (the Export screen's page-1 preview)."""
+    return _tr(resolve_lang(lang), key)
+
+
 
 # ISO datetime: 2023-01-15T14:23:45.123456 → 14:23:45
 _ISO_DATETIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}:\d{2})")

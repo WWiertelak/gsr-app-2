@@ -76,20 +76,22 @@
     return "solid";
   }
 
-  // Numbers in the page language (document <html lang>), so PL charts show "0,57" like the tables.
+  // Numbers in the page language (document <html lang>), so PL charts show "0,57" like the tables; a chart
+  // captured for a report in another language sets GSRCharts.locale for the capture.
   var numberFormats = {};
 
   function formatNumber(value, digits) {
     if (typeof value !== "number" || !isFinite(value)) {
       return "";
     }
-    var key = digits === undefined ? "auto" : String(digits);
+    var locale = window.GSRCharts.locale || document.documentElement.lang || undefined;
+    var key = (locale || "") + ":" + (digits === undefined ? "auto" : String(digits));
     if (!numberFormats[key]) {
       var options = digits === undefined
         ? { maximumFractionDigits: 6, useGrouping: false }
         : { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false };
       try {
-        numberFormats[key] = new Intl.NumberFormat(document.documentElement.lang || undefined, options);
+        numberFormats[key] = new Intl.NumberFormat(locale, options);
       } catch (error) {
         numberFormats[key] = new Intl.NumberFormat(undefined, options);
       }
@@ -850,6 +852,7 @@
     },
     kinds: Object.keys(BUILDERS),
     // Pass to echarts.init so the chart (on screen or captured for the PDF) uses the shared theme.
-    theme: THEME
+    theme: THEME,
+    locale: null
   };
 })();
