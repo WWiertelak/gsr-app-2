@@ -26,6 +26,7 @@ def chart_labels() -> dict[str, str]:
         "raw": _("raw"),
         "clean": _("clean"),
         "rejected": _("rejected"),
+        "clipped": _("clipped (off scale)"),
         "timeWindow": _("Time window"),
         "high": _("High ↑"),
         "low": _("Low ↓"),

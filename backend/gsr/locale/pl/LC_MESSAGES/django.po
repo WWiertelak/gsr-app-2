@@ -47,33 +47,37 @@ msgstr "oczyszczony"
 msgid "rejected"
 msgstr "odrzucony"
 
-#: gsr/charts.py:29 gsr/params.py:51
+#: gsr/charts.py:29
+msgid "clipped (off scale)"
+msgstr "przycięty (poza skalą)"
+
+#: gsr/charts.py:30 gsr/params.py:51
 msgid "Time window"
 msgstr "Zakres czasu"
 
-#: gsr/charts.py:30 gsr/templates/gsr/partials/analysis_main.html:178
+#: gsr/charts.py:31 gsr/templates/gsr/partials/analysis_main.html:178
 #: gsr/templates/gsr/partials/analysis_main.html:243
 #: gsr/templates/gsr/partials/direction.html:1
 msgid "High ↑"
 msgstr "Wysoki ↑"
 
-#: gsr/charts.py:31 gsr/templates/gsr/partials/analysis_main.html:178
+#: gsr/charts.py:32 gsr/templates/gsr/partials/analysis_main.html:178
 #: gsr/templates/gsr/partials/analysis_main.html:243
 #: gsr/templates/gsr/partials/direction.html:1
 msgid "Low ↓"
 msgstr "Niski ↓"
 
-#: gsr/charts.py:32
+#: gsr/charts.py:33
 msgid "State"
 msgstr "Stan"
 
-#: gsr/charts.py:33 gsr/templates/gsr/partials/analysis_main.html:90
+#: gsr/charts.py:34 gsr/templates/gsr/partials/analysis_main.html:90
 #: gsr/templates/gsr/partials/analysis_main.html:194
 #: gsr/templates/gsr/partials/analysis_main.html:221
 msgid "Time (min)"
 msgstr "Czas (min)"
 
-#: gsr/charts.py:34
+#: gsr/charts.py:35
 msgid "Save PNG"
 msgstr "Zapisz PNG"
 
@@ -664,7 +668,7 @@ msgstr "Wyniki analizy"
 msgid "No results for this step yet. Set the parameters and run the analysis."
 msgstr "Brak wyników dla tego kroku. Ustaw parametry i uruchom analizę."
 
-#: gsr/templates/gsr/partials/analysis_main.html:52 gsr/tests/test_views.py:698
+#: gsr/templates/gsr/partials/analysis_main.html:52 gsr/tests/test_views.py:730
 msgid "Run analysis"
 msgstr "Uruchom analizę"
 
@@ -1343,7 +1347,7 @@ msgstr "Status"
 msgid "Save"
 msgstr "Zapisz"
 
-#: gsr/templates/gsr/partials/upload_main.html:47 gsr/tests/test_views.py:699
+#: gsr/templates/gsr/partials/upload_main.html:47 gsr/tests/test_views.py:731
 #, python-format
 msgid "%(counter)s Excel fix"
 msgid_plural "%(counter)s Excel fixes"
