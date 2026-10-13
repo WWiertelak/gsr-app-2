@@ -300,9 +300,9 @@
       z: 5,
       itemStyle: { color: T.error },
       tooltip: {
-        trigger: "item",
-        formatter: function (params) {
-          return escapeHtml(name) + ": " + formatNumber(params.value[2], 4);
+        valueFormatter: function (value, dataIndex) {
+          var marker = markers[dataIndex];
+          return formatNumber(marker ? marker.value[2] : value, 4);
         }
       },
       data: markers
