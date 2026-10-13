@@ -36,6 +36,14 @@ def input_value(value: Any) -> str:
 
 
 @register.filter
+def display_number(value: Any) -> str:
+    """A setting value for display text, in the UI language's decimal format ("0,6" in Polish)."""
+    from ..params import display_number as display  # params imports this module
+
+    return display(value)
+
+
+@register.filter
 def choice_label(value: Any, name: str) -> Any:
     """``{{ value|choice_label:"synchrony_surrogate_method" }}``: the translated label of a choice setting."""
     from ..params import choice_label as label  # params imports this module
