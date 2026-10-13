@@ -38,7 +38,7 @@
   </form>
 
   <div class="stack">
-    {% if error %}<div class="alert error"><strong>{% translate "Error" %}:</strong> {{ error }}</div>{% endif %}
+    {% if error %}{% include "gsr/partials/error.html" %}{% endif %}
     {% if included_count < 2 %}
       <div class="alert warning">{% translate "Select at least two signals to compute synchronization." %} <a href="{% url 'gsr:cleaning' project.pk %}">{% translate "Go to Cleaning" %}</a></div>
     {% endif %}

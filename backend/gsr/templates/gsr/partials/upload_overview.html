@@ -9,7 +9,7 @@
         {% if overlap.ok %}<div class="bar common" style="left: {{ overlap.bar_left_pct|stringformat:'s' }}%; width: {{ overlap.bar_width_pct|stringformat:'s' }}%"></div>{% endif %}
       </div>
       {% for row in overview.rows %}
-        <div class="name"><span class="dot" style="background: {{ row.color }}"></span>{{ row.dataset.alias }}</div>
+        <div class="name"><span class="dot" style="background: {{ row.color }}"></span>{{ row.dataset.alias }}{% if not row.dataset.included %} <span class="muted small">{% translate "excluded" %}</span>{% endif %}</div>
         <div class="track">
           {% if not row.error %}<div class="bar" style="left: {{ row.bar_left_pct|stringformat:'s' }}%; width: {{ row.bar_width_pct|stringformat:'s' }}%; background: {{ row.color }}" title="{{ row.start|date:'H:i:s' }}–{{ row.end|date:'H:i:s' }}"></div>{% endif %}
         </div>
@@ -18,7 +18,15 @@
     {% if overlap.ok %}
       <p class="alert success">{% blocktranslate with start=overlap.start|date:"H:i:s" end=overlap.end|date:"H:i:s" duration=overlap.duration_minutes|floatformat:1 %}Common window {{ start }}–{{ end }} · {{ duration }} min{% endblocktranslate %}</p>
     {% else %}
-      <p class="alert error">{% translate "The recordings do not share an absolute-time window. Group analysis requires recordings from the same time window; remove or replace the file that does not overlap." %}</p>
+      <div class="alert error" role="alert">
+        {{ overlap.message }}
+        {% for row in overview.rows %}{% if row.dataset.alias in overlap.outliers %}
+          <form class="row-form" method="post" action="{% url 'gsr:dataset_exclude' project.pk row.dataset.pk %}">
+            {% csrf_token %}<input type="hidden" name="next" value="upload">
+            <button type="submit" class="small">{% blocktranslate with alias=row.dataset.alias %}Exclude {{ alias }}{% endblocktranslate %}</button>
+          </form>
+        {% endif %}{% endfor %}
+      </div>
     {% endif %}
   {% endif %}
 {% endwith %}

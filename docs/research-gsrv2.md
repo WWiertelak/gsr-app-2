@@ -147,12 +147,12 @@ Port of a standalone "emotional contagion" script, corrected in GSRv2:
 
 | GSRv2 | GSR_APP 2.0 | Change |
 | --- | --- | --- |
-| `pipeline/parser.py` | `backend/gsr/pipeline/parser.py` | byte-identical copy |
+| `pipeline/parser.py` | `backend/gsr/pipeline/parser.py` | same parsing and messages; `ParseError` also carries a `code` (and `row`) for the UI |
 | `pipeline/config.py` | `backend/gsr/pipeline/config.py` | segment/correlation/UI fields removed; remaining fields and defaults identical |
 | `core.run_pipeline`, cleaning, merge, downsampling, `serialize_preview`, `serialize_signal_statistics`, `serialize_decimated_traces`, `build_stage_export_frame` | `backend/gsr/pipeline/preprocessing.py` | segmentation removed from `run_pipeline` and `PipelineResult` |
 | `core.compute_synchrony` and helpers | `backend/gsr/pipeline/synchrony.py` | unchanged code |
 | `core.compute_contagion` and helpers | `backend/gsr/pipeline/coarousal.py` | renamed `compute_coarousal`; payload keys unchanged |
-| shared helpers (`_zscore`, `_make_surrogate`, `_estimate_step_seconds`, `_resolve_aliases`, `PipelineError`) | `backend/gsr/pipeline/common.py` | moved, unchanged |
+| shared helpers (`_zscore`, `_make_surrogate`, `_estimate_step_seconds`, `_resolve_aliases`, `PipelineError`) | `backend/gsr/pipeline/common.py` | moved; `PipelineError` messages unchanged, plus `code`/`alias`/`details` for the UI (`backend/gsr/errors.py`) |
 | `Project` / `Dataset` models, upload storage + parse-on-upload | `backend/gsr/models.py`, `services/datasets.py` | minimal: no owner, notes, UI language; `Dataset.file` is a `FileField` under `STORAGE_ROOT` with the same path layout |
 | analysis guards in `views.py` (scaling required, ≥ 2 datasets, min size/participants ≤ dataset count) | `services/analysis.py` (`analyze_files`, `run_project_analysis`) | same rules, plain Python service |
 | `PipelineConfigSerializer` field types, bounds, choices and cross-field checks | `PipelineConfig.__init__` (`backend/gsr/pipeline/config.py`) | same rules and DRF-style coercion, enforced at construction; invalid values raise `ValueError` (`AnalysisError` from `resolve_config`, `CommandError` from `gsr_analyze`) |

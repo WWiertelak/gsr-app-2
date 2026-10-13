@@ -362,7 +362,7 @@ def _estimate_step_minutes(relative_time_minutes: np.ndarray) -> float:
 
 def run_pipeline(dataset_files: dict[str, Path], config: PipelineConfig) -> PipelineResult:
     if not dataset_files:
-        raise PipelineError("Project has no datasets")
+        raise PipelineError("Project has no datasets", code="no_signals")
     if len(dataset_files) > MAX_DATASETS:
         raise PipelineError(f"Maximum number of datasets per analysis is {MAX_DATASETS}")
 
@@ -372,9 +372,16 @@ def run_pipeline(dataset_files: dict[str, Path], config: PipelineConfig) -> Pipe
         try:
             df, _ = load_esense_csv(path)
         except FileNotFoundError as exc:
-            raise PipelineError(f"Dataset file for {alias} is missing on disk. Upload it again.") from exc
+            raise PipelineError(
+                f"Dataset file for {alias} is missing on disk. Upload it again.", code="missing_file", alias=alias
+            ) from exc
         except ParseError as exc:
-            raise PipelineError(f"Dataset {alias} parse failed: {exc}") from exc
+            raise PipelineError(
+                f"Dataset {alias} parse failed: {exc}",
+                code="parse",
+                alias=alias,
+                details={"reason": exc.code, "row": exc.row},
+            ) from exc
         parsed[alias] = df
 
     identical_signal_groups = _identical_signal_groups(parsed, aliases)
@@ -387,7 +394,11 @@ def run_pipeline(dataset_files: dict[str, Path], config: PipelineConfig) -> Pipe
         )
         raise PipelineError(
             "Datasets do not share an absolute-time overlap. Group analysis requires recordings "
-            f"from the same time window. Recorded ranges: {ranges}"
+            f"from the same time window. Recorded ranges: {ranges}",
+            code="no_overlap",
+            details={
+                "ranges": {alias: (parsed[alias]["time"].min(), parsed[alias]["time"].max()) for alias in aliases}
+            },
         )
 
     dataset_states: dict[str, DatasetPipelineState] = {}
@@ -398,7 +409,9 @@ def run_pipeline(dataset_files: dict[str, Path], config: PipelineConfig) -> Pipe
             drop=True
         )
         if synced.empty:
-            raise PipelineError(f"Dataset {alias} is empty after time synchronization")
+            raise PipelineError(
+                f"Dataset {alias} is empty after time synchronization", code="empty_after_sync", alias=alias
+            )
 
         synced["relative_time"] = (synced["time"] - synced["time"].iloc[0]).dt.total_seconds() / 60.0
 
@@ -415,7 +428,9 @@ def run_pipeline(dataset_files: dict[str, Path], config: PipelineConfig) -> Pipe
             ranged = ranged[ranged["relative_time"] <= float(config.time_range_to)]
         ranged = ranged.reset_index(drop=True)
         if ranged.empty:
-            raise PipelineError(f"Dataset {alias} is empty after applying time range")
+            raise PipelineError(
+                f"Dataset {alias} is empty after applying time range", code="empty_time_range", alias=alias
+            )
 
         in_time_window_points = int(len(ranged))
         outside_time_window_points = max(0, synced_points - in_time_window_points)
@@ -480,7 +495,7 @@ def run_pipeline(dataset_files: dict[str, Path], config: PipelineConfig) -> Pipe
         merged = merged.dropna(subset=[f"microsiemens_{alias}"]).reset_index(drop=True)
 
     if merged.empty:
-        raise PipelineError("No overlapping points after merge")
+        raise PipelineError("No overlapping points after merge", code="no_merge_overlap")
 
     merged = merged.sort_values("relative_time").reset_index(drop=True)
     merged["relative_time"] = merged["relative_time"].astype(float)
@@ -504,7 +519,7 @@ def run_pipeline(dataset_files: dict[str, Path], config: PipelineConfig) -> Pipe
         )
         factor = _equivalent_downsample_factor(len(merged), len(merged_decimated))
     if len(merged_decimated) < 2:
-        raise PipelineError("Not enough points for analysis")
+        raise PipelineError("Not enough points for analysis", code="too_few_points")
 
     merged_points_after_downsampling = int(len(merged_decimated))
     downsampled_points = max(0, merged_points_before_downsampling - merged_points_after_downsampling)

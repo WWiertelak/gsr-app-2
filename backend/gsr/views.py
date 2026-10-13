@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pandas as pd
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -24,6 +25,7 @@ from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from . import charts, params
+from .errors import UserError, describe, no_overlap_message
 from .models import AnalysisResult, Dataset, Project
 from .pipeline.config import PipelineConfig
 from .reporting.report import render_report_pdf
@@ -169,7 +171,25 @@ def upload(request: HttpRequest, pk: Any) -> HttpResponse:
 def _upload_context(project: Project) -> dict[str, Any]:
     datasets = list(project.datasets.order_by("created_at"))
     colors = signal_colors(project)
-    return {"datasets": [{"dataset": dataset, "color": colors[dataset.alias]} for dataset in datasets]}
+    return {
+        "datasets": [{"dataset": dataset, "color": colors[dataset.alias]} for dataset in datasets],
+        "overlap_error": _overlap_error(datasets),
+    }
+
+
+def _overlap_error(datasets: list[Dataset]) -> str | None:
+    """Why the included recordings cannot be cleaned together (no shared clock window), from upload metadata."""
+    ranges = {
+        dataset.alias: (
+            pd.Timestamp(dataset.parsed_metadata["recorded_start"]),
+            pd.Timestamp(dataset.parsed_metadata["recorded_end"]),
+        )
+        for dataset in datasets
+        if dataset.included and {"recorded_start", "recorded_end"} <= set(dataset.parsed_metadata or {})
+    }
+    if len(ranges) < 2 or max(start for start, _end in ranges.values()) < min(end for _start, end in ranges.values()):
+        return None
+    return no_overlap_message(ranges)[0]
 
 
 def upload_overview(request: HttpRequest, pk: Any) -> HttpResponse:
@@ -209,6 +229,33 @@ def dataset_rename(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespon
 
 
 @require_POST
+def dataset_exclude(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpResponse:
+    """Leave one signal out of cleaning and analysis (an error's recovery action), then rerun ``next``."""
+    project = _project(pk)
+    dataset = get_object_or_404(Dataset, pk=dataset_pk, project=project)
+    dataset.included = False
+    dataset.save(update_fields=["included"])
+    step = request.POST.get("next")
+    if not _is_htmx(request):
+        messages.success(request, _("Signal %(alias)s excluded from cleaning and analysis.") % {"alias": dataset.alias})
+    if step == "cleaning":
+        error = _run(compute_cleaning, project, step)
+    elif step == "analysis":
+        error = _run(compute_analysis, project, step)
+    else:
+        return redirect("gsr:upload", project.pk)
+    if not _is_htmx(request):
+        if error:
+            messages.error(request, error.message)
+        return redirect(f"gsr:{step}", project.pk)
+    if step == "cleaning":
+        return _page(request, project, step, "gsr/partials/cleaning_main.html", _cleaning_context(project, error))
+    return _page(
+        request, project, step, "gsr/partials/analysis_main.html", _analysis_context(project, ANALYSIS_TABS[0], error)
+    )
+
+
+@require_POST
 def dataset_delete(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpResponse:
     project = _project(pk)
     dataset = get_object_or_404(Dataset, pk=dataset_pk, project=project)
@@ -221,7 +268,7 @@ def dataset_delete(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespon
 # ─── 2 Cleaning ──────────────────────────────────────────────────────────────
 
 
-def _cleaning_context(project: Project, error: str | None = None) -> dict[str, Any]:
+def _cleaning_context(project: Project, error: UserError | None = None) -> dict[str, Any]:
     values = _current_values(project)
     result = get_result(project, AnalysisResult.KIND_CLEANING)
     colors = signal_colors(project)
@@ -265,22 +312,21 @@ def cleaning(request: HttpRequest, pk: Any) -> HttpResponse:
     if request.method == "POST":
         error = _save_cleaning(request, project)
         if error is None:
-            error = _run(compute_cleaning, project)
+            error = _run(compute_cleaning, project, "cleaning")
         if not _is_htmx(request):
             if error:
-                messages.error(request, error)
+                messages.error(request, error.message)
             return redirect("gsr:cleaning", project.pk)
-    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html",
-                 _cleaning_context(project, error))
+    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html", _cleaning_context(project, error))
 
 
-def _save_cleaning(request: HttpRequest, project: Project) -> str | None:
+def _save_cleaning(request: HttpRequest, project: Project) -> UserError | None:
     selected = set(request.POST.getlist("datasets"))
     updates = params.parse_params(params.cleaning_params(), request.POST)
     try:
         settings = params.apply_settings(project.pipeline_config, updates)
     except ValueError as exc:
-        return str(exc)
+        return UserError(str(exc))
     with transaction.atomic():
         for dataset in project.datasets.all():
             included = str(dataset.pk) in selected
@@ -299,26 +345,24 @@ def cleaning_reset(request: HttpRequest, pk: Any) -> HttpResponse:
     project.pipeline_config = {key: value for key, value in (project.pipeline_config or {}).items()
                                if key not in names}
     project.save(update_fields=["pipeline_config", "updated_at"])
-    error = _run(compute_cleaning, project)
+    error = _run(compute_cleaning, project, "cleaning")
     if not _is_htmx(request):
         if error:
-            messages.error(request, error)
+            messages.error(request, error.message)
         return redirect("gsr:cleaning", project.pk)
-    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html",
-                 _cleaning_context(project, error))
+    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html", _cleaning_context(project, error))
 
 
 @require_POST
 def cleaning_refresh(request: HttpRequest, pk: Any) -> HttpResponse:
     """Compute the cleaning preview with the saved settings (first visit, or after uploads changed)."""
     project = _project(pk)
-    error = _run(compute_cleaning, project)
+    error = _run(compute_cleaning, project, "cleaning")
     if not _is_htmx(request):
         if error:
-            messages.error(request, error)
+            messages.error(request, error.message)
         return redirect("gsr:cleaning", project.pk)
-    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html",
-                 _cleaning_context(project, error))
+    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html", _cleaning_context(project, error))
 
 
 def cleaning_csv(request: HttpRequest, pk: Any) -> HttpResponse:
@@ -330,23 +374,23 @@ def cleaning_csv(request: HttpRequest, pk: Any) -> HttpResponse:
     try:
         content = exports.clean_signals_csv(project, result)
     except AnalysisError as exc:
-        messages.error(request, str(exc))
+        messages.error(request, describe(exc, project, "export").message)
         return redirect("gsr:cleaning", project.pk)
     return _attachment(content, _download_name(project, "clean_signals.csv"), "text/csv; charset=utf-8")
 
 
-def _run(compute: Any, project: Project) -> str | None:
+def _run(compute: Any, project: Project, step: str) -> UserError | None:
     try:
         compute(project)
     except AnalysisError as exc:
-        return str(exc)
+        return describe(exc, project, step)
     return None
 
 
 # ─── 3 Analysis ──────────────────────────────────────────────────────────────
 
 
-def _analysis_context(project: Project, tab: str, error: str | None = None) -> dict[str, Any]:
+def _analysis_context(project: Project, tab: str, error: UserError | None = None) -> dict[str, Any]:
     values = _current_values(project)
     result = get_result(project, AnalysisResult.KIND_ANALYSIS)
     colors = signal_colors(project)
@@ -400,16 +444,17 @@ def analysis(request: HttpRequest, pk: Any) -> HttpResponse:
         try:
             project.pipeline_config = params.apply_settings(project.pipeline_config, updates)
         except ValueError as exc:
-            error = str(exc)
+            error = UserError(str(exc))
         else:
             project.save(update_fields=["pipeline_config", "updated_at"])
-            error = _run(compute_analysis, project)
+            error = _run(compute_analysis, project, "analysis")
         if not _is_htmx(request):
             if error:
-                messages.error(request, error)
+                messages.error(request, error.message)
             return redirect(f"{reverse('gsr:analysis', args=[project.pk])}?tab={tab}")
-    return _page(request, project, "analysis", "gsr/partials/analysis_main.html",
-                 _analysis_context(project, tab, error))
+    return _page(
+        request, project, "analysis", "gsr/partials/analysis_main.html", _analysis_context(project, tab, error)
+    )
 
 
 @require_POST
@@ -491,7 +536,7 @@ def export_file(request: HttpRequest, pk: Any, name: str) -> HttpResponse:
         else:
             content = exports.table_exports(result)[name]
     except AnalysisError as exc:
-        messages.error(request, str(exc))
+        messages.error(request, describe(exc, project, "export").message)
         return redirect("gsr:export", project.pk)
     content_type = "application/json" if name.endswith(".json") else "text/csv; charset=utf-8"
     return _attachment(content, _download_name(project, name), content_type)
@@ -506,7 +551,7 @@ def export_zip(request: HttpRequest, pk: Any) -> HttpResponse:
     try:
         content = exports.build_zip(project, result, chart_images, _results_json(project, result))
     except AnalysisError as exc:
-        messages.error(request, str(exc))
+        messages.error(request, describe(exc, project, "export").message)
         return redirect("gsr:export", project.pk)
     return _attachment(content, _download_name(project, "results.zip"), "application/zip")
 

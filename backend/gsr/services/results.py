@@ -17,7 +17,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from django.utils import timezone
+from django.utils.translation import gettext
 
+from ..errors import no_overlap_message, parse_reason
 from ..models import AnalysisResult, Dataset, Project
 from ..pipeline.config import PipelineConfig
 from ..pipeline.parser import ParseError, load_esense_csv
@@ -151,7 +153,7 @@ def _dataset_summary(result: PipelineResult, datasets: list[Dataset]) -> list[di
 
 def _dataset_files(datasets: list[Dataset]) -> dict[str, Path]:
     if not datasets:
-        raise AnalysisError("Project has no datasets selected for analysis")
+        raise AnalysisError("Project has no datasets selected for analysis", code="no_signals")
     return {dataset.alias: Path(dataset.file.path) for dataset in datasets}
 
 
@@ -221,7 +223,11 @@ def recording_overview(datasets: list[Dataset], max_points: int = PREVIEW_MAX_PO
         try:
             frame, _ = load_esense_csv(Path(dataset.file.path))
         except (FileNotFoundError, ParseError) as exc:
-            row["error"] = str(exc) if isinstance(exc, ParseError) else "File is missing on disk. Upload it again."
+            row["error"] = (
+                parse_reason(exc.code, exc.row)
+                if isinstance(exc, ParseError)
+                else gettext("The file is missing. Upload it again.")
+            )
             rows.append(row)
             continue
         recorded = recording_range(frame)
@@ -245,9 +251,14 @@ def recording_overview(datasets: list[Dataset], max_points: int = PREVIEW_MAX_PO
         for row in ranged:
             row["bar_left_pct"] = round(100.0 * (row["start"] - earliest).total_seconds() / span, 2)
             row["bar_width_pct"] = round(100.0 * (row["end"] - row["start"]).total_seconds() / span, 2)
-        common_start = max(row["start"] for row in ranged)
-        common_end = min(row["end"] for row in ranged)
+        # The window of the included recordings only: those are what Cleaning will synchronize.
+        included = [row for row in ranged if row["dataset"].included] or ranged
+        common_start = max(row["start"] for row in included)
+        common_end = min(row["end"] for row in included)
         overlap = {"start": common_start, "end": common_end, "ok": common_start < common_end}
+        if not overlap["ok"]:
+            ranges = {row["dataset"].alias: (row["start"], row["end"]) for row in included}
+            overlap["message"], _details, overlap["outliers"] = no_overlap_message(ranges)
         if overlap["ok"]:
             overlap["duration_minutes"] = (common_end - common_start).total_seconds() / 60.0
             overlap["bar_left_pct"] = round(100.0 * (common_start - earliest).total_seconds() / span, 2)

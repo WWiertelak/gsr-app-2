@@ -7,6 +7,7 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import CommandError, call_command
+from django.utils import translation
 
 from gsr.models import Dataset, Project
 from gsr.pipeline.config import PipelineConfig
@@ -102,8 +103,12 @@ def test_add_dataset_rejects_unparseable_file_without_leaving_it_on_disk(isolate
     project = Project.objects.create(name="Session")
     upload = SimpleUploadedFile("notes.csv", b"not;an;esense;export\n1;2;3;4\n")
 
-    with pytest.raises(ValidationError, match="Cannot detect data header"):
+    with translation.override("en"), pytest.raises(ValidationError) as error:
         add_dataset(project, upload, alias="X")
+    # A person-facing reason; the stored file name (random prefix + "notes.csv") never shows.
+    assert error.value.messages == [
+        "This is not an eSense CSV export: no header row with a MICROSIEMENS column was found in the first 80 lines."
+    ]
 
     assert not Dataset.objects.exists()
     assert not any(path.is_file() for path in Path(isolated_storage).rglob("*"))

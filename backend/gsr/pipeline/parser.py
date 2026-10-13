@@ -13,7 +13,15 @@ logger = logging.getLogger(__name__)
 
 
 class ParseError(ValueError):
-    pass
+    """An unreadable eSense CSV; ``code`` names the reason and ``row`` the data row, if any.
+
+    The message names the stored file; the UI shows a message built from ``code`` instead.
+    """
+
+    def __init__(self, message: str, *, code: str | None = None, row: int | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.row = row
 
 
 # Excel (Polish or English locale) rewrites decimals such as "3.79" as dates
@@ -80,7 +88,7 @@ def detect_skiprows(path: Path, max_scan_lines: int = 80) -> int:
                 break
             if "MICROSIEMENS" in line and ";" in line:
                 return idx
-    raise ParseError(f"Cannot detect data header in file: {path.name}")
+    raise ParseError(f"Cannot detect data header in file: {path.name}", code="missing_header")
 
 
 def _clean_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -125,8 +133,8 @@ def _read_csv_with_encoding_fallback(path: Path, skiprows: int) -> tuple[pd.Data
 
     tried = ", ".join(SUPPORTED_CSV_ENCODINGS)
     raise ParseError(
-        f"Could not decode file {path.name}. Supported encodings tried: {tried}. "
-        "Save as UTF-8 CSV or contact support."
+        f"Could not decode file {path.name}. Supported encodings tried: {tried}. Save as UTF-8 CSV or contact support.",
+        code="encoding",
     )
 
 
@@ -151,7 +159,9 @@ def _restore_midnight_rollovers(values: pd.Series, filename: str) -> pd.Series:
             elif backward < 0:
                 raise ParseError(
                     f"Non-monotonic timestamp in file {filename} at data row {row_number}; "
-                    "only a midnight rollover may move time backwards"
+                    "only a midnight rollover may move time backwards",
+                    code="non_monotonic",
+                    row=row_number,
                 )
         restored.append(base + pd.Timedelta(days=day_offset) + clock_delta)
         previous_clock_seconds = clock_seconds
@@ -167,10 +177,11 @@ def load_esense_csv(path: Path) -> tuple[pd.DataFrame, dict[str, object]]:
     time_column = next((column for column in SUPPORTED_TIME_COLUMNS if column in raw_df.columns), None)
     if time_column is None:
         raise ParseError(
-            f"Missing time column in file {path.name}. Expected one of: {', '.join(SUPPORTED_TIME_COLUMNS)}"
+            f"Missing time column in file {path.name}. Expected one of: {', '.join(SUPPORTED_TIME_COLUMNS)}",
+            code="missing_time_column",
         )
     if "MICROSIEMENS" not in raw_df.columns:
-        raise ParseError(f"Missing MICROSIEMENS column in file {path.name}")
+        raise ParseError(f"Missing MICROSIEMENS column in file {path.name}", code="missing_signal_column")
 
     second_column = "SEKUNDA" if "SEKUNDA" in raw_df.columns else "SECOND" if "SECOND" in raw_df.columns else None
     second = None
@@ -206,7 +217,7 @@ def load_esense_csv(path: Path) -> tuple[pd.DataFrame, dict[str, object]]:
     normalized = normalized.dropna(subset=["time", "microsiemens"]).reset_index(drop=True)
 
     if normalized.empty:
-        raise ParseError(f"No valid signal rows found in file {path.name}")
+        raise ParseError(f"No valid signal rows found in file {path.name}", code="no_rows")
 
     metadata: dict[str, object] = {
         "skiprows": skiprows,
