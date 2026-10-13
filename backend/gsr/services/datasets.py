@@ -13,6 +13,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 from django.db import IntegrityError, transaction
 
+from ..errors import parse_reason
 from ..models import Dataset, Project
 from ..pipeline.parser import ParseError, load_esense_csv
 
@@ -99,7 +100,7 @@ def add_dataset(project: Project, upload: UploadedFile, alias: str | None = None
             "Dataset upload parse failed: project_id=%s alias=%s filename=%s error=%s",
             project.id, alias, original_filename, exc,
         )
-        raise ValidationError(str(exc)) from exc
+        raise ValidationError(parse_reason(exc.code, exc.row)) from exc
     except IntegrityError as exc:
         dataset.file.delete(save=False)
         raise ValidationError(f"Could not save dataset {alias}") from exc

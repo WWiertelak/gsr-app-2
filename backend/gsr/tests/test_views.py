@@ -161,20 +161,80 @@ def test_upload_rejects_unreadable_file_and_keeps_others(client, recordings) -> 
     )
     page = response.content.decode()
     assert "broken.csv:" in page and 'class="alert error"' in page
+    # Translated reason (default language: Polish); no pipeline text, no stored file name.
+    assert "To nie jest eksport CSV z eSense" in page
+    assert "Cannot detect data header" not in page and "_broken.csv" not in page
     assert list(project.datasets.values_list("alias", flat=True)) == ["session"]
 
 
-@pytest.mark.django_db
-def test_upload_overview_flags_recordings_without_shared_window(client, tmp_path) -> None:
+@pytest.fixture()
+def late_project(tmp_path) -> Project:
+    """A and B record together from 12:00:00; C starts at 13:00:00, so the three share no window."""
     files = write_group(
-        tmp_path, "late", {"A": Participant(tonic_us=4.0), "B": Participant(tonic_us=5.0)},
-        {"B": RecordingFormat(start_time="13:00:00:000")}, seconds=60.0, seed=1,
+        tmp_path, "late", {"A": Participant(tonic_us=4.0), "B": Participant(tonic_us=5.0),
+                           "C": Participant(tonic_us=6.0)},
+        {"C": RecordingFormat(start_time="13:00:00:000")}, seconds=60.0, seed=1,
     )
-    project = Project.objects.create(name="P")
+    project = Project.objects.create(name="P", pipeline_config=dict(FAST))
     for alias, path in files.items():
         add_dataset(project, _upload(path), alias=alias)
+    return project
+
+
+@pytest.mark.django_db
+def test_upload_overview_flags_recordings_without_shared_window(client, late_project) -> None:
+    project = late_project
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
     overview = client.get(reverse("gsr:upload_overview", args=[project.pk])).content.decode()
     assert "alert error" in overview and "alert success" not in overview
+    assert "C does not overlap with the other recordings (their common window is 12:00:00–12:00:59)." in overview
+    exclude = reverse("gsr:dataset_exclude", args=[project.pk, project.datasets.get(alias="C").pk])
+    assert exclude in overview
+
+    # Without a shared window the next step is not offered.
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    next_link = f'<a class="button" href="{reverse("gsr:cleaning", args=[project.pk])}">'
+    assert 'aria-disabled="true"' in page and next_link not in page
+    assert "Exclude or delete the recording that does not overlap." in page
+
+    # Excluding C (the error's action) restores the window and the next step.
+    response = client.post(exclude, {"next": "upload"})
+    assert response.status_code == 302 and response["Location"] == reverse("gsr:upload", args=[project.pk])
+    assert not project.datasets.get(alias="C").included
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    assert 'aria-disabled="true"' not in page and next_link in page
+    overview = client.get(reverse("gsr:upload_overview", args=[project.pk])).content.decode()
+    assert "alert success" in overview and "excluded" in overview
+
+
+@pytest.mark.django_db
+def test_cleaning_error_names_the_participant_and_offers_exclusion(client, late_project) -> None:
+    project = late_project
+    fragment = client.post(reverse("gsr:cleaning_refresh", args=[project.pk]), **HTMX).content.decode()
+    # Polish by default: the participant, HH:MM:SS clock times, no pipeline text or ISO timestamps.
+    assert "Nagrania nie mają wspólnego okna czasu" in fragment
+    assert "C nie nakłada się z pozostałymi nagraniami (ich wspólne okno to 12:00:00–12:00:59)." in fragment
+    assert "<li>C: 13:00:00–13:00:59</li>" in fragment
+    assert "absolute-time overlap" not in fragment and "1900-01-01" not in fragment
+    assert "Wyklucz C" in fragment and reverse("gsr:upload", args=[project.pk]) in fragment
+    assert not AnalysisResult.objects.exists()
+
+    exclude = reverse("gsr:dataset_exclude", args=[project.pk, project.datasets.get(alias="C").pk])
+    fragment = client.post(exclude, {"next": "cleaning"}, **HTMX).content.decode()
+    assert "alert error" not in fragment and fragment.count('data-chart="cleanVsRaw"') == 2
+    stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_CLEANING)
+    assert stored.payload["preview"]["aliases"] == ["A", "B"]
+
+
+def test_overlap_outliers_names_recordings_outside_the_largest_shared_window() -> None:
+    from gsr.errors import overlap_outliers
+
+    ranges = {"A": (0, 10), "B": (2, 12), "C": (20, 30), "D": (1, 9)}
+    assert overlap_outliers(ranges) == (["C"], (2, 9))
+    # Two recordings that do not overlap: neither is the culprit.
+    assert overlap_outliers({"A": (0, 10), "B": (20, 30)}) == ([], None)
+    # Two equal groups: no single culprit either.
+    assert overlap_outliers({"A": (0, 10), "B": (1, 11), "C": (20, 30), "D": (21, 31)}) == ([], None)
 
 
 @pytest.mark.django_db
@@ -460,8 +520,11 @@ def test_analysis_errors_are_shown_and_nothing_is_stored(client, project) -> Non
     assert not AnalysisResult.objects.exists()
 
     project.datasets.exclude(alias="A").update(included=False)
-    response = client.post(reverse("gsr:analysis", args=[project.pk]), _analysis_form(project), follow=True)
-    assert "at least two distinct datasets" in response.content.decode()
+    response = client.post(reverse("gsr:analysis", args=[project.pk]), _analysis_form(project), **HTMX)
+    fragment = response.content.decode()
+    assert "Analiza grupowa wymaga co najmniej dwóch sygnałów." in fragment
+    assert "at least two distinct datasets" not in fragment
+    assert reverse("gsr:cleaning", args=[project.pk]) in fragment and reverse("gsr:upload", args=[project.pk]) in fragment
 
 
 @pytest.mark.django_db

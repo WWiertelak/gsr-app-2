@@ -1,0 +1,19 @@
+{% load i18n %}<div class="alert error" role="alert">
+  <strong>{% translate "Error" %}:</strong> {{ error.message }}
+  {% if error.details %}
+    <ul class="error-details">{% for line in error.details %}<li>{{ line }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if error.exclude or error.links %}
+    <div class="actions">
+      {% for dataset in error.exclude %}
+        <form method="post" action="{% url 'gsr:dataset_exclude' project.pk dataset.pk %}"
+              hx-post="{% url 'gsr:dataset_exclude' project.pk dataset.pk %}" hx-target="#main" hx-swap="innerHTML"
+              hx-indicator="#busy" hx-disabled-elt="find button">
+          {% csrf_token %}<input type="hidden" name="next" value="{{ step }}">
+          <button type="submit" class="small">{% blocktranslate with alias=dataset.alias %}Exclude {{ alias }}{% endblocktranslate %}</button>
+        </form>
+      {% endfor %}
+      {% for link in error.links %}<a class="button secondary small" href="{{ link.url }}">{{ link.label }}</a>{% endfor %}
+    </div>
+  {% endif %}
+</div>

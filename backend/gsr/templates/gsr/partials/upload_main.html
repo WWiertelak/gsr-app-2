@@ -80,7 +80,12 @@
       <noscript><a href="{% url 'gsr:upload_overview' project.pk %}">{% translate "Show recording ranges" %}</a></noscript>
     </section>
     <div class="actions end">
-      <a class="button" href="{% url 'gsr:cleaning' project.pk %}">{% translate "Next: Cleaning" %} →</a>
+      {% if overlap_error %}
+        <span class="muted small" id="next-blocked">{{ overlap_error }} {% translate "Exclude or delete the recording that does not overlap." %}</span>
+        <a class="button" role="link" aria-disabled="true" aria-describedby="next-blocked">{% translate "Next: Cleaning" %} →</a>
+      {% else %}
+        <a class="button" href="{% url 'gsr:cleaning' project.pk %}">{% translate "Next: Cleaning" %} →</a>
+      {% endif %}
     </div>
   {% endif %}
 </div>

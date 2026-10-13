@@ -89,6 +89,10 @@ def test_pipeline_rejects_datasets_without_absolute_time_overlap(tmp_path: Path)
 
     assert "A:" in str(exc_info.value)
     assert "B:" in str(exc_info.value)
+    # Structured for the UI: the recorded clock range of every participant.
+    assert exc_info.value.code == "no_overlap"
+    ranges = exc_info.value.details["ranges"]
+    assert [start.strftime("%H:%M:%S") for start, _end in ranges.values()] == ["12:00:00", "14:30:00"]
 
 
 def test_pipeline_warns_about_identical_signals_without_excluding_them(tmp_path: Path) -> None:

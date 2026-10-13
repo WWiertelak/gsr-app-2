@@ -15,8 +15,12 @@ from ..pipeline.synchrony import compute_synchrony
 ANALYSES: tuple[str, ...] = ("synchrony", "coarousal")
 
 
-class AnalysisError(ValueError):
-    pass
+class AnalysisError(PipelineError):
+    """A request the analysis cannot run; carries the pipeline's ``code``/``alias``/``details``."""
+
+    @classmethod
+    def from_pipeline(cls, exc: PipelineError) -> AnalysisError:
+        return cls(str(exc), code=exc.code, alias=exc.alias, details=exc.details)
 
 
 def resolve_config(project: Project, overrides: dict[str, Any] | None = None) -> PipelineConfig:
@@ -29,7 +33,7 @@ def resolve_config(project: Project, overrides: dict[str, Any] | None = None) ->
 def resolve_datasets(project: Project, dataset_ids: list[str] | None = None) -> list[Dataset]:
     datasets = list(project.datasets.order_by("created_at"))
     if not datasets:
-        raise AnalysisError("Project has no uploaded datasets")
+        raise AnalysisError("Project has no uploaded datasets", code="no_signals")
 
     if dataset_ids:
         if len(dataset_ids) != len(set(dataset_ids)):
@@ -53,7 +57,7 @@ def check_analysis_request(dataset_files: dict[str, Path], config: PipelineConfi
         if not config.scaling_enabled:
             raise AnalysisError("Enable scaling before running synchrony or co-arousal analysis")
         if len(dataset_files) < 2:
-            raise AnalysisError("Synchrony and co-arousal require at least two distinct datasets")
+            raise AnalysisError("Synchrony and co-arousal require at least two distinct datasets", code="too_few_signals")
         if "synchrony" in analyses and config.synchrony_episode_min_size > len(dataset_files):
             raise AnalysisError("synchrony_episode_min_size cannot exceed the selected dataset count")
         if "coarousal" in analyses and config.contagion_min_participants > len(dataset_files):
@@ -65,7 +69,7 @@ def run_cleaning_pipeline(dataset_files: dict[str, Path], config: PipelineConfig
     try:
         return run_pipeline(dataset_files, config)
     except PipelineError as exc:
-        raise AnalysisError(str(exc)) from exc
+        raise AnalysisError.from_pipeline(exc) from exc
 
 
 def analyze_files_with_result(

@@ -47,7 +47,7 @@
   </form>
 
   <div class="stack">
-    {% if error %}<div class="alert error"><strong>{% translate "Error" %}:</strong> {{ error }}</div>{% endif %}
+    {% if error %}{% include "gsr/partials/error.html" %}{% endif %}
 
     {% if not datasets %}
       <section class="card">

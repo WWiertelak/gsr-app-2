@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-13 16:05+0000\n"
+"POT-Creation-Date: 2026-10-13 18:14+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -76,6 +76,128 @@ msgstr "Czas (min)"
 #: gsr/charts.py:32
 msgid "Save PNG"
 msgstr "Zapisz PNG"
+
+#: gsr/errors.py:63
+msgid ""
+"This is not an eSense CSV export: no header row with a MICROSIEMENS column "
+"was found in the first 80 lines."
+msgstr ""
+"To nie jest eksport CSV z eSense: w pierwszych 80 wierszach nie ma nagłówka "
+"z kolumną MICROSIEMENS."
+
+#: gsr/errors.py:66
+msgid ""
+"The file's text encoding is not supported. Save it as a UTF-8 CSV and upload "
+"it again."
+msgstr ""
+"Kodowanie tekstu pliku nie jest obsługiwane. Zapisz go jako CSV w UTF-8 i "
+"wgraj ponownie."
+
+#: gsr/errors.py:68
+msgid "The file has no time column (ZNACZNIKI CZASU or TIMESTAMP)."
+msgstr "W pliku brakuje kolumny czasu (ZNACZNIKI CZASU lub TIMESTAMP)."
+
+#: gsr/errors.py:70
+msgid "The file has no MICROSIEMENS column."
+msgstr "W pliku brakuje kolumny MICROSIEMENS."
+
+#: gsr/errors.py:72
+#, python-format
+msgid ""
+"The time goes backwards at data row %(row)s; only a midnight rollover may do "
+"that."
+msgstr ""
+"Czas cofa się w wierszu danych %(row)s; dozwolone jest to tylko przy "
+"przejściu przez północ."
+
+#: gsr/errors.py:75
+msgid "The file contains no readable signal rows."
+msgstr "Plik nie zawiera żadnych czytelnych wierszy sygnału."
+
+#: gsr/errors.py:76
+msgid "The file could not be read as an eSense CSV export."
+msgstr "Nie udało się odczytać pliku jako eksportu CSV z eSense."
+
+#: gsr/errors.py:84 gsr/templates/gsr/partials/cleaning_main.html:54
+msgid "Go to Import"
+msgstr "Przejdź do importu"
+
+#: gsr/errors.py:88 gsr/templates/gsr/partials/analysis_main.html:43
+msgid "Go to Cleaning"
+msgstr "Przejdź do czyszczenia"
+
+#: gsr/errors.py:102
+msgid ""
+"The recordings do not share a common time window, so they cannot be analysed "
+"together."
+msgstr ""
+"Nagrania nie mają wspólnego okna czasu, więc nie można ich analizować razem."
+
+#: gsr/errors.py:105
+#, python-format
+msgid ""
+"%(aliases)s does not overlap with the other recordings (their common window "
+"is %(start)s–%(end)s)."
+msgid_plural ""
+"%(aliases)s do not overlap with the other recordings (their common window is "
+"%(start)s–%(end)s)."
+msgstr[0] ""
+"%(aliases)s nie nakłada się z pozostałymi nagraniami (ich wspólne okno to "
+"%(start)s–%(end)s)."
+msgstr[1] ""
+"%(aliases)s nie nakładają się z pozostałymi nagraniami (ich wspólne okno to "
+"%(start)s–%(end)s)."
+msgstr[2] ""
+"%(aliases)s nie nakładają się z pozostałymi nagraniami (ich wspólne okno to "
+"%(start)s–%(end)s)."
+
+#: gsr/errors.py:124
+#, python-format
+msgid "Signal %(alias)s cannot be read. %(reason)s"
+msgstr "Nie można odczytać sygnału %(alias)s. %(reason)s"
+
+#: gsr/errors.py:128
+#, python-format
+msgid "The file of signal %(alias)s is missing. Upload it again."
+msgstr "Brakuje pliku sygnału %(alias)s. Wgraj go ponownie."
+
+#: gsr/errors.py:131
+#, python-format
+msgid "Signal %(alias)s has no samples in the common time window."
+msgstr "Sygnał %(alias)s nie ma próbek we wspólnym oknie czasu."
+
+#: gsr/errors.py:134
+#, python-format
+msgid ""
+"Signal %(alias)s has no samples in the selected time range. Widen the time "
+"range in the cleaning settings."
+msgstr ""
+"Sygnał %(alias)s nie ma próbek w wybranym zakresie czasu. Poszerz zakres "
+"czasu w ustawieniach czyszczenia."
+
+#: gsr/errors.py:138
+msgid "The recordings have no time points in common after synchronization."
+msgstr "Po synchronizacji nagrania nie mają wspólnych punktów czasu."
+
+#: gsr/errors.py:140
+msgid ""
+"Too few samples remain for analysis. Widen the time range in the cleaning "
+"settings."
+msgstr ""
+"Do analizy zostało za mało próbek. Poszerz zakres czasu w ustawieniach "
+"czyszczenia."
+
+#: gsr/errors.py:143
+msgid "Group analysis needs at least two signals."
+msgstr "Analiza grupowa wymaga co najmniej dwóch sygnałów."
+
+#: gsr/errors.py:145
+msgid "No signals are selected."
+msgstr "Nie wybrano żadnych sygnałów."
+
+#: gsr/errors.py:146
+msgid "Include more signals on the Cleaning step or upload more recordings."
+msgstr "Zaznacz więcej sygnałów w kroku Czyszczenie albo wgraj więcej nagrań."
 
 #: gsr/params.py:53
 msgid ""
@@ -453,6 +575,10 @@ msgstr "Próg wysoki/niski z: %(high)s/%(low)s"
 msgid "Min. participants: %(value)s"
 msgstr "Min. uczestników: %(value)s"
 
+#: gsr/services/results.py:224
+msgid "The file is missing. Upload it again."
+msgstr "Brakuje pliku. Wgraj go ponownie."
+
 #: gsr/templates/gsr/base.html:17
 msgid "Interactive GSR analyzer"
 msgstr "Interaktywny analizator GSR"
@@ -504,18 +630,9 @@ msgstr ""
 "Zastosowanie ustawień ponownie uruchamia analizę: jedno uruchomienie liczy "
 "synchronizację i ko-pobudzenie z ustawieniami czyszczenia z kroku 2."
 
-#: gsr/templates/gsr/partials/analysis_main.html:41
-#: gsr/templates/gsr/partials/cleaning_main.html:50
-msgid "Error"
-msgstr "Błąd"
-
 #: gsr/templates/gsr/partials/analysis_main.html:43
 msgid "Select at least two signals to compute synchronization."
 msgstr "Wybierz co najmniej dwa sygnały, aby policzyć synchronizację."
-
-#: gsr/templates/gsr/partials/analysis_main.html:43
-msgid "Go to Cleaning"
-msgstr "Przejdź do czyszczenia"
 
 #: gsr/templates/gsr/partials/analysis_main.html:47
 msgid "Analysis results"
@@ -550,7 +667,7 @@ msgstr "ustawienia bez zmian"
 msgid "No results for this step yet. Set the parameters and run the analysis."
 msgstr "Brak wyników dla tego kroku. Ustaw parametry i uruchom analizę."
 
-#: gsr/templates/gsr/partials/analysis_main.html:60 gsr/tests/test_views.py:580
+#: gsr/templates/gsr/partials/analysis_main.html:60 gsr/tests/test_views.py:693
 msgid "Run analysis"
 msgstr "Uruchom analizę"
 
@@ -615,7 +732,7 @@ msgstr ""
 #: gsr/templates/gsr/partials/analysis_main.html:96
 #: gsr/templates/gsr/partials/analysis_main.html:200
 #: gsr/templates/gsr/partials/analysis_main.html:227
-#: gsr/templates/gsr/partials/upload_overview.html:28
+#: gsr/templates/gsr/partials/upload_overview.html:36
 msgid "Duration"
 msgstr "Czas trwania"
 
@@ -887,10 +1004,6 @@ msgstr "Zastosowanie ustawień przelicza podgląd; może to potrwać kilka sekun
 msgid "Upload recordings first."
 msgstr "Najpierw wgraj nagrania."
 
-#: gsr/templates/gsr/partials/cleaning_main.html:54
-msgid "Go to Import"
-msgstr "Przejdź do importu"
-
 #: gsr/templates/gsr/partials/cleaning_main.html:60
 msgid "Cleaning and synchronizing the recordings…"
 msgstr "Czyszczenie i synchronizacja nagrań…"
@@ -926,8 +1039,8 @@ msgstr ""
 
 #: gsr/templates/gsr/partials/cleaning_main.html:96
 #: gsr/templates/gsr/partials/cleaning_main.html:97
-#: gsr/templates/gsr/partials/upload_overview.html:58
-#: gsr/templates/gsr/partials/upload_overview.html:59
+#: gsr/templates/gsr/partials/upload_overview.html:66
+#: gsr/templates/gsr/partials/upload_overview.html:67
 msgid "Signal overlay"
 msgstr "Nałożenie sygnałów"
 
@@ -1003,6 +1116,16 @@ msgstr "Pobierz oczyszczony CSV"
 #: gsr/templates/gsr/partials/cleaning_main.html:150
 msgid "Next: Analysis"
 msgstr "Dalej: Analiza"
+
+#: gsr/templates/gsr/partials/error.html:2
+msgid "Error"
+msgstr "Błąd"
+
+#: gsr/templates/gsr/partials/error.html:13
+#: gsr/templates/gsr/partials/upload_overview.html:26
+#, python-format
+msgid "Exclude %(alias)s"
+msgstr "Wyklucz %(alias)s"
 
 #: gsr/templates/gsr/partials/export_main.html:5
 msgid "4. Export"
@@ -1170,7 +1293,7 @@ msgstr "Sygnały w projekcie"
 
 #: gsr/templates/gsr/partials/upload_main.html:20
 #: gsr/templates/gsr/partials/upload_main.html:36
-#: gsr/templates/gsr/partials/upload_overview.html:28
+#: gsr/templates/gsr/partials/upload_overview.html:36
 msgid "Alias"
 msgstr "Alias"
 
@@ -1179,12 +1302,12 @@ msgid "File"
 msgstr "Plik"
 
 #: gsr/templates/gsr/partials/upload_main.html:22
-#: gsr/templates/gsr/partials/upload_overview.html:28
+#: gsr/templates/gsr/partials/upload_overview.html:36
 msgid "Start"
 msgstr "Start"
 
 #: gsr/templates/gsr/partials/upload_main.html:23
-#: gsr/templates/gsr/partials/upload_overview.html:28
+#: gsr/templates/gsr/partials/upload_overview.html:36
 msgid "End"
 msgstr "Koniec"
 
@@ -1201,7 +1324,7 @@ msgstr "Status"
 msgid "Save"
 msgstr "Zapisz"
 
-#: gsr/templates/gsr/partials/upload_main.html:47 gsr/tests/test_views.py:581
+#: gsr/templates/gsr/partials/upload_main.html:47 gsr/tests/test_views.py:694
 #, python-format
 msgid "%(counter)s Excel fix"
 msgid_plural "%(counter)s Excel fixes"
@@ -1244,7 +1367,12 @@ msgstr "Odczytywanie nagrań…"
 msgid "Show recording ranges"
 msgstr "Pokaż zakresy nagrań"
 
-#: gsr/templates/gsr/partials/upload_main.html:83
+#: gsr/templates/gsr/partials/upload_main.html:84
+msgid "Exclude or delete the recording that does not overlap."
+msgstr "Wyklucz lub usuń nagranie, które się nie nakłada."
+
+#: gsr/templates/gsr/partials/upload_main.html:85
+#: gsr/templates/gsr/partials/upload_main.html:87
 msgid "Next: Cleaning"
 msgstr "Dalej: Czyszczenie"
 
@@ -1263,26 +1391,21 @@ msgstr ""
 msgid "Common window"
 msgstr "Wspólne okno"
 
+#: gsr/templates/gsr/partials/upload_overview.html:12
+msgid "excluded"
+msgstr "wykluczony"
+
 #: gsr/templates/gsr/partials/upload_overview.html:19
 #, python-format
 msgid "Common window %(start)s–%(end)s · %(duration)s min"
 msgstr "Wspólne okno %(start)s–%(end)s · %(duration)s min"
 
-#: gsr/templates/gsr/partials/upload_overview.html:21
-msgid ""
-"The recordings do not share an absolute-time window. Group analysis requires "
-"recordings from the same time window; remove or replace the file that does "
-"not overlap."
-msgstr ""
-"Nagrania nie mają wspólnego okna czasu absolutnego. Analiza grupowa wymaga "
-"nagrań z tego samego okresu; usuń lub zastąp plik, który się nie nakłada."
-
-#: gsr/templates/gsr/partials/upload_overview.html:46
-#: gsr/templates/gsr/partials/upload_overview.html:52
+#: gsr/templates/gsr/partials/upload_overview.html:54
+#: gsr/templates/gsr/partials/upload_overview.html:60
 msgid "RAW signals (import)"
 msgstr "Sygnały RAW (import)"
 
-#: gsr/templates/gsr/partials/upload_overview.html:47
+#: gsr/templates/gsr/partials/upload_overview.html:55
 msgid ""
 "Raw GSR data (skin conductance in µS) read directly from CSV files. X-axis "
 "shows the original recording time. Proceed to Cleaning to synchronize "
@@ -1341,62 +1464,67 @@ msgstr "Czy na pewno usunąć projekt?"
 msgid "No saved projects yet. Create one to get started."
 msgstr "Brak zapisanych projektów. Utwórz pierwszy projekt, aby zacząć."
 
-#: gsr/views.py:68
+#: gsr/views.py:70
 msgid "Import"
 msgstr "Import"
 
-#: gsr/views.py:68
+#: gsr/views.py:70
 msgid "Cleaning"
 msgstr "Czyszczenie"
 
-#: gsr/views.py:68
+#: gsr/views.py:70
 msgid "Analysis"
 msgstr "Analiza"
 
-#: gsr/views.py:68
+#: gsr/views.py:70
 msgid "Export"
 msgstr "Eksport"
 
-#: gsr/views.py:108
+#: gsr/views.py:110
 msgid "Project name is required."
 msgstr "Nazwa projektu jest wymagana."
 
-#: gsr/views.py:110
+#: gsr/views.py:112
 msgid "Project name cannot exceed 200 characters."
 msgstr "Nazwa projektu nie może przekraczać 200 znaków."
 
-#: gsr/views.py:128
+#: gsr/views.py:130
 msgid "Project name is required (up to 200 characters)."
 msgstr "Nazwa projektu jest wymagana (do 200 znaków)."
 
-#: gsr/views.py:133
+#: gsr/views.py:135
 msgid "Project details saved."
 msgstr "Zapisano dane projektu."
 
-#: gsr/views.py:141
+#: gsr/views.py:143
 msgid "Project deleted."
 msgstr "Projekt usunięty."
 
-#: gsr/views.py:153
+#: gsr/views.py:155
 msgid "Choose at least one CSV file."
 msgstr "Wybierz co najmniej jeden plik CSV."
 
-#: gsr/views.py:160
+#: gsr/views.py:162
 #, python-format
 msgid "Uploaded %(file)s as %(alias)s."
 msgstr "Wgrano %(file)s jako %(alias)s."
 
-#: gsr/views.py:200
+#: gsr/views.py:218
 #, python-format
 msgid "Alias already exists in project: %(alias)s"
 msgstr "Alias już istnieje w projekcie: %(alias)s"
 
-#: gsr/views.py:206
+#: gsr/views.py:224
 #, python-format
 msgid "Signal renamed to %(alias)s."
 msgstr "Zmieniono nazwę sygnału na %(alias)s."
 
-#: gsr/views.py:216
+#: gsr/views.py:237
+#, python-format
+msgid "Signal %(alias)s excluded from cleaning and analysis."
+msgstr "Sygnał %(alias)s wykluczono z czyszczenia i analizy."
+
+#: gsr/views.py:260
 #, python-format
 msgid "Signal %(alias)s deleted."
 msgstr "Usunięto sygnał %(alias)s."

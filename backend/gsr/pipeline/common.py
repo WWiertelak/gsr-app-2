@@ -6,7 +6,18 @@ import numpy as np
 
 
 class PipelineError(ValueError):
-    pass
+    """A pipeline failure; ``code``, ``alias`` and ``details`` let the UI explain it to a person.
+
+    The message text matches GSRv2. ``details`` holds code-specific data, e.g. the
+    recorded ``ranges`` ({alias: (start, end)}) for ``no_overlap``.
+    """
+
+    def __init__(self, message: str, *, code: str | None = None, alias: str | None = None,
+                 details: dict | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.alias = alias
+        self.details = details or {}
 
 
 def _estimate_step_seconds(time_minutes: np.ndarray) -> float:
