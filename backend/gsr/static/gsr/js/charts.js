@@ -369,7 +369,7 @@
       animation: false,
       toolbox: toolbox(labels, opts),
       tooltip: { trigger: "axis", valueFormatter: fixed(4) },
-      legend: { type: "scroll", top: 4, left: 10, right: 60 },
+      legend: { type: "scroll", top: 4, left: 10, width: "80%" },
       grid: { left: 54, right: 22, top: 58, bottom: 40 },
       xAxis: minutesAxis(labels),
       yAxis: yAxis,
