@@ -44,7 +44,7 @@ authentication before hosting the app for more than one person.
   stored last results per screen (`results`), exports (`exports`).
 - `backend/gsr/views.py`, `backend/gsr/templates/gsr/`, `backend/gsr/static/gsr/` - UI screens;
   `static/gsr/js/charts.js` holds the ECharts option builders ported from GSRv2,
-  `static/gsr/vendor/` the pinned htmx and ECharts builds.
+  `static/gsr/vendor/` the pinned htmx and ECharts builds and the IBM Plex web fonts (`fonts/`, SIL OFL).
 - `backend/gsr/reporting/` - PDF report (HTML template converted to PDF by WeasyPrint, bundled DejaVu fonts) and its methodology text.
 - `backend/gsr/locale/pl/` - Polish UI strings. After changing UI text run
   `python manage.py makemessages -l pl --no-obsolete --ignore=.venv --ignore=staticfiles`, translate,
