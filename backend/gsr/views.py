@@ -65,7 +65,7 @@ def _current_values(project: Project) -> dict[str, Any]:
 
 
 def _steps(project: Project, current: str) -> list[dict[str, Any]]:
-    labels = {"upload": _("Upload"), "cleaning": _("Cleaning"), "analysis": _("Analysis"), "export": _("Export")}
+    labels = {"upload": _("Import"), "cleaning": _("Cleaning"), "analysis": _("Analysis"), "export": _("Export")}
     cleaning = get_result(project, AnalysisResult.KIND_CLEANING)
     analysis = get_result(project, AnalysisResult.KIND_ANALYSIS)
     done = {

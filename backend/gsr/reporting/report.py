@@ -78,8 +78,8 @@ _TR: dict[str, dict[str, str]] = {
         "alignment_mode": "Tryb wyrównania",
         "alignment_range": "Wspólny czas absolutny",
         "alignment_duration": "Wspólny czas (s)",
-        "start_raw": "Start RAW",
-        "end_raw": "End RAW",
+        "start_raw": "Początek RAW",
+        "end_raw": "Koniec RAW",
         "clean_points": "Pkt. CLEAN",
         "signal_stats_raw": "Statystyki sygnału RAW (µS, przed filtrami)",
         "signal_stats_clean": "Statystyki sygnału CLEAN (µS, po filtrach)",
@@ -204,6 +204,12 @@ _TR: dict[str, dict[str, str]] = {
         "appendix_files": "Pliki wejściowe",
         "package": "Pakiet",
         "version": "Wersja",
+        # setting values
+        "yes": "tak",
+        "no": "nie",
+        "enum_absolute": "czas absolutny",
+        "enum_circular": "przesunięcie kołowe",
+        "enum_phase": "randomizacja fazy",
     },
     "en": {
         "report_title": "GSR Analysis Report",
@@ -256,8 +262,8 @@ _TR: dict[str, dict[str, str]] = {
         "alignment_mode": "Alignment mode",
         "alignment_range": "Shared absolute time",
         "alignment_duration": "Shared duration (s)",
-        "start_raw": "Start RAW",
-        "end_raw": "End RAW",
+        "start_raw": "RAW start",
+        "end_raw": "RAW end",
         "clean_points": "CLEAN pts.",
         "signal_stats_raw": "RAW signal statistics (µS, before filters)",
         "signal_stats_clean": "CLEAN signal statistics (µS, after filters)",
@@ -382,6 +388,12 @@ _TR: dict[str, dict[str, str]] = {
         "appendix_files": "Input files",
         "package": "Package",
         "version": "Version",
+        # setting values
+        "yes": "yes",
+        "no": "no",
+        "enum_absolute": "absolute time",
+        "enum_circular": "circular shift",
+        "enum_phase": "phase randomization",
     },
 }
 
@@ -436,6 +448,15 @@ def _fmt(value: Any) -> str:
             return ", ".join(_fmt(v) for v in value)
         return f"[{len(value)} items]"
     return str(value)
+
+
+def _setting(lang: str, value: Any) -> str:
+    """A setting value in the report language: booleans as yes/no, known enum values by their label."""
+    if isinstance(value, bool):
+        return _tr(lang, "yes" if value else "no")
+    if isinstance(value, str) and f"enum_{value}" in _TR[lang]:
+        return _tr(lang, f"enum_{value}")
+    return _fmt(value)
 
 
 def _fmt_min(value: Any) -> str:
@@ -641,7 +662,7 @@ def _section_cleaning(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     ]
     blocks: list[dict[str, Any]] = [
         _h2(_tr(lang, "cleaning_params")),
-        _kv_table(lang, [[label, _fmt(value)] for label, value in mapping]),
+        _kv_table(lang, [[label, _setting(lang, value)] for label, value in mapping]),
         _h2(_tr(lang, "sync_heading")),
         _table(
             [_tr(lang, key) for key in ("alias", "start_raw", "end_raw", "raw_points", "clean_points")],
@@ -706,10 +727,10 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
         [_tr(lang, "sync_mean"), _fmt(stats.get("mean_synchrony"))],
         [_tr(lang, "sync_episode_count"), _fmt(stats.get("episode_count"))],
         [_tr(lang, "sync_cluster_count"), _fmt(stats.get("cluster_count"))],
-        [_tr(lang, "sync_mode"), _fmt(config.get("synchrony_signed"))],
-        [_tr(lang, "sync_surrogate_enabled"), _fmt(config.get("synchrony_surrogate_enabled"))],
+        [_tr(lang, "sync_mode"), _setting(lang, config.get("synchrony_signed"))],
+        [_tr(lang, "sync_surrogate_enabled"), _setting(lang, config.get("synchrony_surrogate_enabled"))],
         [_tr(lang, "sync_surrogate_method"),
-         _fmt(stats.get("surrogate_method") or config.get("synchrony_surrogate_method"))],
+         _setting(lang, stats.get("surrogate_method") or config.get("synchrony_surrogate_method"))],
         [_tr(lang, "sync_surrogate_count"),
          _fmt(stats.get("surrogate_count") or config.get("synchrony_surrogate_count"))],
         [_tr(lang, "sync_surrogate_seed"), _fmt(config.get("synchrony_surrogate_seed"))],

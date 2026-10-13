@@ -51,7 +51,7 @@
 
     {% if not datasets %}
       <section class="card">
-        <p>{% translate "Upload recordings first." %} <a href="{% url 'gsr:upload' project.pk %}">{% translate "Go to Upload" %}</a></p>
+        <p>{% translate "Upload recordings first." %} <a href="{% url 'gsr:upload' project.pk %}">{% translate "Go to Import" %}</a></p>
       </section>
     {% elif not result %}
       <section class="card">

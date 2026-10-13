@@ -36,6 +36,14 @@ def input_value(value: Any) -> str:
 
 
 @register.filter
+def choice_label(value: Any, name: str) -> Any:
+    """``{{ value|choice_label:"synchrony_surrogate_method" }}``: the translated label of a choice setting."""
+    from ..params import choice_label as label  # params imports this module
+
+    return label(name, value)
+
+
+@register.filter
 def get_item(mapping: Any, key: Any) -> Any:
     try:
         return mapping.get(key)

@@ -73,7 +73,7 @@
             <div class="stat">
               <div class="label">{% translate "Whole-group test" %}</div>
               <div class="value">{% if synchrony.stats.mean_synchrony_p_value is not None %}p={{ synchrony.stats.mean_synchrony_p_value|floatformat:3 }}{% if synchrony.stats.mean_synchrony_p_value < 0.05 %} *{% endif %}{% else %}—{% endif %}</div>
-              {% if synchrony.stats.surrogate_method %}<div class="sub">{{ synchrony.stats.surrogate_method }} · N={{ synchrony.stats.surrogate_count }}</div>{% endif %}
+              {% if synchrony.stats.surrogate_method %}<div class="sub">{{ synchrony.stats.surrogate_method|choice_label:"synchrony_surrogate_method" }} · N={{ synchrony.stats.surrogate_count }}</div>{% endif %}
             </div>
             <div class="stat"><div class="label">{% translate "Episode count" %}</div><div class="value">{{ synchrony.stats.episode_count }}</div></div>
             <div class="stat"><div class="label">{% translate "Cluster count" %}</div><div class="value">{{ synchrony.stats.cluster_count }}</div></div>

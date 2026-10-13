@@ -25,11 +25,34 @@
     return SCIENTIFIC_PALETTE[((index % SCIENTIFIC_PALETTE.length) + SCIENTIFIC_PALETTE.length) % SCIENTIFIC_PALETTE.length];
   }
 
+  // Numbers in the page language (document <html lang>), so PL charts show "0,57" like the tables.
+  var numberFormats = {};
+
+  function formatNumber(value, digits) {
+    if (typeof value !== "number" || !isFinite(value)) {
+      return "";
+    }
+    var key = digits === undefined ? "auto" : String(digits);
+    if (!numberFormats[key]) {
+      var options = digits === undefined
+        ? { maximumFractionDigits: 6, useGrouping: false }
+        : { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false };
+      try {
+        numberFormats[key] = new Intl.NumberFormat(document.documentElement.lang || undefined, options);
+      } catch (error) {
+        numberFormats[key] = new Intl.NumberFormat(undefined, options);
+      }
+    }
+    return numberFormats[key].format(value);
+  }
+
   function fixed(digits) {
     return function (value) {
-      return typeof value === "number" ? value.toFixed(digits) : "";
+      return formatNumber(value, digits);
     };
   }
+
+  var LOCALE_AXIS_LABEL = Object.assign({}, AXIS_LABEL, { formatter: fixed() });
 
   function escapeHtml(value) {
     return String(value)
@@ -60,7 +83,7 @@
 
   function valueAxis(extra) {
     return Object.assign(
-      { type: "value", axisLine: AXIS_LINE, axisLabel: AXIS_LABEL, splitLine: SPLIT_LINE, nameTextStyle: NAME_STYLE },
+      { type: "value", axisLine: AXIS_LINE, axisLabel: LOCALE_AXIS_LABEL, splitLine: SPLIT_LINE, nameTextStyle: NAME_STYLE },
       extra || {}
     );
   }
@@ -272,9 +295,9 @@
       tooltip: { trigger: "axis", valueFormatter: fixed(3) },
       legend: { type: "scroll", top: 6, left: 10, right: 60, textStyle: { color: "#486581" } },
       grid: { left: 52, right: 46, top: 44, bottom: 48 },
-      xAxis: { type: "value", name: labels.minutes || "min", nameLocation: "middle", nameGap: 28, splitLine: SPLIT_LINE },
+      xAxis: { type: "value", name: labels.minutes || "min", nameLocation: "middle", nameGap: 28, axisLabel: { formatter: fixed() }, splitLine: SPLIT_LINE },
       yAxis: [
-        { type: "value", min: -1, max: 1, splitLine: SPLIT_LINE },
+        { type: "value", min: -1, max: 1, axisLabel: { formatter: fixed() }, splitLine: SPLIT_LINE },
         {
           type: "value",
           min: 0,
@@ -315,8 +338,8 @@
       tooltip: { trigger: "axis", valueFormatter: fixed(4) },
       legend: { type: "scroll", top: 6, left: 10, right: 60, textStyle: { color: "#486581" } },
       grid: { left: 52, right: 22, top: 60, bottom: 48 },
-      xAxis: { type: "value", name: labels.minutes || "min", nameLocation: "middle", nameGap: 28, splitLine: SPLIT_LINE },
-      yAxis: { type: "value", name: labels.scaled, splitLine: SPLIT_LINE },
+      xAxis: { type: "value", name: labels.minutes || "min", nameLocation: "middle", nameGap: 28, axisLabel: { formatter: fixed() }, splitLine: SPLIT_LINE },
+      yAxis: { type: "value", name: labels.scaled, axisLabel: { formatter: fixed() }, splitLine: SPLIT_LINE },
       series: series
     };
   }
@@ -338,7 +361,7 @@
         position: "top",
         formatter: function (params) {
           var value = params && Array.isArray(params.value) ? params.value[2] : undefined;
-          return typeof value === "number" ? value.toFixed(3) : "";
+          return formatNumber(value, 3);
         }
       },
       grid: { left: 92, right: 20, top: 24, bottom: 118 },
@@ -348,6 +371,7 @@
         min: -1,
         max: 1,
         calculable: true,
+        formatter: fixed(2),
         orient: "horizontal",
         left: "center",
         bottom: 14,
@@ -361,7 +385,7 @@
             show: true,
             color: "#13315c",
             formatter: function (params) {
-              return Array.isArray(params.value) && typeof params.value[2] === "number" ? params.value[2].toFixed(2) : "";
+              return Array.isArray(params.value) ? formatNumber(params.value[2], 2) : "";
             }
           }
         }
@@ -397,8 +421,8 @@
           }
           var time = times[value[0]];
           return (
-            escapeHtml(aliases[value[1]]) + " · " + (typeof time === "number" ? time.toFixed(1) : "") + " min<br/>" +
-            escapeHtml(labels.state || "") + ": " + Number(value[2]).toFixed(2)
+            escapeHtml(aliases[value[1]]) + " · " + formatNumber(time, 1) + " min<br/>" +
+            escapeHtml(labels.state || "") + ": " + formatNumber(Number(value[2]), 2)
           );
         }
       },
@@ -406,7 +430,7 @@
       xAxis: {
         type: "category",
         data: times.map(function (value) {
-          return value.toFixed(0);
+          return formatNumber(value, 0);
         }),
         name: labels.timeMin,
         nameLocation: "middle",
@@ -419,6 +443,7 @@
         min: -1,
         max: 1,
         calculable: true,
+        formatter: fixed(2),
         orient: "horizontal",
         left: "center",
         bottom: 4,

@@ -367,6 +367,27 @@ def test_analysis_settings_are_collapsed_with_run_and_apply_buttons(client, proj
 
 
 @pytest.mark.django_db
+def test_polish_screens_use_polish_numbers_and_labels(client, project) -> None:
+    project.pipeline_config = {**project.pipeline_config, "time_range_to": 2.5}
+    project.save()
+    form = _settings_form(client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode())
+    assert "Okno: …–2,5 min" in form
+    form = _settings_form(client.get(reverse("gsr:analysis", args=[project.pk])).content.decode())
+    assert "Próg: 0,6" in form and "Próg wysoki/niski z: 1/-1" in form
+    # The input fields keep dot decimals: that is what <input type="number"> accepts.
+    assert 'name="synchrony_threshold" step="any" value="0.6"' in form
+    fragment = _run_analysis(client, project).content.decode()
+    assert "przesunięcie kołowe · N=20" in fragment and ">circular" not in fragment
+
+
+@pytest.mark.django_db
+def test_upload_step_is_called_import_in_both_languages(client, project) -> None:
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    assert "1. Import" in page and "Upload</a>" not in page
+
+
+@pytest.mark.django_db
 def test_analysis_results_equal_the_analysis_service(client, project) -> None:
     _run_analysis(client, project)
     stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
