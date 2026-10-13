@@ -11,6 +11,8 @@ from typing import Any
 
 from django.utils.translation import gettext as _
 
+from .services.results import FALLBACK_SIGNAL_COLOR
+
 
 def chart_labels() -> dict[str, str]:
     """Translated strings the chart builders show (series names, axis names, legends)."""
@@ -50,7 +52,7 @@ def cleaning_charts(preview: dict[str, Any], colors: dict[str, str], config: dic
     window = {"from": config.get("time_range_from"), "to": config.get("time_range_to")}
     per_signal = []
     for entry in preview.get("datasets", []):
-        color = colors.get(entry["alias"], "#005f73")
+        color = colors.get(entry["alias"], FALLBACK_SIGNAL_COLOR)
         per_signal.append(
             {
                 "alias": entry["alias"],
@@ -70,7 +72,7 @@ def cleaning_charts(preview: dict[str, Any], colors: dict[str, str], config: dic
 
 def raw_overlay_from_preview(preview: dict[str, Any], colors: dict[str, str]) -> dict[str, Any]:
     series = [
-        {"alias": entry["alias"], "color": colors.get(entry["alias"], "#005f73"), "points": _points(entry["raw"])}
+        {"alias": entry["alias"], "color": colors.get(entry["alias"], FALLBACK_SIGNAL_COLOR), "points": _points(entry["raw"])}
         for entry in preview.get("datasets", [])
     ]
     return overlay(series, axis="time")
@@ -78,7 +80,7 @@ def raw_overlay_from_preview(preview: dict[str, Any], colors: dict[str, str]) ->
 
 def clean_overlay_from_preview(preview: dict[str, Any], colors: dict[str, str], config: dict[str, Any]) -> dict[str, Any]:
     series = [
-        {"alias": entry["alias"], "color": colors.get(entry["alias"], "#005f73"), "points": _points(entry["clean"])}
+        {"alias": entry["alias"], "color": colors.get(entry["alias"], FALLBACK_SIGNAL_COLOR), "points": _points(entry["clean"])}
         for entry in preview.get("datasets", [])
     ]
     return overlay(series, window={"from": config.get("time_range_from"), "to": config.get("time_range_to")})
@@ -106,7 +108,7 @@ def sync_timeline(synchrony: dict[str, Any]) -> dict[str, Any]:
 def sync_signals(synchrony: dict[str, Any], preview: dict[str, Any], colors: dict[str, str]) -> dict[str, Any]:
     aliases = set(synchrony.get("aliases", []))
     series = [
-        {"alias": entry["alias"], "color": colors.get(entry["alias"], "#005f73"), "points": _points(entry["scaled"])}
+        {"alias": entry["alias"], "color": colors.get(entry["alias"], FALLBACK_SIGNAL_COLOR), "points": _points(entry["scaled"])}
         for entry in preview.get("datasets", [])
         if entry["alias"] in aliases
     ]

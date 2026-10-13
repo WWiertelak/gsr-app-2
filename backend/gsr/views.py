@@ -31,6 +31,7 @@ from .services import exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
 from .services.results import (
+    FALLBACK_SIGNAL_COLOR,
     compute_analysis,
     compute_cleaning,
     get_result,
@@ -253,7 +254,7 @@ def _cleaning_context(project: Project, error: str | None = None) -> dict[str, A
         context["alignment"] = preview["alignment"]
         context["preview_range"] = preview["range"]
         context["quality_rows"] = [
-            {**row, "color": colors.get(row["alias"], "#005f73")} for row in preview["cleaning_summary"]["per_alias"]
+            {**row, "color": colors.get(row["alias"], FALLBACK_SIGNAL_COLOR)} for row in preview["cleaning_summary"]["per_alias"]
         ]
     return context
 
