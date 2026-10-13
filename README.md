@@ -9,20 +9,20 @@ GSR_APP 2.0 - GSR sensor data upload, cleaning, joint synchronization and co-aro
 2. Get the code: `git clone https://github.com/WWiertelak/gsr-app-2.git && cd gsr-app-2`
 3. Start the app: `docker compose up -d --build` (the first build takes a few minutes).
    No configuration file is needed.
-4. Open <http://localhost:8000/> in your browser.
+4. Open <http://localhost:8017/> in your browser.
 
 To stop it, run `docker compose down`. Your projects and uploaded files are kept.
 
 ### Log in to the admin
 
-The admin panel is at <http://localhost:8000/admin/>. Create an admin account once:
+The admin panel is at <http://localhost:8017/admin/>. Create an admin account once:
 
 ```bash
 docker compose exec app python manage.py createsuperuser
 ```
 
 Enter a username, an optional email and a password when asked, then log in at
-<http://localhost:8000/admin/> with that username and password.
+<http://localhost:8017/admin/> with that username and password.
 
 The processing pipeline is extracted from GSRv2 with unchanged results; the
 segment-based analysis was dropped. See [docs/research-gsrv2.md](docs/research-gsrv2.md)
@@ -54,12 +54,12 @@ authentication before hosting the app for more than one person.
 ## Run with Docker
 
 The app runs as one container: on start it applies migrations, then serves Django with
-gunicorn on port 8000. The SQLite database (`/data/db.sqlite3`), uploaded files
-(`/data/storage`) and the generated secret key (`/data/secret_key`) live on the `gsr_data`
-volume, so they survive restarts and rebuilds.
+gunicorn on container port 8000, published on host port 8017. The SQLite database
+(`/data/db.sqlite3`), uploaded files (`/data/storage`) and the generated secret key
+(`/data/secret_key`) live on the `gsr_data` volume, so they survive restarts and rebuilds.
 
 ```bash
-docker compose up -d --build    # UI at http://localhost:8000/ (admin at /admin/)
+docker compose up -d --build    # UI at http://localhost:8017/ (admin at /admin/)
 docker compose logs -f app
 
 # Create an admin user / run the CLI analysis inside the container:
@@ -75,7 +75,7 @@ docker compose down             # keeps data; add -v to delete the gsr_data volu
 ```
 
 Without compose: `docker build -t gsr-app-2 backend` and
-`docker run --env-file .env.example -p 127.0.0.1:8000:8000 -v gsr_data:/data gsr-app-2`.
+`docker run --env-file .env.example -p 127.0.0.1:8017:8000 -v gsr_data:/data gsr-app-2`.
 
 ### Environment variables
 
@@ -96,7 +96,7 @@ least `ALLOWED_HOSTS` and, behind TLS, the `SECURE_*` settings.
 | `MAX_DATASETS` | `20` | Datasets per analysis |
 | `SQLITE_PATH` | `/data/db.sqlite3` in the image | SQLite database file |
 | `STORAGE_ROOT` | `/data/storage` in the image | Uploaded file storage |
-| `APP_PORT` | `8000` | Host port (compose only, bound to 127.0.0.1) |
+| `APP_PORT` | `8017` | Host port (compose only, bound to 127.0.0.1) |
 | `GUNICORN_WORKERS` | `2` | gunicorn worker count |
 | `GUNICORN_TIMEOUT` | `300` | gunicorn worker timeout in seconds |
 
