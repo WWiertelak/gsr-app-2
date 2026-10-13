@@ -295,15 +295,12 @@ def _relative_luminance(hex_color: str) -> float:
 def test_participant_palette_is_readable_and_avoids_reserved_colours() -> None:
     from django.template.loader import render_to_string
 
-    from gsr.services.results import PARTICIPANT_PALETTE
+    from gsr.services.results import PARTICIPANT_PALETTE, RESERVED_SCIENCE_COLORS
 
-    css = (Path(__file__).resolve().parents[1] / "static/gsr/css/app.css").read_text()
-    reserved = {
-        name: css.split(f"--{name}:", 1)[1].split(";", 1)[0].strip().lower() for name in ("high", "low", "comove")
-    }
     assert len(set(PARTICIPANT_PALETTE)) == len(PARTICIPANT_PALETTE) == 8
-    assert not set(reserved.values()) & {color.lower() for color in PARTICIPANT_PALETTE}
-    for color in PARTICIPANT_PALETTE:
+    assert len(set(RESERVED_SCIENCE_COLORS.values())) == len(RESERVED_SCIENCE_COLORS)
+    assert not set(RESERVED_SCIENCE_COLORS.values()) & set(PARTICIPANT_PALETTE)
+    for color in (*PARTICIPANT_PALETTE, *RESERVED_SCIENCE_COLORS.values()):
         # Non-text contrast (WCAG 1.4.11): lines and dots need 3:1 on the white chart background.
         assert 1.05 / (_relative_luminance(color) + 0.05) >= 3.0, color
     for direction, css_class in (("High", "high"), ("Low", "low"), ("Co-movement", "comove")):

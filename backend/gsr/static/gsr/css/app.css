@@ -28,8 +28,8 @@
   --r-sm: 6px; --r-md: 10px; --shadow-pop: 0 8px 28px rgba(20, 33, 43, 0.14);
   --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-  /* Science semantics, reserved: never a participant colour (services/results.py PARTICIPANT_PALETTE). */
-  --high: #b2182b; --low: #2166ac; --comove: #3f4b57; --episode: rgba(20, 33, 43, 0.07);
+  /* Science semantics, reserved: never a participant colour (services/results.py RESERVED_SCIENCE_COLORS). */
+  --high: #b2182b; --low: #2166ac; --comove: #3f4b57; --threshold: #b45309; --episode: rgba(20, 33, 43, 0.07);
 }
 
 * { box-sizing: border-box; }

@@ -15,14 +15,15 @@
   var SPLIT_LINE = { lineStyle: { color: "#dce8f0" } };
   var NAME_STYLE = { color: "#486581", fontWeight: 500 };
   var BACKGROUND = "#f8fcfb";
-  // Reserved science colours (app.css --high/--low/--comove/--episode); participant
-  // colours come from services/results.py PARTICIPANT_PALETTE and never use these.
+  // Reserved science colours (services/results.py RESERVED_SCIENCE_COLORS, app.css
+  // --high/--low/--comove/--threshold/--episode); participant colours come from
+  // PARTICIPANT_PALETTE and never use these.
   var HIGH = "#b2182b";
   var LOW = "#2166ac";
   var NEUTRAL_STATE = "#f7f7f7";
   var COMOVE = "#3f4b57";
   var GROUP_MEAN = "#0b6e74";
-  var THRESHOLD = "#4a5a68";
+  var THRESHOLD = "#b45309";
   var REJECTED = "#b42318";
   var EPISODE_AREA_COLOR = "rgba(20,33,43,0.07)";
   var EPISODE_LABEL_COLOR = "#4a5a68";
