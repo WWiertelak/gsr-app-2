@@ -34,7 +34,7 @@
     if (!option) {
       return;
     }
-    var chart = window.echarts.init(element);
+    var chart = window.echarts.init(element, window.GSRCharts.theme);
     chart.setOption(option);
     element._gsrChart = chart;
   }
@@ -181,7 +181,7 @@
       if (!option) {
         return;
       }
-      var chart = window.echarts.init(element, null, { renderer: "canvas" });
+      var chart = window.echarts.init(element, window.GSRCharts.theme, { renderer: "canvas" });
       chart.setOption(option);
       images[element.dataset.key] = chart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#ffffff" });
       chart.dispose();

@@ -701,6 +701,15 @@ def test_polish_catalog_is_compiled() -> None:
         )
 
 
+def test_chart_labels_translate_clip_marker() -> None:
+    from gsr.charts import chart_labels
+
+    with translation.override("pl"):
+        assert chart_labels()["clipped"] == "przycięty (poza skalą)"
+    with translation.override("en"):
+        assert chart_labels()["clipped"] == "clipped (off scale)"
+
+
 # ─── Settings form parsing ───────────────────────────────────────────────────
 
 
