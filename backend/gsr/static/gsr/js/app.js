@@ -313,8 +313,9 @@
     });
   });
 
-  // Before a swap: remember the drawer's scroll position, open sections and, unless the drawer's own form made the
-  // request (Apply or Reset), its unapplied edits, so they can be put back on the refreshed drawer.
+  // Before a swap: remember the drawer's scroll position, open sections and unapplied edits, so they can be put back
+  // on the refreshed drawer. Edits sent by the drawer's own form (Apply or Reset) are put back only when that run
+  // failed (the refreshed drawer carries data-autoopen), so the user still sees what they changed.
   function snapshotDrawer(source) {
     var form = drawerForm();
     if (!form) {
@@ -323,11 +324,12 @@
     var body = form.querySelector(".drawer-body");
     var fromDrawer = !!source && form.contains(source);
     return {
+      fromDrawer: fromDrawer,
       scroll: body ? body.scrollTop : 0,
       details: Array.prototype.map.call(form.querySelectorAll("details[open][id]"), function (details) {
         return details.id;
       }),
-      edits: fromDrawer ? [] : Array.prototype.filter.call(editableFields(form), isEdited).map(function (input) {
+      edits: Array.prototype.filter.call(editableFields(form), isEdited).map(function (input) {
         return { name: input.name, value: input.value, checked: input.checked, type: input.type };
       })
     };
@@ -344,7 +346,8 @@
         details.open = true;
       }
     });
-    snapshot.edits.forEach(function (edit) {
+    var edits = snapshot.fromDrawer && !form.closest(".drawer[data-autoopen]") ? [] : snapshot.edits;
+    edits.forEach(function (edit) {
       editableFields(form).forEach(function (input) {
         if (input.name !== edit.name) {
           return;

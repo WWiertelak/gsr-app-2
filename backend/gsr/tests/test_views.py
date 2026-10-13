@@ -532,7 +532,7 @@ def test_cleaning_drawer_is_refreshed_out_of_band_and_opens_on_errors(client, pr
 
 
 @pytest.mark.django_db
-def test_outdated_cleaning_preview_is_dimmed_with_a_recompute_action(client, project) -> None:
+def test_outdated_cleaning_preview_is_dimmed_with_a_stale_notice(client, project) -> None:
     client.post(reverse("gsr:cleaning_refresh", args=[project.pk]), **HTMX)
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
@@ -543,8 +543,9 @@ def test_outdated_cleaning_preview_is_dimmed_with_a_recompute_action(client, pro
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
     assert page.count('<section class="card result is-stale">') == 2
     assert ('<div class="alert warning stale-note">Settings or signals changed since this preview was computed.'
-            in page)
-    assert '<button type="submit" class="small" form="cleaning-refresh">Recompute</button>' in page
+            ' Recompute it to see the current result.</div>' in page)
+    assert page.count('form="cleaning-refresh">Recompute</button>') == 1
+    assert 'form="cleaning-refresh">Recompute</button>' in _run_bar(page)
 
 
 # ─── 3 Analysis ──────────────────────────────────────────────────────────────
@@ -637,9 +638,11 @@ def test_analysis_settings_live_in_the_drawer_with_run_and_apply_buttons(client,
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
     assert "run-status stale" in page and 'form="analysis-settings">Recompute</button>' in _run_bar(page)
 
-    # The outdated result stays readable but dimmed, with the recompute action next to the notice.
+    # The outdated result stays readable but dimmed; the run bar's Recompute is the single recompute action.
     assert page.count('<div class="result is-stale" role="tabpanel"') == 2
-    assert '<button type="submit" class="small" form="analysis-settings">Recompute</button></div>' in page
+    assert ('<div class="alert warning stale-note">Settings or signals changed since this run. Run the analysis again.'
+            '</div>' in page)
+    assert page.count('form="analysis-settings">Recompute</button>') == 1
 
     form = _analysis_form(project, contagion_min_participants=5)
     fragment = client.post(reverse("gsr:analysis", args=[project.pk]), form, **HTMX).content.decode()

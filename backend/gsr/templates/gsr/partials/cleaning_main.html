@@ -2,7 +2,7 @@
 {% include "gsr/partials/run_bar.html" with run_form="cleaning-refresh" %}
 <form id="cleaning-refresh" method="post" action="{% url 'gsr:cleaning_refresh' project.pk %}"
       hx-post="{% url 'gsr:cleaning_refresh' project.pk %}" hx-target="#main" hx-swap="innerHTML"
-      hx-indicator="#busy" hx-disabled-elt="#run-bar button, .stale-note button">{% csrf_token %}</form>
+      hx-indicator="#busy" hx-disabled-elt="#run-bar button">{% csrf_token %}</form>
 <div class="stack">
   {% if error %}{% include "gsr/partials/error.html" %}{% endif %}
 
@@ -29,8 +29,7 @@
     </section>
   {% else %}
     {% if stale %}
-      <div class="alert warning stale-note">{% translate "Settings or signals changed since this preview was computed. Recompute it to see the current result." %}
-        <button type="submit" class="small" form="cleaning-refresh">{% translate "Recompute" %}</button></div>
+      <div class="alert warning stale-note">{% translate "Settings or signals changed since this preview was computed. Recompute it to see the current result." %}</div>
     {% endif %}
     <section class="card result{% if stale %} is-stale{% endif %}" aria-labelledby="quality-title">
       {% translate "The rating is informational and does not exclude a signal: good <10% rejected samples, warning ≥10% and <30%, poor ≥30%." as quality_help %}

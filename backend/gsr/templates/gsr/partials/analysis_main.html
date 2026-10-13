@@ -14,8 +14,7 @@
         <button type="submit" class="lg" form="analysis-settings"{% if analysis_blocked %} disabled{% endif %}>{% translate "Run analysis" %}</button>
       </div>
     {% elif stale %}
-      <div class="alert warning stale-note">{% translate "Settings or signals changed since this run. Run the analysis again." %}
-        <button type="submit" class="small" form="analysis-settings"{% if analysis_blocked %} disabled{% endif %}>{% translate "Recompute" %}</button></div>
+      <div class="alert warning stale-note">{% translate "Settings or signals changed since this run. Run the analysis again." %}</div>
     {% endif %}
 
     <div class="tabs" role="tablist" aria-labelledby="analysis-results-title">
