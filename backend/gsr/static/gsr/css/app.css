@@ -195,6 +195,7 @@ button:disabled, .button[aria-disabled="true"] { opacity: 0.45; cursor: not-allo
 .empty-state p { margin: 0; color: var(--ink-2); }
 .settings-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s2); align-items: center; margin-top: var(--s3); }
 .settings-actions .ghost { grid-column: 1 / -1; }
+/* Interim narrow-screen fallback; PR 3.2's responsive pass replaces it. */
 @media (max-width: 860px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
   .rail { position: static; height: auto; padding: 10px; }

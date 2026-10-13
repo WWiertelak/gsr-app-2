@@ -146,7 +146,7 @@
 </div>
 {% if result %}
   <div class="action-bar">
-    <span class="muted">{% blocktranslate count count=summary.totals.artifact_rejected_points %}{{ count }} rejected sample{% plural %}{{ count }} rejected samples{% endblocktranslate %}</span>
+    <span class="muted">{{ rejected_label }}</span>
     <span class="grow"></span>
     <a class="button secondary" href="{% url 'gsr:cleaning_csv' project.pk %}">{% translate "Download clean CSV" %}</a>
     <a class="button lg" href="{% url 'gsr:analysis' project.pk %}">{% translate "Next: Analysis" %} →</a>

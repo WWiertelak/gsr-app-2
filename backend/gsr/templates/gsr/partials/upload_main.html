@@ -88,7 +88,7 @@
       <span class="grow"></span>
       <a class="button lg" role="link" aria-disabled="true" aria-describedby="next-blocked">{% translate "Next: Cleaning" %} →</a>
     {% else %}
-      <span class="muted">{% blocktranslate count count=datasets|length %}{{ count }} recording{% plural %}{{ count }} recordings{% endblocktranslate %}</span>
+      <span class="muted">{{ recordings_label }}</span>
       <span class="grow"></span>
       <a class="button lg" href="{% url 'gsr:cleaning' project.pk %}">{% translate "Next: Cleaning" %} →</a>
     {% endif %}

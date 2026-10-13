@@ -1111,7 +1111,7 @@ msgstr "Wspólny czas absolutny"
 msgid "Downsampling (shared)"
 msgstr "Downsampling (wspólny)"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:149 gsr/views.py:113
+#: gsr/views.py:119
 #, python-format
 msgid "%(count)s rejected sample"
 msgid_plural "%(count)s rejected samples"
@@ -1395,7 +1395,7 @@ msgstr "Wyklucz lub usuń nagranie, które się nie nakłada."
 msgid "Next: Cleaning"
 msgstr "Dalej: Czyszczenie"
 
-#: gsr/templates/gsr/partials/upload_main.html:91 gsr/views.py:88
+#: gsr/views.py:114
 #, python-format
 msgid "%(count)s recording"
 msgid_plural "%(count)s recordings"

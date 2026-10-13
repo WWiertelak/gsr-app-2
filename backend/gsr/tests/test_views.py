@@ -278,6 +278,22 @@ def test_cleaning_screen_computes_preview_on_first_visit(client, project) -> Non
 
 
 @pytest.mark.django_db
+def test_action_bar_counts_match_the_rail_status(client, project) -> None:
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    client.post(reverse("gsr:cleaning_refresh", args=[project.pk]), **HTMX)
+    stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_CLEANING)
+    stored.payload["preview"]["cleaning_summary"]["totals"]["artifact_rejected_points"] = 12345
+    AnalysisResult.objects.filter(pk=stored.pk).update(payload=stored.payload)
+    page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
+    assert '<small class="step-status">12,345 rejected samples</small>' in page
+    assert '<span class="muted">12,345 rejected samples</span>' in page
+
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    assert '<small class="step-status">3 recordings</small>' in page
+    assert '<span class="muted">3 recordings</span>' in page
+
+
+@pytest.mark.django_db
 def test_cleaning_preview_matches_pipeline_and_marks_rejected_samples(client, project) -> None:
     client.post(reverse("gsr:cleaning_refresh", args=[project.pk]), **HTMX)
     stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_CLEANING)

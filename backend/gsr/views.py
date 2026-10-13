@@ -84,8 +84,7 @@ def _steps(project: Project, current: str) -> list[dict[str, Any]]:
     stale = {"cleaning": is_stale(project, cleaning), "analysis": is_stale(project, analysis)}
     stale["export"] = stale["analysis"]
     status = {
-        "upload": (ngettext("%(count)s recording", "%(count)s recordings", recordings)
-                   % {"count": number_format(recordings, force_grouping=True)}) if recordings else _("no recordings"),
+        "upload": _recordings_label(recordings) if recordings else _("no recordings"),
         "cleaning": _cleaning_status(cleaning),
         "analysis": _("computed %(time)s") % {"time": _computed_time(analysis)} if analysis else _("not run"),
         "export": _("ready") if analysis else _("needs analysis"),
@@ -108,9 +107,17 @@ def _steps(project: Project, current: str) -> list[dict[str, Any]]:
 def _cleaning_status(result: AnalysisResult | None) -> str:
     if result is None:
         return _("not run")
-    rejected = result.payload["preview"]["cleaning_summary"]["totals"]["artifact_rejected_points"]
-    return ngettext("%(count)s rejected sample", "%(count)s rejected samples", rejected) % {
-        "count": number_format(rejected, force_grouping=True)}
+    return _rejected_label(result.payload["preview"]["cleaning_summary"]["totals"]["artifact_rejected_points"])
+
+
+def _recordings_label(count: int) -> str:
+    return ngettext("%(count)s recording", "%(count)s recordings", count) % {
+        "count": number_format(count, force_grouping=True)}
+
+
+def _rejected_label(count: int) -> str:
+    return ngettext("%(count)s rejected sample", "%(count)s rejected samples", count) % {
+        "count": number_format(count, force_grouping=True)}
 
 
 def _computed_time(result: AnalysisResult) -> str:
@@ -205,6 +212,7 @@ def _upload_context(project: Project) -> dict[str, Any]:
     return {
         "datasets": [{"dataset": dataset, "color": colors[dataset.alias]} for dataset in datasets],
         "overlap_error": _overlap_error(datasets),
+        "recordings_label": _recordings_label(len(datasets)),
     }
 
 
@@ -329,6 +337,7 @@ def _cleaning_context(project: Project, error: UserError | None = None) -> dict[
         result_values = PipelineConfig.from_dict(result.config).model_dump()
         context["charts"] = charts.cleaning_charts(preview, colors, result_values)
         context["summary"] = preview["cleaning_summary"]
+        context["rejected_label"] = _rejected_label(preview["cleaning_summary"]["totals"]["artifact_rejected_points"])
         context["alignment"] = preview["alignment"]
         context["preview_range"] = preview["range"]
         context["quality_rows"] = [
