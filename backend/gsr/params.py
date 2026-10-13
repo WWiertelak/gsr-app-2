@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from django.http import QueryDict
+from django.utils.formats import number_format
 from django.utils.translation import gettext, ngettext
 from django.utils.translation import gettext_lazy as _
 
@@ -282,6 +283,23 @@ def field_rows(params: tuple[Param, ...], values: dict[str, Any]) -> list[dict[s
     ]
 
 
+def display_number(value: Any) -> str:
+    """A setting value for display text, in the UI language's decimal format ("0,6" in Polish)."""
+    if value is None or isinstance(value, bool) or not isinstance(value, (int, float)):
+        return input_value(value)
+    if isinstance(value, float) and value.is_integer() and abs(value) < 1e15:
+        value = int(value)
+    return number_format(value)
+
+
+def choice_label(name: str, value: Any) -> Any:
+    """The translated label of a choice setting's stored value (e.g. "circular" → "circular shift")."""
+    for param in ANALYSIS_PARAMS:
+        if param.name == name:
+            return dict(param.choices).get(value, value)
+    return value
+
+
 def _changed_note(params: tuple[Param, ...], values: dict[str, Any]) -> list[str]:
     changed = sum(1 for param in params if values.get(param.name) != param.default)
     if not changed:
@@ -295,21 +313,21 @@ def cleaning_summary(values: dict[str, Any], included: int, total: int) -> list[
     if start is None and end is None:
         window = gettext("full range")
     else:
-        window = f"{input_value(start) or '…'}–{input_value(end) or '…'} min"
+        window = f"{display_number(start) or '…'}–{display_number(end) or '…'} min"
     enabled = sum(1 for group in CLEANING_FILTERS if group.toggle and values.get(group.toggle.name))
     kernel = values.get("median_kernel")
     return [
         gettext("Signals: %(included)d/%(total)d") % {"included": included, "total": total},
         gettext("Window: %(window)s") % {"window": window},
         gettext("Filters: %(enabled)d/%(total)d") % {"enabled": enabled, "total": len(CLEANING_FILTERS)},
-        gettext("Median: %(value)s") % {"value": input_value(kernel) if kernel else gettext("off")},
+        gettext("Median: %(value)s") % {"value": display_number(kernel) if kernel else gettext("off")},
         *_changed_note(cleaning_params(), values),
     ]
 
 
 def analysis_summary(values: dict[str, Any]) -> list[str]:
     """One-line description of the Analysis settings: the essential values plus how many differ from defaults."""
-    value = {name: input_value(values.get(name)) for name in (
+    value = {name: display_number(values.get(name)) for name in (
         "synchrony_threshold", "synchrony_window_seconds", "contagion_high_z", "contagion_low_z",
         "contagion_min_participants",
     )}

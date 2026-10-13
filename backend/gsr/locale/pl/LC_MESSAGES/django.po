@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-13 11:57+0000\n"
+"POT-Creation-Date: 2026-10-13 16:05+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -47,7 +47,7 @@ msgstr "oczyszczony"
 msgid "rejected"
 msgstr "odrzucony"
 
-#: gsr/charts.py:27 gsr/params.py:50
+#: gsr/charts.py:27 gsr/params.py:51
 msgid "Time window"
 msgstr "Zakres czasu"
 
@@ -77,7 +77,7 @@ msgstr "Czas (min)"
 msgid "Save PNG"
 msgstr "Zapisz PNG"
 
-#: gsr/params.py:52
+#: gsr/params.py:53
 msgid ""
 "Time range (in minutes) defines which part of the recording is analyzed. "
 "After import, signals are synchronized to a common window. Narrow the range, "
@@ -87,31 +87,31 @@ msgstr ""
 "sygnały są synchronizowane do wspólnego okna. Zawęź zakres, np. aby pominąć "
 "fazę rozgrzewki lub zakłócenia na końcu nagrania."
 
-#: gsr/params.py:56
+#: gsr/params.py:57
 msgid "From (min)"
 msgstr "Od (min)"
 
-#: gsr/params.py:57
+#: gsr/params.py:58
 msgid "To (min)"
 msgstr "Do (min)"
 
-#: gsr/params.py:64 gsr/params.py:72
+#: gsr/params.py:65 gsr/params.py:73
 msgid "Physiological range"
 msgstr "Zakres fizjologiczny"
 
-#: gsr/params.py:65
+#: gsr/params.py:66
 msgid "Rejects values outside the configured physiological GSR range."
 msgstr "Odrzuca wartości poza zadanym zakresem fizjologicznym GSR."
 
-#: gsr/params.py:67
+#: gsr/params.py:68
 msgid "Min (µS)"
 msgstr "Min (µS)"
 
-#: gsr/params.py:68
+#: gsr/params.py:69
 msgid "Max (µS)"
 msgstr "Max (µS)"
 
-#: gsr/params.py:73
+#: gsr/params.py:74
 msgid ""
 "Protects against non-physiological values caused by measurement glitches or "
 "sensor issues."
@@ -119,19 +119,19 @@ msgstr ""
 "Chroni przed wartościami niefizjologicznymi wynikającymi np. z błędu pomiaru "
 "lub awarii sensora."
 
-#: gsr/params.py:79 gsr/params.py:84
+#: gsr/params.py:80 gsr/params.py:85
 msgid "Z-score deviation"
 msgstr "Odchylenie Z-score"
 
-#: gsr/params.py:80
+#: gsr/params.py:81
 msgid "Rejects points that are statistical outliers against the full signal."
 msgstr "Odrzuca punkty statystycznie odstające względem całego sygnału."
 
-#: gsr/params.py:81
+#: gsr/params.py:82
 msgid "Threshold (SD)"
 msgstr "Próg (SD)"
 
-#: gsr/params.py:85
+#: gsr/params.py:86
 msgid ""
 "The farther from the mean (in SD units), the more likely a point is an "
 "artifact."
@@ -139,20 +139,20 @@ msgstr ""
 "Im większa odchyłka od średniej (w SD), tym większa szansa, że punkt jest "
 "artefaktem."
 
-#: gsr/params.py:91 gsr/params.py:96
+#: gsr/params.py:92 gsr/params.py:97
 msgid "Abrupt jumps"
 msgstr "Nagłe skoki"
 
-#: gsr/params.py:92
+#: gsr/params.py:93
 msgid ""
 "Rejects samples with unnaturally large changes between consecutive points."
 msgstr "Odrzuca próbki z nienaturalnie dużą zmianą między kolejnymi punktami."
 
-#: gsr/params.py:93
+#: gsr/params.py:94
 msgid "Sigma"
 msgstr "Sigma"
 
-#: gsr/params.py:97
+#: gsr/params.py:98
 msgid ""
 "Helps remove sudden spikes typically caused by electrode movement or "
 "transient interference."
@@ -160,19 +160,19 @@ msgstr ""
 "Pomaga usuwać ostre skoki amplitudy, typowe dla ruchu elektrody lub zakłóceń "
 "chwilowych."
 
-#: gsr/params.py:103 gsr/params.py:108
+#: gsr/params.py:104 gsr/params.py:109
 msgid "Interquartile range (IQR)"
 msgstr "Zakres kwartylowy (IQR)"
 
-#: gsr/params.py:104
+#: gsr/params.py:105
 msgid "Rejects points outside [Q1-k*IQR, Q3+k*IQR]."
 msgstr "Odrzuca punkty poza zakresem kwartylowym [Q1-k*IQR, Q3+k*IQR]."
 
-#: gsr/params.py:105
+#: gsr/params.py:106
 msgid "IQR factor"
 msgstr "Współczynnik IQR"
 
-#: gsr/params.py:109
+#: gsr/params.py:110
 msgid ""
 "IQR filtering is robust for non-normal distributions and catches heavy-tail "
 "points well."
@@ -180,32 +180,32 @@ msgstr ""
 "Filtrowanie IQR jest odporne na rozkłady nienormalne i dobrze wyłapuje ogony "
 "rozkładu."
 
-#: gsr/params.py:115 gsr/params.py:123
+#: gsr/params.py:116 gsr/params.py:124
 msgid "Butterworth filter"
 msgstr "Filtr Butterwortha"
 
-#: gsr/params.py:116
+#: gsr/params.py:117
 msgid "Smooths the signal with a low-pass filter after interpolation."
 msgstr "Wygładza sygnał filtrem dolnoprzepustowym po interpolacji braków."
 
-#: gsr/params.py:118
+#: gsr/params.py:119
 msgid "Cutoff (Hz)"
 msgstr "Odcięcie (Hz)"
 
-#: gsr/params.py:119
+#: gsr/params.py:120
 msgid "Order"
 msgstr "Rząd"
 
-#: gsr/params.py:124
+#: gsr/params.py:125
 msgid "Removes high-frequency noise and keeps slower GSR signal dynamics."
 msgstr ""
 "Usuwa wysokoczęstotliwościowy szum i zostawia wolniejsze zmiany sygnału GSR."
 
-#: gsr/params.py:132
+#: gsr/params.py:133
 msgid "Median filter"
 msgstr "Filtr medianowy"
 
-#: gsr/params.py:134
+#: gsr/params.py:135
 msgid ""
 "Filter window size (in samples). 0 disables the filter. Small values (e.g. 3–"
 "11) preserve details but reduce noise less. Large values (e.g. 51–201) "
@@ -217,15 +217,15 @@ msgstr ""
 "mocno wygładza sygnał. Używane są wyłącznie wartości nieparzyste — parzyste "
 "są automatycznie zaokrąglane w górę."
 
-#: gsr/params.py:138
+#: gsr/params.py:139
 msgid "Window size (samples)"
 msgstr "Rozmiar okna (próbki)"
 
-#: gsr/params.py:146
+#: gsr/params.py:147
 msgid "Synchronization threshold"
 msgstr "Próg synchronizacji"
 
-#: gsr/params.py:147
+#: gsr/params.py:148
 msgid ""
 "Pairs whose windowed correlation reaches this value count as synchronized in "
 "that window."
@@ -233,75 +233,75 @@ msgstr ""
 "Pary, których korelacja w oknie osiąga tę wartość, są w tym oknie uznawane "
 "za zsynchronizowane."
 
-#: gsr/params.py:149 gsr/params.py:205
+#: gsr/params.py:150 gsr/params.py:206
 msgid "Window (s)"
 msgstr "Okno (s)"
 
-#: gsr/params.py:152 gsr/params.py:211
+#: gsr/params.py:153 gsr/params.py:212
 msgid "Step (s)"
 msgstr "Krok (s)"
 
-#: gsr/params.py:155
+#: gsr/params.py:156
 msgid "Correlation method"
 msgstr "Metoda korelacji"
 
-#: gsr/params.py:159
+#: gsr/params.py:160
 msgid "Max lag (s)"
 msgstr "Maks. opóźnienie (s)"
 
-#: gsr/params.py:160
+#: gsr/params.py:161
 msgid "Signed mode (positive agreement only)"
 msgstr "Tryb signed (tylko dodatnia zgodność)"
 
-#: gsr/params.py:161
+#: gsr/params.py:162
 msgid "Compute DTW"
 msgstr "Licz DTW"
 
-#: gsr/params.py:162
+#: gsr/params.py:163
 msgid "Synchronization surrogate test"
 msgstr "Test surogatowy synchronizacji"
 
-#: gsr/params.py:163
+#: gsr/params.py:164
 msgid "Synchronization surrogate count"
 msgstr "Liczba surogatów synchronizacji"
 
-#: gsr/params.py:166
+#: gsr/params.py:167
 msgid "Surrogate method"
 msgstr "Metoda surogatów"
 
-#: gsr/params.py:168
+#: gsr/params.py:169
 msgid "circular shift"
 msgstr "przesunięcie kołowe"
 
-#: gsr/params.py:168
+#: gsr/params.py:169
 msgid "phase randomization"
 msgstr "randomizacja fazy"
 
-#: gsr/params.py:170 gsr/params.py:231
+#: gsr/params.py:171 gsr/params.py:232
 msgid "Surrogate seed"
 msgstr "Seed surogatów"
 
-#: gsr/params.py:171
+#: gsr/params.py:172
 msgid "Min. people per episode"
 msgstr "Min. osób w epizodzie"
 
-#: gsr/params.py:172
+#: gsr/params.py:173
 msgid "Min. episode duration (s)"
 msgstr "Min. czas epizodu (s)"
 
-#: gsr/params.py:173
+#: gsr/params.py:174
 msgid "Max gap (s)"
 msgstr "Maks. przerwa (s)"
 
-#: gsr/params.py:174
+#: gsr/params.py:175
 msgid "Clustering threshold"
 msgstr "Próg klastrowania"
 
-#: gsr/params.py:177
+#: gsr/params.py:178
 msgid "Downsampling interval (s)"
 msgstr "Interwał downsamplingu (s)"
 
-#: gsr/params.py:179
+#: gsr/params.py:180
 msgid ""
 "The downsampling interval defines time sampling: 1 s = 1 Hz, 2 s = every 2 "
 "seconds, etc. It reduces the number of analyzed points in whole seconds "
@@ -311,11 +311,11 @@ msgstr ""
 "sekundy itd. Pozwala redukować liczbę punktów do analizy przez "
 "wielokrotności sekundy przy zachowaniu trendu sygnału."
 
-#: gsr/params.py:190
+#: gsr/params.py:191
 msgid "High threshold (z)"
 msgstr "Próg Wysoki (z)"
 
-#: gsr/params.py:191
+#: gsr/params.py:192
 msgid ""
 "z above this = High-arousal state (relative to the participant's own "
 "baseline)."
@@ -323,19 +323,19 @@ msgstr ""
 "z powyżej tej wartości = stan Wysokiego pobudzenia (względem własnej linii "
 "bazowej uczestnika)."
 
-#: gsr/params.py:193
+#: gsr/params.py:194
 msgid "Low threshold (z)"
 msgstr "Próg Niski (z)"
 
-#: gsr/params.py:193
+#: gsr/params.py:194
 msgid "z below this = Low-arousal state."
 msgstr "z poniżej tej wartości = stan Niskiego pobudzenia."
 
-#: gsr/params.py:196
+#: gsr/params.py:197
 msgid "Min. participants"
 msgstr "Min. uczestników"
 
-#: gsr/params.py:197
+#: gsr/params.py:198
 msgid ""
 "Minimum number of participants in the same state for a second to count "
 "toward an episode."
@@ -343,7 +343,7 @@ msgstr ""
 "Minimalna liczba uczestników w tym samym stanie, aby sekunda liczyła się do "
 "epizodu."
 
-#: gsr/params.py:207
+#: gsr/params.py:208
 msgid ""
 "Length of the sliding window for episode detection. Note: with the 0.05 Hz "
 "filter the signal is very smooth, so pairwise correlation in a short window "
@@ -353,11 +353,11 @@ msgstr ""
 "sygnał jest bardzo gładki, więc korelacja parowa w krótkim oknie bywa "
 "zawyżona przez wspólny wolny trend."
 
-#: gsr/params.py:214
+#: gsr/params.py:215
 msgid "Agreement threshold"
 msgstr "Próg zgodności"
 
-#: gsr/params.py:215
+#: gsr/params.py:216
 msgid ""
 "Fraction of the window where the condition (≥ min. participants in state) "
 "must hold to form an episode."
@@ -365,11 +365,11 @@ msgstr ""
 "Ułamek okna, w którym warunek (≥ min. uczestników w stanie) musi być "
 "spełniony, aby powstał epizod."
 
-#: gsr/params.py:219
+#: gsr/params.py:220
 msgid "Co-movement threshold (ρ)"
 msgstr "Próg ko-ruchu (ρ)"
 
-#: gsr/params.py:220
+#: gsr/params.py:221
 msgid ""
 "Minimum mean pairwise Spearman correlation in a window to count it as co-"
 "movement."
@@ -377,11 +377,11 @@ msgstr ""
 "Minimalna średnia parowa korelacja Spearmana w oknie, aby uznać je za ko-"
 "ruch."
 
-#: gsr/params.py:224
+#: gsr/params.py:225
 msgid "Surrogate count"
 msgstr "Liczba surogatów"
 
-#: gsr/params.py:225
+#: gsr/params.py:226
 msgid ""
 "Number of random circular shifts for the co-arousal index null distribution. "
 "0 = skip the significance test."
@@ -389,15 +389,15 @@ msgstr ""
 "Liczba losowych przesunięć kołowych do rozkładu zerowego indeksu ko-"
 "pobudzenia. 0 = pomiń test istotności."
 
-#: gsr/params.py:232
+#: gsr/params.py:233
 msgid "A fixed seed makes the co-arousal surrogate test reproducible."
 msgstr "Stały seed zapewnia odtwarzalność testu surogatowego ko-pobudzenia."
 
-#: gsr/params.py:288
+#: gsr/params.py:306
 msgid "defaults"
 msgstr "domyślne"
 
-#: gsr/params.py:289
+#: gsr/params.py:307
 #, python-format
 msgid "%(count)d changed"
 msgid_plural "%(count)d changed"
@@ -405,50 +405,50 @@ msgstr[0] "%(count)d zmieniony"
 msgstr[1] "%(count)d zmienione"
 msgstr[2] "%(count)d zmienionych"
 
-#: gsr/params.py:296 gsr/templates/gsr/partials/param_field.html:12
+#: gsr/params.py:314 gsr/templates/gsr/partials/param_field.html:12
 msgid "full range"
 msgstr "pełny zakres"
 
-#: gsr/params.py:302
+#: gsr/params.py:320
 #, python-format
 msgid "Signals: %(included)d/%(total)d"
 msgstr "Sygnały: %(included)d/%(total)d"
 
-#: gsr/params.py:303
+#: gsr/params.py:321
 #, python-format
 msgid "Window: %(window)s"
 msgstr "Okno: %(window)s"
 
-#: gsr/params.py:304
+#: gsr/params.py:322
 #, python-format
 msgid "Filters: %(enabled)d/%(total)d"
 msgstr "Filtry: %(enabled)d/%(total)d"
 
-#: gsr/params.py:305
+#: gsr/params.py:323
 #, python-format
 msgid "Median: %(value)s"
 msgstr "Mediana: %(value)s"
 
-#: gsr/params.py:305
+#: gsr/params.py:323
 msgid "off"
 msgstr "wył."
 
-#: gsr/params.py:317
+#: gsr/params.py:335
 #, python-format
 msgid "Threshold: %(value)s"
 msgstr "Próg: %(value)s"
 
-#: gsr/params.py:318
+#: gsr/params.py:336
 #, python-format
 msgid "Window: %(value)s s"
 msgstr "Okno: %(value)s s"
 
-#: gsr/params.py:319
+#: gsr/params.py:337
 #, python-format
 msgid "High/Low z: %(high)s/%(low)s"
 msgstr "Próg wysoki/niski z: %(high)s/%(low)s"
 
-#: gsr/params.py:320
+#: gsr/params.py:338
 #, python-format
 msgid "Min. participants: %(value)s"
 msgstr "Min. uczestników: %(value)s"
@@ -881,7 +881,7 @@ msgid "Upload recordings first."
 msgstr "Najpierw wgraj nagrania."
 
 #: gsr/templates/gsr/partials/cleaning_main.html:54
-msgid "Go to Upload"
+msgid "Go to Import"
 msgstr "Przejdź do importu"
 
 #: gsr/templates/gsr/partials/cleaning_main.html:60
@@ -923,7 +923,7 @@ msgstr "Nałożenie sygnałów"
 
 #: gsr/templates/gsr/partials/cleaning_main.html:103
 msgid "Cleaning summary"
-msgstr "Podsumowanie odrzuceń"
+msgstr "Podsumowanie czyszczenia"
 
 #: gsr/templates/gsr/partials/cleaning_main.html:104
 msgid ""
@@ -988,7 +988,7 @@ msgstr "Downsampling (wspólny)"
 
 #: gsr/templates/gsr/partials/cleaning_main.html:149
 msgid "Download clean CSV"
-msgstr "Pobierz clean CSV"
+msgstr "Pobierz oczyszczony CSV"
 
 #: gsr/templates/gsr/partials/cleaning_main.html:150
 msgid "Next: Analysis"
@@ -1123,7 +1123,7 @@ msgid "More information"
 msgstr "Więcej informacji"
 
 #: gsr/templates/gsr/partials/upload_main.html:4
-msgid "1. Upload"
+msgid "1. Import"
 msgstr "1. Import"
 
 #: gsr/templates/gsr/partials/upload_main.html:5
@@ -1319,7 +1319,7 @@ msgid "No saved projects yet. Create one to get started."
 msgstr "Brak zapisanych projektów. Utwórz pierwszy projekt, aby zacząć."
 
 #: gsr/views.py:68
-msgid "Upload"
+msgid "Import"
 msgstr "Import"
 
 #: gsr/views.py:68

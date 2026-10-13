@@ -119,6 +119,19 @@ def test_english_report_and_methodology_follow_language(payload) -> None:
     assert "Raport analizy GSR" not in texts
 
 
+def test_report_translates_setting_values(payload) -> None:
+    payload = {**payload, "config": {**payload["config"], "synchrony_surrogate_enabled": True,
+                                     "clean_filter_iqr": False}}
+    pl = _texts(render_report_html({**payload, "lang": "pl"}))
+    assert {"tak", "nie", "czas absolutny", "Początek RAW", "Koniec RAW"} <= set(pl)
+    en = _texts(render_report_html({**payload, "lang": "en"}))
+    assert {"yes", "no", "absolute time", "RAW start", "RAW end"} <= set(en)
+    # The appendix keeps raw values on purpose, so they can be copied back into the settings.
+    for texts, appendix in ((pl, "Dane do odtworzenia analizy"), (en, "Reproducibility data")):
+        body = set(texts[:texts.index(appendix)])
+        assert not {"True", "False", "absolute", "circular", "Start RAW", "End RAW"} & body
+
+
 def test_methodology_drops_segment_analyses() -> None:
     for lang in ("pl", "en"):
         titles = [section["title"] for section in METHODOLOGY[lang]["sections"]]
