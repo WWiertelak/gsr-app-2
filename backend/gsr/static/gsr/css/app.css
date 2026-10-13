@@ -30,6 +30,10 @@
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   /* Science semantics, reserved: never a participant colour (services/results.py RESERVED_SCIENCE_COLORS). */
   --high: #b2182b; --low: #2166ac; --comove: #3f4b57; --threshold: #9f1239; --episode: rgba(20, 33, 43, 0.07);
+  /* Left rail (direction B chrome): the teal accent appears only on the dark rail */
+  --rail-w: 216px;
+  --rail: #0f1b24; --rail-2: #172633; --rail-line: #22323f; --rail-ink: #a9bccb; --rail-ink-strong: #ffffff;
+  --rail-muted: #8197a9; --rail-active: #14b8a6; --rail-done: #1f3b46; --rail-stale: #f0a14a;
 }
 
 * { box-sizing: border-box; }
@@ -95,28 +99,111 @@ input[type="checkbox"] { width: auto; accent-color: var(--accent); }
 .button.danger, button.danger { background: var(--surface); color: var(--error); border-color: #f0c7c2; }
 .button.danger:hover, button.danger:not(:disabled):hover { background: var(--error-weak); color: var(--error); border-color: #f0c7c2; }
 .button.small, button.small { min-height: 28px; padding: 0 var(--s2); font-size: var(--fs-xs); }
+.button.lg, button.lg { min-height: 40px; padding: 0 18px; font-size: var(--fs-base); }
+.button.ghost, button.ghost { background: transparent; border-color: transparent; color: var(--accent); }
+.button.ghost:hover, button.ghost:not(:disabled):hover { background: var(--accent-weak); border-color: transparent; color: var(--accent-hover); }
+button[aria-busy="true"]::before {
+  content: ""; width: 12px; height: 12px; border-radius: 50%; flex: none;
+  border: 2px solid currentColor; border-right-color: transparent; animation: spin 0.9s linear infinite;
+}
 button:disabled, .button[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
 
-/* App frame */
-.app-shell { max-width: 1480px; margin: 0 auto; padding: var(--s4) var(--s5) var(--s7); }
+/* App shell: fixed dark left rail + the work area */
+.skip-link { position: absolute; left: var(--s2); top: -48px; z-index: 60; padding: var(--s2) var(--s3); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); }
+.skip-link:focus { top: var(--s2); }
+.shell { display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); min-height: 100vh; }
 
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--s4);
-  min-height: 48px;
-  margin: 0 0 var(--s4);
-  padding-bottom: var(--s3);
-  border-bottom: 1px solid var(--line);
+.rail {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px; padding: 14px 10px;
+  background: var(--rail); color: var(--rail-ink); font-size: var(--fs-sm);
 }
-.app-header .brand { display: flex; align-items: baseline; gap: var(--s2); color: var(--ink); text-decoration: none; }
-.app-header .brand strong { font-size: var(--fs-md); font-weight: 600; }
-.app-header .brand span { color: var(--ink-3); font-size: var(--fs-sm); }
-.lang-switch { display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--r-sm); overflow: hidden; }
-.lang-switch button { min-height: 26px; padding: 0 var(--s2); border: 0; border-radius: 0; background: var(--surface); color: var(--ink-2); font-size: var(--fs-xs); }
-.lang-switch button:not(:disabled):hover { background: var(--sunken); color: var(--ink); }
-.lang-switch button.active, .lang-switch button.active:hover { background: var(--ink); color: #fff; }
+.rail :focus-visible { outline-color: var(--rail-active); }
+.rail .grow { flex: 1; }
+.rail-brand { display: flex; align-items: center; gap: var(--s2); padding: 2px var(--s2) var(--s3); color: var(--rail-ink-strong); font-size: 15px; font-weight: 600; text-decoration: none; }
+.rail-brand:hover { color: var(--rail-ink-strong); }
+.rail-brand .logo { width: 18px; height: 18px; border-radius: 5px; background: var(--rail-active); }
+.rail-section { margin: 0; padding: var(--s3) var(--s2) var(--s1); color: var(--rail-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.rail-project { margin-bottom: var(--s1); border: 1px solid var(--rail-line); border-radius: var(--r-sm); background: var(--rail-2); }
+.rail-project > summary { display: grid; padding: 7px 9px; cursor: pointer; list-style: none; }
+.rail-project > summary::-webkit-details-marker { display: none; }
+.rail-project .name { color: var(--rail-ink-strong); font-weight: 600; overflow-wrap: anywhere; }
+.rail-project small { color: var(--rail-ink); font-size: var(--fs-xs); }
+.rail-project ul { list-style: none; margin: 0; padding: var(--s1) 0; border-top: 1px solid var(--rail-line); }
+.rail-project li a { display: block; padding: 5px 9px; color: var(--rail-ink); text-decoration: none; overflow-wrap: anywhere; }
+.rail-project li a:hover { background: var(--rail); color: var(--rail-ink-strong); }
+.rail-project li a.all { color: var(--rail-active); font-weight: 600; }
+.rail-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.rail-nav {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 0 var(--s2); align-items: center;
+  padding: 7px var(--s2); border-radius: var(--r-sm); color: var(--rail-ink); text-decoration: none;
+}
+.rail-nav:hover { background: var(--rail-2); color: var(--rail-ink); }
+.rail-nav b { color: var(--rail-ink-strong); font-weight: 600; }
+.rail-nav small { grid-column: 2; font-size: var(--fs-xs); color: var(--rail-ink); }
+.rail-nav .n {
+  grid-row: span 2; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid #3a4d5c; color: var(--rail-ink); font-size: 11px; font-weight: 600;
+}
+.rail-nav.done .n { background: var(--rail-done); border-color: var(--rail-active); color: var(--rail-active); }
+.rail-nav.stale .n { border-color: var(--rail-stale); color: var(--rail-stale); }
+.rail-nav.stale small { color: var(--rail-stale); font-weight: 600; }
+.rail-nav[aria-current] { background: var(--rail-active); }
+.rail-nav[aria-current] b, .rail-nav[aria-current] small { color: var(--rail); }
+.rail-nav[aria-current] .n { background: transparent; border-color: var(--rail); color: var(--rail); }
+.rail-nav[aria-current]:focus-visible { outline-color: var(--rail-ink-strong); }
+.lang-switch { display: flex; gap: var(--s1); padding: var(--s2); }
+.lang-switch button {
+  min-height: 24px; padding: 0 var(--s2); border: 1px solid var(--rail-line); border-radius: 4px;
+  background: transparent; color: var(--rail-ink); font-size: var(--fs-xs);
+}
+.lang-switch button:not(:disabled):hover { background: var(--rail-2); border-color: var(--rail-line); color: var(--rail-ink-strong); }
+.lang-switch button.active, .lang-switch button.active:hover { background: var(--rail-ink-strong); border-color: var(--rail-ink-strong); color: var(--rail); }
+
+/* Work area: Lab Notebook tokens */
+.page { min-width: 0; padding: var(--s4) var(--s5) var(--s7); outline: none; }
+.page-head { margin-bottom: var(--s4); }
+.page-head .crumbs { margin: 0 0 2px; color: var(--ink-3); font-size: var(--fs-xs); }
+.page-head .crumbs a { color: var(--ink-3); text-decoration: none; }
+.page-head .crumbs a:hover { color: var(--accent); text-decoration: underline; }
+.page-head h1 { font-size: var(--fs-lg); }
+
+/* Run bar: the settings in use + whether the shown result matches them */
+.run-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); margin-bottom: var(--s4);
+  padding: 10px var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+}
+.run-bar svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--ink-3); stroke-width: 1.8; stroke-linecap: round; }
+.run-bar .kv { flex: 1 1 320px; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.run-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-left: auto; }
+.run-bar .kv li { padding: 3px var(--s2); border-radius: 5px; background: var(--sunken); color: var(--ink-2); font-size: var(--fs-xs); white-space: nowrap; }
+.action-bar .grow { flex: 1; }
+.run-status { display: inline-flex; align-items: center; gap: 6px; padding: var(--s1) 10px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; }
+.run-status .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.run-status.fresh { background: var(--ok-weak); color: var(--ok); }
+.run-status.stale { background: var(--warn-weak); color: var(--warn); }
+.run-status.none { background: var(--sunken); color: var(--ink-2); }
+
+/* Sticky action bar: the step's next action stays in view at the bottom of the work area */
+.action-bar {
+  position: sticky; bottom: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3);
+  margin: var(--s5) calc(-1 * var(--s5)) calc(-1 * var(--s7)); padding: var(--s3) var(--s5);
+  background: rgba(255, 255, 255, 0.96); border-top: 1px solid var(--line); font-size: var(--fs-sm);
+}
+.action-bar .blocked { flex: 1 1 320px; color: var(--error); }
+.empty-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s4); padding: var(--s4) 0; }
+.empty-state p { margin: 0; color: var(--ink-2); }
+.settings-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s2); align-items: center; margin-top: var(--s3); }
+.settings-actions .ghost { grid-column: 1 / -1; }
+/* Interim narrow-screen fallback; PR 3.2's responsive pass replaces it. */
+@media (max-width: 860px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: static; height: auto; padding: 10px; }
+  .rail .grow, .rail-section { display: none; }
+  .rail-steps { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .page { padding: var(--s3) var(--s4) var(--s7); }
+  .action-bar { margin-left: calc(-1 * var(--s4)); margin-right: calc(-1 * var(--s4)); padding: var(--s3) var(--s4); }
+}
 
 /* Sections: the only bordered surface. Anything inside a card stays flat. */
 .card {
@@ -142,31 +229,6 @@ p { margin: 0 0 var(--s2); }
 .alert a { color: inherit; font-weight: 600; }
 .alert .error-details { margin: var(--s1) 0 0; padding-left: var(--s5); }
 .alert .actions { margin-top: var(--s2); }
-
-/* Project header + stepper */
-.project-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s3); margin-bottom: var(--s4); }
-.project-bar .crumbs { display: flex; gap: var(--s2); align-items: baseline; font-size: var(--fs-sm); }
-.project-bar .crumbs a { color: var(--ink-3); text-decoration: none; }
-.project-bar .crumbs a:hover { color: var(--accent); text-decoration: underline; }
-.project-bar .crumbs h1 { font-size: var(--fs-lg); }
-.stepper { display: flex; flex-wrap: wrap; gap: var(--s1); list-style: none; padding: 0; margin: 0; }
-.stepper a {
-  display: inline-flex; align-items: center; gap: var(--s2);
-  padding: var(--s1) var(--s3) var(--s1) var(--s1); border-radius: var(--r-sm); text-decoration: none;
-  color: var(--ink-2); font-size: var(--fs-sm); font-weight: 500;
-}
-.stepper a:hover { background: var(--sunken); color: var(--ink); }
-.stepper .num {
-  display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
-  border: 1.5px solid var(--line-2); background: var(--surface); color: var(--ink-3);
-  font-size: var(--fs-sm); font-weight: 600; flex: none;
-}
-.stepper a.done .num { background: var(--accent); color: #fff; border-color: var(--accent); }
-.stepper a.stale .num { background: var(--warn-weak); border-color: var(--warn); color: var(--warn); }
-.stepper .step-status { font-size: var(--fs-xs); font-weight: 600; color: var(--warn); }
-.stepper a.current { background: var(--accent-weak); color: var(--ink); font-weight: 600; }
-.stepper a.current .num { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(11, 110, 116, 0.15); }
-.stepper a.current:not(.done):not(.stale) .num { color: var(--accent); }
 
 /* Layouts. Grid children sit side by side, so they never take the stacked-card margin. */
 .layout-sidebar { display: grid; grid-template-columns: minmax(270px, 340px) minmax(0, 1fr); gap: var(--s4); align-items: start; }
@@ -198,19 +260,18 @@ details.advanced > summary { cursor: pointer; color: var(--accent); font-size: v
 .signal-list { display: grid; gap: var(--s1); }
 .signal-list label { display: flex; align-items: center; gap: var(--s2); font-size: var(--fs-sm); }
 
-/* Collapsed settings panel: a one-line summary until the user expands it */
+/* Collapsed settings panel: the run bar above it lists the values; its Edit settings button opens it */
 details.settings-panel > summary {
-  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px var(--s2); align-items: baseline;
+  display: flex; gap: var(--s2); align-items: baseline;
   cursor: pointer; list-style: none; padding: var(--s2) var(--s3); margin-bottom: var(--s1);
   border-radius: var(--r-sm); background: var(--sunken);
 }
 details.settings-panel > summary:hover { background: var(--accent-weak); }
 details.settings-panel > summary::-webkit-details-marker { display: none; }
-details.settings-panel > summary::before { content: "▸"; color: var(--accent); grid-row: span 2; }
+details.settings-panel > summary::before { content: "▸"; color: var(--accent); }
 details.settings-panel[open] > summary::before { content: "▾"; }
 details.settings-panel[open] > summary { margin-bottom: var(--s3); }
 .settings-title { font-weight: 600; font-size: var(--fs-sm); color: var(--accent); }
-.settings-summary { grid-column: 2; font-size: var(--fs-xs); color: var(--ink-2); }
 
 /* Info tooltips: shown on hover or keyboard focus of the (i) button; Escape hides them.
    app.js places them beside the button (fixed, so the scrolling sidebar does not clip them). */
@@ -287,7 +348,6 @@ table.data tfoot td { font-weight: 600; border-top: 1px solid var(--line-2); bor
 .tabs a { padding: var(--s3) 0 var(--s3); text-decoration: none; color: var(--ink-3); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 600; }
 .tabs a:hover { color: var(--ink); }
 .tabs a.active { color: var(--ink); border-bottom-color: var(--accent); }
-.run-bar { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; font-size: var(--fs-sm); }
 
 .cluster-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s3); }
 .cluster-card { border-left: 2px solid var(--line-2); padding: 2px 0 2px var(--s3); }
@@ -299,13 +359,23 @@ table.data tfoot td { font-weight: 600; border-top: 1px solid var(--line-2); bor
 .export-list li:last-child { border-bottom: 0; }
 .capture-area { position: absolute; left: -10000px; top: 0; width: 1100px; }
 
-/* Busy overlay: HTMX requests and plain form posts marked data-busy */
+/* Progress: an inline bar while a request runs; the blocking overlay only after 1.5 s (HTMX requests on #busy,
+   plain form posts marked data-busy via body.is-busy) */
+.busy { position: fixed; inset: 0; z-index: 50; pointer-events: none; visibility: hidden; }
+.busy.htmx-request, body.is-busy .busy { visibility: visible; }
+.busy-bar { position: fixed; top: 0; left: var(--rail-w); right: 0; height: 3px; overflow: hidden; background: var(--accent-weak); }
+.busy-bar::after { content: ""; position: absolute; top: 0; bottom: 0; width: 30%; background: var(--accent); animation: slide 1.2s ease-in-out infinite; }
+@keyframes slide { from { left: -30%; } to { left: 100%; } }
 .busy-overlay {
-  position: fixed; inset: 0; display: none; place-items: center; z-index: 50;
-  background: rgba(246, 247, 249, 0.72);
+  position: fixed; inset: 0; display: grid; place-items: center;
+  background: rgba(246, 247, 249, 0.72); visibility: hidden; opacity: 0;
+}
+.busy.htmx-request .busy-overlay, body.is-busy .busy-overlay {
+  visibility: visible; opacity: 1; pointer-events: auto; transition: opacity 0.2s ease 1.5s, visibility 0s linear 1.5s;
 }
 .busy-overlay .box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s4) var(--s5); box-shadow: var(--shadow-pop); text-align: center; }
 .spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 0.9s linear infinite; margin: 0 auto var(--s2); }
 @keyframes spin { to { transform: rotate(360deg); } }
-.htmx-request .busy-overlay, .busy-overlay.htmx-request, body.is-busy .busy-overlay { display: grid; }
+@media (max-width: 860px) { .busy-bar { left: 0; } }
+@media (prefers-reduced-motion: reduce) { .busy-bar::after { animation: none; left: 0; width: 100%; opacity: 0.6; } }
 .placeholder { display: grid; place-items: center; min-height: 160px; color: var(--ink-3); }

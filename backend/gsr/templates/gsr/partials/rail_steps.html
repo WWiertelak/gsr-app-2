@@ -1,0 +1,10 @@
+{% load i18n %}<ol class="rail-steps" id="rail-steps"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% for item in steps %}
+    <li>
+      <a href="{{ item.url }}" class="rail-nav{% if item.current %} current{% endif %}{% if item.done %} done{% endif %}{% if item.stale %} stale{% endif %}"{% if item.current %} aria-current="step"{% endif %}>
+        <span class="n" aria-hidden="true">{% if item.done and not item.stale %}✓{% else %}{{ item.number }}{% endif %}</span><b>{{ item.label }}</b>
+        <small class="step-status">{{ item.status }}</small>
+      </a>
+    </li>
+  {% endfor %}
+</ol>

@@ -1,7 +1,7 @@
 {% load i18n %}
 <div class="stack">
   <section class="card">
-    <h2>{% translate "1. Import" %}</h2>
+    <h2>{% translate "Recordings" %}</h2>
     <p class="hint">{% translate "Upload one eSense CSV export per participant. The alias defaults to the first word or number of the file name; rename it below." %}</p>
     <form method="post" action="{% url 'gsr:upload' project.pk %}" enctype="multipart/form-data" data-busy>
       {% csrf_token %}
@@ -79,13 +79,18 @@
       <div class="placeholder"><div><div class="spinner"></div>{% translate "Reading recordings…" %}</div></div>
       <noscript><a href="{% url 'gsr:upload_overview' project.pk %}">{% translate "Show recording ranges" %}</a></noscript>
     </section>
-    <div class="actions end">
-      {% if overlap_error %}
-        <span class="muted small" id="next-blocked">{{ overlap_error }} {% translate "Exclude or delete the recording that does not overlap." %}</span>
-        <a class="button" role="link" aria-disabled="true" aria-describedby="next-blocked">{% translate "Next: Cleaning" %} →</a>
-      {% else %}
-        <a class="button" href="{% url 'gsr:cleaning' project.pk %}">{% translate "Next: Cleaning" %} →</a>
-      {% endif %}
-    </div>
   {% endif %}
 </div>
+{% if datasets %}
+  <div class="action-bar">
+    {% if overlap_error %}
+      <span class="blocked" id="next-blocked">{{ overlap_error }} {% translate "Exclude or delete the recording that does not overlap." %}</span>
+      <span class="grow"></span>
+      <a class="button lg" role="link" aria-disabled="true" aria-describedby="next-blocked">{% translate "Next: Cleaning" %} →</a>
+    {% else %}
+      <span class="muted">{{ recordings_label }}</span>
+      <span class="grow"></span>
+      <a class="button lg" href="{% url 'gsr:cleaning' project.pk %}">{% translate "Next: Cleaning" %} →</a>
+    {% endif %}
+  </div>
+{% endif %}

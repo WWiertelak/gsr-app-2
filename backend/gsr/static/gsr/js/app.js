@@ -1,7 +1,8 @@
 /*
  * Page behaviour: hydrate [data-chart] elements with ECharts (also after HTMX
- * swaps), analysis tabs (ARIA tabs with arrow keys), info tooltips, confirm dialogs, the busy overlay for plain form posts,
- * and the Export screen's chart capture for the PDF report and the ZIP.
+ * swaps), analysis tabs (ARIA tabs with arrow keys), info tooltips, confirm dialogs, the run bar's "Edit settings",
+ * progress for plain form posts and on the button that started a computation, and the Export screen's chart capture
+ * for the PDF report and the ZIP.
  */
 (function () {
   "use strict";
@@ -122,6 +123,21 @@
     }
   });
 
+  // ── Run bar: "Edit settings" opens the settings panel it controls ──
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-open-settings]");
+    var panel = button && document.getElementById(button.getAttribute("aria-controls"));
+    if (!panel) {
+      return;
+    }
+    panel.open = true;
+    panel.scrollIntoView({ block: "nearest" });
+    var summary = panel.querySelector("summary");
+    if (summary) {
+      summary.focus();
+    }
+  });
+
   // ── Info tooltips: placed next to their (i) button, above it when there is room, so they do not
   // cover the controls they describe; Escape hides the open one until the pointer/focus leaves it ──
   function placeTip(tip) {
@@ -189,8 +205,20 @@
     return images;
   }
 
-  function setBusy(busy) {
+  function setBusy(busy, button) {
     document.body.classList.toggle("is-busy", busy);
+    if (button) {
+      button.setAttribute("aria-busy", "true");
+    }
+    if (!busy) {
+      clearBusyButtons();
+    }
+  }
+
+  function clearBusyButtons() {
+    document.querySelectorAll('button[aria-busy="true"]').forEach(function (button) {
+      button.removeAttribute("aria-busy");
+    });
   }
 
   document.addEventListener("submit", function (event) {
@@ -225,7 +253,7 @@
       return;
     }
     if (form.hasAttribute("data-busy") && !form.hasAttribute("hx-post")) {
-      setBusy(true);
+      setBusy(true, event.submitter);
     }
   });
 
@@ -233,6 +261,15 @@
   window.addEventListener("pageshow", function () {
     setBusy(false);
   });
+
+  // The button that started a computation shows its own spinner (the overlay waits 1.5 s).
+  document.addEventListener("htmx:beforeRequest", function (event) {
+    var trigger = event.detail.requestConfig && event.detail.requestConfig.triggeringEvent;
+    if (trigger && trigger.submitter) {
+      trigger.submitter.setAttribute("aria-busy", "true");
+    }
+  });
+  document.addEventListener("htmx:afterRequest", clearBusyButtons);
 
   document.addEventListener("htmx:beforeSwap", function (event) {
     disposeCharts(event.detail.target);

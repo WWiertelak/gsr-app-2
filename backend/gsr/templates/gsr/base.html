@@ -12,9 +12,18 @@
   <script src="{% static 'gsr/js/app.js' %}" defer></script>
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-  <div class="app-shell">
-    <header class="app-header">
-      <a class="brand" href="{% url 'gsr:projects' %}"><strong>GSR Analyzer</strong><span>{% translate "Interactive GSR analyzer" %}</span></a>
+  <a class="skip-link" href="#content">{% translate "Skip to content" %}</a>
+  <div class="shell">
+    <aside class="rail" aria-label="{% translate 'Navigation' %}">
+      <a class="rail-brand" href="{% url 'gsr:projects' %}"><span class="logo" aria-hidden="true"></span>GSR Analyzer</a>
+      {% block rail %}{% endblock %}
+      <nav aria-label="{% translate 'App' %}">
+        <h2 class="rail-section">{% translate "App" %}</h2>
+        <a class="rail-nav" href="{% url 'gsr:projects' %}"{% block rail_projects_current %}{% endblock %}>
+          <span class="n" aria-hidden="true">▤</span><b>{% translate "Projects" %}</b><small>{% translate "all projects" %}</small>
+        </a>
+      </nav>
+      <span class="grow"></span>
       <form class="lang-switch" action="{% url 'set_language' %}" method="post" aria-label="{% translate 'Language' %}">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ request.get_full_path }}">
@@ -23,9 +32,10 @@
           <button type="submit" name="language" value="{{ code }}" title="{{ name }}"{% if code == LANGUAGE_CODE %} class="active" aria-current="true"{% endif %}>{{ code|upper }}</button>
         {% endfor %}
       </form>
-    </header>
+    </aside>
 
-    <main id="content">
+    <main id="content" class="page" tabindex="-1">
+      <header class="page-head">{% block page_head %}{% endblock %}</header>
       {% if messages %}
         <ul class="messages">
           {% for message in messages %}
@@ -38,11 +48,18 @@
     </main>
   </div>
 
-  <div id="busy" class="busy-overlay" role="status" aria-live="polite">
-    <div class="box">
-      <div class="spinner"></div>
-      <strong>{% translate "Computing…" %}</strong>
-      <div class="muted small">{% translate "This can take up to a minute for long recordings." %}</div>
+  {# Mount point for the settings drawer: outside #main, so it survives the HTMX swaps of the work area. #}
+  <div id="drawer-root"></div>
+
+  {# Progress: an inline bar at once; the blocking overlay only when a computation takes over 1.5 s. #}
+  <div id="busy" class="busy" role="status" aria-live="polite">
+    <div class="busy-bar" aria-hidden="true"></div>
+    <div class="busy-overlay">
+      <div class="box">
+        <div class="spinner"></div>
+        <strong>{% translate "Computing…" %}</strong>
+        <div class="muted small">{% translate "This can take up to a minute for long recordings." %}</div>
+      </div>
     </div>
   </div>
   {{ chart_labels|json_script:"gsr-chart-labels" }}

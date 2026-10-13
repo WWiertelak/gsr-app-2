@@ -29,7 +29,7 @@ segment-based analysis was dropped. See [docs/research-gsrv2.md](docs/research-g
 for how the pipeline works and what was carried over.
 
 The UI is server-rendered Django templates with HTMX and ECharts (no Node build), in
-Polish or English (switch in the header). The workflow is
+Polish or English (switch at the bottom of the left rail). The workflow is
 Projects → 1 Import → 2 Cleaning → 3 Analysis (Synchronization | Co-arousal tabs, one run)
 → 4 Export (bilingual PDF report for other researchers, CSV tables, a run settings +
 results JSON, chart PNGs, or all of it as a ZIP). There is no login yet: add Django

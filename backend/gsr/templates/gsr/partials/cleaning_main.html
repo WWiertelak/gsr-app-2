@@ -1,13 +1,17 @@
 {% load i18n %}
+{% include "gsr/partials/run_bar.html" with settings_id="cleaning-settings-panel" run_form="cleaning-refresh" %}
+<form id="cleaning-refresh" method="post" action="{% url 'gsr:cleaning_refresh' project.pk %}"
+      hx-post="{% url 'gsr:cleaning_refresh' project.pk %}" hx-target="#main" hx-swap="innerHTML"
+      hx-indicator="#busy" hx-disabled-elt="#run-bar button">{% csrf_token %}</form>
 <div class="layout-sidebar">
   <form class="card sidebar" method="post" action="{% url 'gsr:cleaning' project.pk %}"
         hx-post="{% url 'gsr:cleaning' project.pk %}" hx-target="#main" hx-swap="innerHTML"
-        hx-indicator="#busy" hx-disabled-elt="find button">
+        hx-indicator="#busy" hx-disabled-elt="find button, #run-bar button">
     {% csrf_token %}
     {% translate "Checked signals will be processed and visible in the charts. Unchecking a signal excludes it from cleaning and downstream analysis." as signals_help %}
     <h2>{% translate "Cleaning controls" %}</h2>
-    <details class="settings-panel"{% if error %} open{% endif %}>
-      {% include "gsr/partials/settings_summary.html" %}
+    <details class="settings-panel" id="cleaning-settings-panel"{% if error %} open{% endif %}>
+      <summary><span class="settings-title">{% translate "Settings" %}</span></summary>
 
       <fieldset>
         <legend>{% translate "Signals" %}{% include "gsr/partials/tip.html" with text=signals_help tip_id="tip-signals" %}</legend>
@@ -37,11 +41,11 @@
         </fieldset>
       {% endfor %}
 
-      <div class="actions">
+      <div class="settings-actions">
         <button type="submit">{% translate "Apply settings" %}</button>
-        <button type="submit" class="secondary" formaction="{% url 'gsr:cleaning_reset' project.pk %}" hx-post="{% url 'gsr:cleaning_reset' project.pk %}" formnovalidate>{% translate "Reset defaults" %}</button>
         {% translate "Applying settings recomputes the preview; it can take a few seconds." as apply_help %}
         {% include "gsr/partials/tip.html" with text=apply_help tip_id="tip-apply" %}
+        <button type="submit" class="ghost" formaction="{% url 'gsr:cleaning_reset' project.pk %}" hx-post="{% url 'gsr:cleaning_reset' project.pk %}" formnovalidate>{% translate "Reset defaults" %}</button>
       </div>
     </details>
   </form>
@@ -72,16 +76,7 @@
       </section>
     {% else %}
       <section class="card">
-        <div class="run-bar">
-          <h2 style="margin: 0">{% translate "Cleaned vs raw" %}</h2>
-          {% if stale %}
-            <span class="badge stale">{% translate "Outdated result" %}</span>
-            <form method="post" action="{% url 'gsr:cleaning_refresh' project.pk %}" hx-post="{% url 'gsr:cleaning_refresh' project.pk %}" hx-target="#main" hx-indicator="#busy" hx-disabled-elt="find button">
-              {% csrf_token %}<button type="submit" class="small">{% translate "Recompute" %}</button>
-            </form>
-          {% endif %}
-          <span class="muted small">{% blocktranslate with time=result.computed_at|date:"Y-m-d H:i" seconds=result.duration_seconds|floatformat:1 %}Computed {{ time }} · {{ seconds }} s{% endblocktranslate %}</span>
-        </div>
+        <h2>{% translate "Cleaned vs raw" %}</h2>
         <p class="hint">{% translate "Signal after artifact removal (outliers, jumps), linear interpolation, Butterworth low-pass filter, and optional median filter. X-axis is relative time (minutes) from synchronization. Grey: raw signal, ×: rejected samples." %}</p>
         <div class="chart-grid">
           {% for item in charts.per_signal %}
@@ -145,12 +140,16 @@
           {{ alignment.start|slice:"11:19" }}–{{ alignment.end|slice:"11:19" }} · {{ preview_range.from|floatformat:1 }}–{{ preview_range.to|floatformat:1 }} min
           · <strong>{% translate "Downsampling (shared)" %}:</strong> {{ summary.totals.merged_points_before_downsampling }} → {{ summary.totals.merged_points_after_downsampling }}
         </p>
-        <div class="actions end">
-          <a class="button secondary" href="{% url 'gsr:cleaning_csv' project.pk %}">{% translate "Download clean CSV" %}</a>
-          <a class="button" href="{% url 'gsr:analysis' project.pk %}">{% translate "Next: Analysis" %} →</a>
-        </div>
       </section>
     {% endif %}
   </div>
 </div>
-{% if htmx %}{% include "gsr/partials/stepper.html" with oob=True %}{% endif %}
+{% if result %}
+  <div class="action-bar">
+    <span class="muted">{{ rejected_label }}</span>
+    <span class="grow"></span>
+    <a class="button secondary" href="{% url 'gsr:cleaning_csv' project.pk %}">{% translate "Download clean CSV" %}</a>
+    <a class="button lg" href="{% url 'gsr:analysis' project.pk %}">{% translate "Next: Analysis" %} →</a>
+  </div>
+{% endif %}
+{% if htmx %}{% include "gsr/partials/rail_steps.html" with oob=True %}{% endif %}
