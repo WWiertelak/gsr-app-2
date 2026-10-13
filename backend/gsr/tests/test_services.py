@@ -284,3 +284,25 @@ def test_resolve_config_coerces_values_gsrv2_accepted() -> None:
 def test_admin_cannot_add_datasets_directly(admin_client) -> None:
     assert admin_client.get("/admin/gsr/dataset/add/").status_code == 403
     assert admin_client.get("/admin/gsr/dataset/").status_code == 200
+
+
+def _relative_luminance(hex_color: str) -> float:
+    channels = [int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def test_participant_palette_is_readable_and_avoids_reserved_colours() -> None:
+    from django.template.loader import render_to_string
+
+    from gsr.services.results import PARTICIPANT_PALETTE, RESERVED_SCIENCE_COLORS
+
+    assert len(set(PARTICIPANT_PALETTE)) == len(PARTICIPANT_PALETTE) == 8
+    assert len(set(RESERVED_SCIENCE_COLORS.values())) == len(RESERVED_SCIENCE_COLORS)
+    assert not set(RESERVED_SCIENCE_COLORS.values()) & set(PARTICIPANT_PALETTE)
+    for color in (*PARTICIPANT_PALETTE, *RESERVED_SCIENCE_COLORS.values()):
+        # Non-text contrast (WCAG 1.4.11): lines and dots need 3:1 on the white chart background.
+        assert 1.05 / (_relative_luminance(color) + 0.05) >= 3.0, color
+    for direction, css_class in (("High", "high"), ("Low", "low"), ("Co-movement", "comove")):
+        chip = render_to_string("gsr/partials/direction.html", {"direction": direction})
+        assert f'class="dot {css_class}"' in chip and "style=" not in chip

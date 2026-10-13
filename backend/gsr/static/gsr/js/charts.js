@@ -15,14 +15,32 @@
   var SPLIT_LINE = { lineStyle: { color: "#dce8f0" } };
   var NAME_STYLE = { color: "#486581", fontWeight: 500 };
   var BACKGROUND = "#f8fcfb";
-  var EPISODE_AREA_COLOR = "rgba(238,155,0,0.18)";
-  var SCIENTIFIC_PALETTE = [
-    "#003049", "#0077b6", "#0a9396", "#94d2bd", "#ee9b00", "#bb3e03", "#9b2226", "#4c1d95", "#7c3aed", "#db2777",
-    "#be123c", "#ea580c", "#ca8a04", "#65a30d", "#16a34a", "#059669", "#0891b2", "#2563eb", "#4338ca", "#6d28d9"
-  ];
+  // Reserved science colours (services/results.py RESERVED_SCIENCE_COLORS, app.css
+  // --high/--low/--comove/--threshold/--episode); participant colours come from
+  // PARTICIPANT_PALETTE and never use these.
+  var HIGH = "#b2182b";
+  var LOW = "#2166ac";
+  var NEUTRAL_STATE = "#f7f7f7";
+  var COMOVE = "#3f4b57";
+  var GROUP_MEAN = "#0b6e74";
+  var THRESHOLD = "#9f1239";
+  var REJECTED = "#b42318";
+  var EPISODE_AREA_COLOR = "rgba(20,33,43,0.07)";
+  var EPISODE_LABEL_COLOR = "#4a5a68";
+  // Pair curves are pairs, not participants: neutral greys.
+  var PAIR_COLORS = ["#9aa5b1", "#aab4bf", "#8996a3", "#b7c0c9", "#7f8c99", "#a3adb8"];
 
-  function colorByIndex(index) {
-    return SCIENTIFIC_PALETTE[((index % SCIENTIFIC_PALETTE.length) + SCIENTIFIC_PALETTE.length) % SCIENTIFIC_PALETTE.length];
+  function pairColor(index) {
+    return PAIR_COLORS[index % PAIR_COLORS.length];
+  }
+
+  // The participant palette repeats from the 9th signal; dash a colour already used in this chart.
+  function participantLineType(color, seen) {
+    if (seen[color]) {
+      return "dashed";
+    }
+    seen[color] = true;
+    return "solid";
   }
 
   // Numbers in the page language (document <html lang>), so PL charts show "0,57" like the tables.
@@ -140,13 +158,14 @@
 
   function overlay(data, labels, opts) {
     var timeAxis = data.axis === "time";
+    var seen = {};
     var series = (data.series || []).map(function (entry, index) {
       return {
         type: "line",
         name: entry.alias,
         showSymbol: false,
         sampling: "none",
-        lineStyle: { color: entry.color, width: timeAxis ? 1.8 : 2 },
+        lineStyle: { color: entry.color, width: timeAxis ? 1.8 : 2, type: participantLineType(entry.color, seen) },
         itemStyle: { color: entry.color },
         data: entry.points,
         markLine: index === 0 && !timeAxis ? windowMarkLine(data.window, labels) : undefined
@@ -203,7 +222,7 @@
           name: labels.rejected || "rejected",
           symbol: "path://M0,0 L10,10 M10,0 L0,10",
           symbolSize: 7,
-          itemStyle: { color: "#9b2226", borderColor: "#9b2226", borderWidth: 1.4 },
+          itemStyle: { color: REJECTED, borderColor: REJECTED, borderWidth: 1.4 },
           data: data.rejected || []
         }
       ]
@@ -229,7 +248,7 @@
               ? {
                   show: true,
                   position: index % 2 === 0 ? "insideTop" : "insideBottom",
-                  color: "#824c00",
+                  color: EPISODE_LABEL_COLOR,
                   fontSize: 10,
                   formatter: "#" + (index + 1)
                 }
@@ -249,8 +268,8 @@
         type: "line",
         showSymbol: false,
         smooth: true,
-        lineStyle: { width: 1, opacity: 0.5, color: colorByIndex(index) },
-        itemStyle: { color: colorByIndex(index) },
+        lineStyle: { width: 1, color: pairColor(index) },
+        itemStyle: { color: pairColor(index) },
         data: centers.map(function (center, i) {
           return [center, pair.values[i]];
         })
@@ -261,16 +280,16 @@
       type: "line",
       showSymbol: false,
       smooth: true,
-      lineStyle: { width: 3, color: "#005f73" },
-      itemStyle: { color: "#005f73" },
+      lineStyle: { width: 3, color: GROUP_MEAN },
+      itemStyle: { color: GROUP_MEAN },
       data: centers.map(function (center, i) {
         return [center, data.groupMean[i]];
       }),
       markLine: {
         silent: true,
         symbol: "none",
-        lineStyle: { type: "dashed", color: "#bb3e03" },
-        label: { formatter: labels.threshold || "", color: "#bb3e03" },
+        lineStyle: { type: "dashed", color: THRESHOLD },
+        label: { formatter: labels.threshold || "", color: THRESHOLD },
         data: [{ yAxis: data.threshold }]
       }
     };
@@ -281,8 +300,8 @@
       step: "middle",
       showSymbol: false,
       yAxisIndex: 1,
-      lineStyle: { width: 1.5, color: "#ee9b00" },
-      itemStyle: { color: "#ee9b00" },
+      lineStyle: { width: 1.5, color: COMOVE },
+      itemStyle: { color: COMOVE },
       data: centers.map(function (center, i) {
         return [center, activeCounts[i] || 0];
       }),
@@ -303,7 +322,7 @@
           min: 0,
           max: Math.max(data.aliasCount || 0, 2),
           interval: 1,
-          axisLabel: { color: "#ee9b00" },
+          axisLabel: { color: COMOVE },
           splitLine: { show: false }
         }
       ],
@@ -312,6 +331,7 @@
   }
 
   function episodeSignals(data, labels, opts) {
+    var seen = {};
     var series = (data.series || [])
       .filter(function (entry) {
         return entry.points && entry.points.length > 0;
@@ -322,7 +342,7 @@
           name: entry.alias,
           showSymbol: false,
           sampling: "lttb",
-          lineStyle: { width: 1.5, color: entry.color },
+          lineStyle: { width: 1.5, color: entry.color, type: participantLineType(entry.color, seen) },
           itemStyle: { color: entry.color },
           data: entry.points
         };
@@ -375,7 +395,7 @@
         orient: "horizontal",
         left: "center",
         bottom: 14,
-        inRange: { color: ["#264653", "#8ecae6", "#f7fbff", "#f4a261", "#9b2226"] }
+        inRange: { color: [LOW, "#92c5de", NEUTRAL_STATE, "#f4a582", HIGH] }
       },
       series: [
         {
@@ -448,7 +468,7 @@
         left: "center",
         bottom: 4,
         text: [labels.high, labels.low],
-        inRange: { color: ["#0077b6", "#f7fbff", "#9b2226"] }
+        inRange: { color: [LOW, NEUTRAL_STATE, HIGH] }
       },
       series: [{ type: "heatmap", data: cells }]
     };

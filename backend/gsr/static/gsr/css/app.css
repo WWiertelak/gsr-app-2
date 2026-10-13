@@ -28,6 +28,8 @@
   --r-sm: 6px; --r-md: 10px; --shadow-pop: 0 8px 28px rgba(20, 33, 43, 0.14);
   --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  /* Science semantics, reserved: never a participant colour (services/results.py RESERVED_SCIENCE_COLORS). */
+  --high: #b2182b; --low: #2166ac; --comove: #3f4b57; --threshold: #9f1239; --episode: rgba(20, 33, 43, 0.07);
 }
 
 * { box-sizing: border-box; }
@@ -237,6 +239,9 @@ details.settings-panel[open] > summary { margin-bottom: var(--s3); }
   font-size: var(--fs-xs); font-weight: 500; white-space: nowrap;
 }
 .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.dot.high { background: var(--high); }
+.dot.low { background: var(--low); }
+.dot.comove { background: var(--comove); }
 .badge { display: inline-flex; align-items: center; gap: var(--s1); padding: 2px var(--s2); border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; }
 .badge.good { background: var(--ok-weak); color: var(--ok); }
 .badge.warning { background: var(--warn-weak); color: var(--warn); }
