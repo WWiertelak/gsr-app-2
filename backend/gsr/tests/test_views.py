@@ -270,6 +270,8 @@ def test_upload_overview_flags_recordings_without_shared_window(client, late_pro
     assert not project.datasets.get(alias="C").included
     page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
     assert 'aria-disabled="true"' not in page and next_link in page
+    overview = client.get(reverse("gsr:upload_overview", args=[project.pk])).content.decode()
+    assert "alert success" in overview and "excluded" in overview
 
 
 @pytest.mark.django_db
@@ -288,8 +290,6 @@ def test_inline_alias_save_refreshes_the_action_bar(client, late_project) -> Non
     fragment = client.post(rename, {"alias": "Cleo"}, **HTMX).content.decode()
     bar = fragment[fragment.index('id="upload-action-bar"'):]
     assert "3 recordings · common window" in bar and reverse("gsr:cleaning", args=[project.pk]) in bar
-    overview = client.get(reverse("gsr:upload_overview", args=[project.pk])).content.decode()
-    assert "alert success" in overview and "excluded" in overview
 
 
 @pytest.mark.django_db
