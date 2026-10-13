@@ -140,7 +140,7 @@ def test_upload_screen_stores_files_and_shows_overlap(client, recordings) -> Non
         reverse("gsr:upload", args=[project.pk]), {"files": [_upload(path) for path in recordings.values()]}
     )
     assert response.status_code == 302
-    assert list(project.datasets.values_list("alias", flat=True)) == ["session_A", "session_B", "session_C"]
+    assert list(project.datasets.values_list("alias", flat=True)) == ["session", "session_B", "session_C"]
     assert project.datasets.first().parsed_metadata["recorded_start"].startswith("1900-01-01T12:00:00")
 
     page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
@@ -161,7 +161,7 @@ def test_upload_rejects_unreadable_file_and_keeps_others(client, recordings) -> 
     )
     page = response.content.decode()
     assert "broken.csv:" in page and 'class="alert error"' in page
-    assert list(project.datasets.values_list("alias", flat=True)) == ["session_A"]
+    assert list(project.datasets.values_list("alias", flat=True)) == ["session"]
 
 
 @pytest.mark.django_db

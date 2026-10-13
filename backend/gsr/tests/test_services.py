@@ -11,7 +11,7 @@ from django.core.management import CommandError, call_command
 from gsr.models import Dataset, Project
 from gsr.pipeline.config import PipelineConfig
 from gsr.services.analysis import AnalysisError, analyze_files, resolve_config, run_project_analysis
-from gsr.services.datasets import add_dataset
+from gsr.services.datasets import add_dataset, propose_alias
 
 from .sample_data import Participant, RecordingFormat, write_group
 
@@ -54,9 +54,36 @@ def test_add_dataset_stores_file_and_parser_metadata(recordings, isolated_storag
 
 
 @pytest.mark.django_db
-def test_add_dataset_defaults_alias_to_file_stem(recordings) -> None:
+def test_add_dataset_proposes_leading_token_then_falls_back_to_stem(recordings) -> None:
     project = Project.objects.create(name="Session")
-    assert add_dataset(project, _upload(recordings["B"])).alias == "session_B"
+    assert add_dataset(project, _upload(recordings["B"])).alias == "session"
+    assert add_dataset(project, _upload(recordings["A"])).alias == "session_A"
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("12_anna_session.csv", "12"),
+        ("anna-2024.csv", "anna"),
+        ("P07 run.csv", "P07"),
+        ("zażółć.v2.csv", "zażółć"),
+        ("plain.csv", "plain"),
+        ("_lead.csv", "_lead"),
+        ("--.csv", "--"),
+    ],
+)
+@pytest.mark.django_db
+def test_propose_alias_takes_leading_token(filename, expected) -> None:
+    assert propose_alias(Project.objects.create(name="Session"), filename) == expected
+
+
+@pytest.mark.django_db
+def test_propose_alias_falls_back_on_collision(recordings) -> None:
+    project = Project.objects.create(name="Session")
+    for alias in ("12", "12_a", "12_a-2"):
+        add_dataset(project, _upload(recordings["A"]), alias=alias)
+    assert propose_alias(project, "12_b.csv") == "12_b"
+    assert propose_alias(project, "12_a.csv") == "12_a-3"
 
 
 @pytest.mark.django_db

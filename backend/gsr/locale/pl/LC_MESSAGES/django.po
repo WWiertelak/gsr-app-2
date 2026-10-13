@@ -1062,11 +1062,11 @@ msgstr "1. Import"
 
 #: gsr/templates/gsr/partials/upload_main.html:5
 msgid ""
-"Upload one eSense CSV export per participant. The alias defaults to the file"
-" name; rename it below."
+"Upload one eSense CSV export per participant. The alias defaults to the "
+"first word or number of the file name; rename it below."
 msgstr ""
-"Wgraj jeden eksport CSV z eSense na uczestnika. Alias to domyślnie nazwa "
-"pliku; zmienisz go poniżej."
+"Wgraj jeden eksport CSV z eSense na uczestnika. Alias to domyślnie pierwsze "
+"słowo lub liczba z nazwy pliku; zmienisz go poniżej."
 
 #: gsr/templates/gsr/partials/upload_main.html:9
 msgid "CSV files"
