@@ -391,33 +391,37 @@
     });
   }
 
+  // Without a `span` the bands are drawn unlabelled.
   function episodeMarkArea(episodes, span) {
     if (!episodes || !episodes.length) {
       return undefined;
     }
     // About the width of a "#12" label on a typical chart.
-    var rows = episodeRows(episodes, span * 0.04);
+    var rows = span === undefined ? null : episodeRows(episodes, span * 0.04);
     return {
       silent: true,
       itemStyle: { color: T.episode, borderColor: T.episodeEdge, borderWidth: 1 },
       // Just the episode number; full membership is in the episodes table.
-      label: { show: true, position: "insideTop", distance: 4, color: T.ink2, fontSize: 11, fontWeight: 600 },
+      label: rows
+        ? { show: true, position: "insideTop", distance: 4, color: T.ink2, fontSize: 11, fontWeight: 600 }
+        : { show: false },
       data: episodes.map(function (episode, index) {
-        return [
-          {
-            xAxis: episode.start,
-            name: "#" + (index + 1),
-            label: { offset: [0, rows[index] * LABEL_ROW_HEIGHT] }
-          },
-          { xAxis: episode.end }
-        ];
+        return rows
+          ? [
+              {
+                xAxis: episode.start,
+                name: "#" + (index + 1),
+                label: { offset: [0, rows[index] * LABEL_ROW_HEIGHT] }
+              },
+              { xAxis: episode.end }
+            ]
+          : [{ xAxis: episode.start }, { xAxis: episode.end }];
       })
     };
   }
 
   function syncTimeline(data, labels, opts) {
     var centers = data.centers || [];
-    var span = centers.length ? centers[centers.length - 1] - centers[0] : 0;
     var pairSeries = (data.pairs || []).map(function (pair, index) {
       return {
         name: pair.name,
@@ -450,7 +454,7 @@
         lineStyle: { type: [4, 4], width: 1, color: THRESHOLD },
         label: {
           position: "insideEndTop",
-          formatter: (labels.threshold || "") + " " + formatNumber(threshold),
+          formatter: labels.threshold || "",
           color: THRESHOLD,
           fontSize: 11
         },
@@ -469,7 +473,7 @@
       data: centers.map(function (center, i) {
         return [center, activeCounts[i] || 0];
       }),
-      markArea: episodeMarkArea(data.episodes, span)
+      markArea: episodeMarkArea(data.episodes)
     };
     return {
       animation: false,
