@@ -13,11 +13,12 @@
     <section class="card">
       <h2>{% translate "PDF report" %}</h2>
       <p class="hint">{% translate "The report for other researchers: project description, results summary, import, cleaning, synchronization and co-arousal results with charts, methodology, and the data needed to reproduce the run. Its language follows the UI language (PL/EN)." %}</p>
-      <div class="row-form">
-        <a class="button" href="{% url 'gsr:export_pdf' project.pk %}">{% translate "Generate PDF report" %}</a>
-        <a class="button secondary" href="{% url 'gsr:export_report' project.pk %}" target="_blank" rel="noopener">{% translate "Open report in browser" %}</a>
+      <form method="post" action="{% url 'gsr:export_pdf' project.pk %}" data-capture-charts>
+        {% csrf_token %}
+        {% for chart in report_charts %}<input type="hidden" name="chart_{{ chart.key }}" value="">{% endfor %}
+        <button type="submit">{% translate "Generate PDF report" %}</button>
         <span class="muted small">{% blocktranslate with time=result.computed_at|date:"Y-m-d H:i" %}Results of the run from {{ time }}{% endblocktranslate %}</span>
-      </div>
+      </form>
     </section>
 
     <section class="card">

@@ -33,12 +33,9 @@ RUN chmod +x docker-entrypoint.sh \
     && chown -R gsr:gsr /data
 
 # SQLite database and uploaded files live on the /data volume.
-# Matplotlib and fontconfig caches go to /tmp: the gsr user cannot write to /app.
 ENV SQLITE_PATH=/data/db.sqlite3 \
     STORAGE_ROOT=/data/storage \
-    PORT=8000 \
-    MPLCONFIGDIR=/tmp/matplotlib \
-    XDG_CACHE_HOME=/tmp/cache
+    PORT=8000
 
 USER gsr
 VOLUME ["/data"]

@@ -1031,13 +1031,9 @@ msgstr ""
 "oraz dane potrzebne do odtworzenia obliczeń. Język raportu odpowiada "
 "językowi interfejsu (PL/EN)."
 
-#: gsr/templates/gsr/partials/export_main.html:17
+#: gsr/templates/gsr/partials/export_main.html:19
 msgid "Generate PDF report"
 msgstr "Generuj raport PDF"
-
-#: gsr/templates/gsr/partials/export_main.html:18
-msgid "Open report in browser"
-msgstr "Otwórz raport w przeglądarce"
 
 #: gsr/templates/gsr/partials/export_main.html:20
 #, python-format

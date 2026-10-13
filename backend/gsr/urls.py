@@ -21,7 +21,6 @@ urlpatterns = [
     path("projects/<uuid:pk>/analysis/reset/", views.analysis_reset, name="analysis_reset"),
     path("projects/<uuid:pk>/export/", views.export, name="export"),
     path("projects/<uuid:pk>/export/report.pdf", views.export_pdf, name="export_pdf"),
-    path("projects/<uuid:pk>/export/report.html", views.export_report, name="export_report"),
     path("projects/<uuid:pk>/export/results.zip", views.export_zip, name="export_zip"),
     path("projects/<uuid:pk>/export/files/<str:name>", views.export_file, name="export_file"),
 ]

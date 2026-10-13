@@ -2,8 +2,7 @@
 
 Each chart on a page is ``<div data-chart="<kind>">`` plus its data in a
 ``json_script`` element; the browser builds the ECharts option from both. The
-same data feeds the off-screen charts the Export screen captures for the ZIP and
-the report charts drawn server-side (``reporting/chart_images.py``).
+same data feeds the off-screen charts the Export screen captures for the PDF.
 """
 
 from __future__ import annotations
@@ -127,7 +126,7 @@ def coarousal_states(coarousal: dict[str, Any]) -> dict[str, Any]:
 
 
 def report_charts(payload: dict[str, Any], colors: dict[str, str], config: dict[str, Any]) -> list[dict[str, Any]]:
-    """The charts the report embeds and the ZIP bundles, keyed as in ``services.exports.CHART_KEYS``."""
+    """The charts the PDF report embeds, keyed as in ``services.exports.CHART_KEYS``."""
     preview = payload.get("preview", {})
     synchrony = payload.get("synchrony", {})
     coarousal = payload.get("coarousal", {})

@@ -1,7 +1,7 @@
 /*
  * Page behaviour: hydrate [data-chart] elements with ECharts (also after HTMX
  * swaps), analysis tabs, info tooltips, confirm dialogs, the busy overlay for plain form posts,
- * and the Export screen's chart capture for the ZIP.
+ * and the Export screen's chart capture for the PDF report and the ZIP.
  */
 (function () {
   "use strict";
@@ -114,7 +114,7 @@
     });
   });
 
-  // ── Chart capture for the ZIP (same builders, fixed size, white background) ──
+  // ── Chart capture for the PDF report / ZIP (same builders, fixed size, white background) ──
   function captureCharts() {
     var images = {};
     document.querySelectorAll("[data-capture-chart]").forEach(function (element) {

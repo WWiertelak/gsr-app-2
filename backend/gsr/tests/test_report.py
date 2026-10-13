@@ -1,4 +1,4 @@
-"""Report content (HTML page and its PDF): sections, language, charts drawn server-side."""
+"""Report content (HTML page and its PDF): sections, language, embedded charts."""
 
 from __future__ import annotations
 
@@ -13,13 +13,10 @@ from typing import Any
 import pytest
 from PIL import Image as PILImage
 
-from gsr import charts
 from gsr.pipeline.config import PipelineConfig
-from gsr.reporting.chart_images import render_chart_images
 from gsr.reporting.methodology import METHODOLOGY, METHODS_COMPARISON
 from gsr.reporting.report import render_report_html, render_report_pdf
 from gsr.services.analysis import analyze_files_with_result
-from gsr.services.exports import CHART_KEYS
 
 from .sample_data import Participant, RecordingFormat, write_group
 
@@ -153,20 +150,6 @@ def test_report_states_the_analysed_window_not_the_full_span(payload) -> None:
     texts = _texts(render_report_html({**payload, "lang": "en", "preview": preview, "config": config}))
     assert any(html.unescape(text).endswith("1–9 min") for text in texts)
     assert not any("9.93" in text for text in texts)
-
-
-def test_report_charts_are_drawn_server_side_for_every_chart_key(payload) -> None:
-    colors = {"A": "#003049", "B": "#0077b6"}
-    report_charts = charts.report_charts(payload, colors, payload["config"])
-    images = render_chart_images(report_charts, charts.chart_labels())
-    assert set(images) == set(CHART_KEYS)
-    assert all(image.startswith(b"\x89PNG") for image in images.values())
-
-
-def test_report_chart_without_data_is_left_out() -> None:
-    images = render_chart_images([{"key": "sync_signals", "kind": "episodeSignals", "data": {"series": []}},
-                                  {"key": "raw_overlay", "kind": "unknown", "data": {}}], charts.chart_labels())
-    assert images == {}
 
 
 def _pdf_objects(pdf: bytes) -> bytes:

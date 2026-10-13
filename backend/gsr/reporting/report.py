@@ -8,8 +8,8 @@ file SHA-256) replaces the segment CSV appendix.
 
 ``build_report`` turns the run payload into sections of blocks (headings,
 paragraphs, tables, charts) that ``templates/gsr/report/report.html`` lays out;
-WeasyPrint converts that page to PDF. Charts are PNGs drawn server-side
-(``chart_images``) from the same data as the screens' ECharts charts.
+WeasyPrint converts that page to PDF. Charts are the PNGs the Export screen
+captures from the screens' ECharts charts (``chart_images``).
 """
 
 from __future__ import annotations
@@ -981,10 +981,10 @@ def build_report(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def render_report_html(payload: dict[str, Any], *, for_pdf: bool = False) -> str:
-    """The report page; ``for_pdf`` embeds the bundled DejaVu fonts (WeasyPrint has no system fonts to fall back on)."""
+def render_report_html(payload: dict[str, Any]) -> str:
+    """The report page, with the bundled DejaVu fonts (WeasyPrint has no system fonts to fall back on)."""
     context = build_report(payload)
-    context["font_dir"] = FONT_DIR.as_uri() if for_pdf else ""
+    context["font_dir"] = FONT_DIR.as_uri()
     return render_to_string("gsr/report/report.html", context)
 
 
@@ -992,4 +992,4 @@ def render_report_pdf(payload: dict[str, Any]) -> bytes:
     # Imported here: WeasyPrint loads the system Pango library on import, which only the PDF download needs.
     from weasyprint import HTML
 
-    return HTML(string=render_report_html(payload, for_pdf=True), base_url=str(FONT_DIR)).write_pdf()
+    return HTML(string=render_report_html(payload), base_url=str(FONT_DIR)).write_pdf()

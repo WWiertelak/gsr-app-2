@@ -45,7 +45,7 @@ authentication before hosting the app for more than one person.
 - `backend/gsr/views.py`, `backend/gsr/templates/gsr/`, `backend/gsr/static/gsr/` - UI screens;
   `static/gsr/js/charts.js` holds the ECharts option builders ported from GSRv2,
   `static/gsr/vendor/` the pinned htmx and ECharts builds.
-- `backend/gsr/reporting/` - report (HTML template converted to PDF by WeasyPrint, charts drawn with matplotlib, bundled DejaVu fonts) and its methodology text.
+- `backend/gsr/reporting/` - PDF report (HTML template converted to PDF by WeasyPrint, bundled DejaVu fonts) and its methodology text.
 - `backend/gsr/locale/pl/` - Polish UI strings. After changing UI text run
   `python manage.py makemessages -l pl --no-obsolete --ignore=.venv --ignore=staticfiles`, translate,
   then `python manage.py compilemessages --ignore=.venv` (needs gettext) and commit both files.

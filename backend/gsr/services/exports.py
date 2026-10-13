@@ -18,8 +18,8 @@ from ..pipeline.config import PipelineConfig
 from ..pipeline.preprocessing import analysed_range, build_stage_export_frame
 from .results import stored_pipeline_result
 
-# Charts the Export screen captures from the same ECharts options as the screens
-# for the ZIP. The browser posts them as PNG data URLs (field "chart_<key>").
+# Charts the Export screen captures from the same ECharts options as the screens,
+# by report section. The browser posts them as PNG data URLs (field "chart_<key>").
 CHART_KEYS = (
     "raw_overlay",
     "clean_overlay",
@@ -32,8 +32,7 @@ MAX_CHART_BYTES = 8 * 1024 * 1024
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 PNG_DATA_URL_PREFIX = "data:image/png;base64,"
 
-VERSIONED_PACKAGES = ("django", "numpy", "pandas", "scipy", "scikit-learn", "dtaidistance", "weasyprint",
-                       "matplotlib")
+VERSIONED_PACKAGES = ("django", "numpy", "pandas", "scipy", "scikit-learn", "dtaidistance", "weasyprint")
 
 
 def parse_chart_images(data: Any) -> dict[str, bytes]:
