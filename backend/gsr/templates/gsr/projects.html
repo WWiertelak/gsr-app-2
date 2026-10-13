@@ -1,6 +1,8 @@
 {% extends "gsr/base.html" %}
 {% load i18n %}
 {% block title %}{% translate "Projects" %}{% endblock %}
+{% block rail_projects_current %} aria-current="page"{% endblock %}
+{% block page_head %}<h1>{% translate "Projects" %}</h1>{% endblock %}
 {% block content %}
 <div class="layout-sidebar">
   <section class="card sidebar">
@@ -22,7 +24,7 @@
   </section>
 
   <section class="card">
-    <h2>{% translate "Projects" %}</h2>
+    <h2>{% translate "Saved projects" %}</h2>
     <p class="muted">{% translate "Create a new project or open an existing one to continue." %}</p>
     {% if projects %}
       <div class="table-wrap">

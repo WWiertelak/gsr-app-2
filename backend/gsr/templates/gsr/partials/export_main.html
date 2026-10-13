@@ -1,8 +1,7 @@
 {% load i18n %}
 <div class="stack">
   {% if not result %}
-    <section class="card">
-      <h2>{% translate "4. Export" %}</h2>
+    <section class="card empty-state">
       <p>{% translate "Run the analysis first; the export takes the results of the last run." %} <a href="{% url 'gsr:analysis' project.pk %}">{% translate "Go to Analysis" %}</a></p>
     </section>
   {% else %}

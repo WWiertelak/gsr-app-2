@@ -19,8 +19,9 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseNotAllow
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.formats import number_format
 from django.utils.text import slugify
-from django.utils.translation import get_language
+from django.utils.translation import get_language, ngettext
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
@@ -50,6 +51,7 @@ STEPS = (
     ("export", "gsr:export"),
 )
 ANALYSIS_TABS = ("synchronization", "coarousal")
+RAIL_PROJECTS = 6  # other projects offered by the rail's project switcher
 
 
 def _is_htmx(request: HttpRequest) -> bool:
@@ -68,16 +70,26 @@ def _current_values(project: Project) -> dict[str, Any]:
 
 
 def _steps(project: Project, current: str) -> list[dict[str, Any]]:
+    """The project steps for the left rail, each with a one-line text status (not only a colour)."""
     labels = {"upload": _("Import"), "cleaning": _("Cleaning"), "analysis": _("Analysis"), "export": _("Export")}
     cleaning = get_result(project, AnalysisResult.KIND_CLEANING)
     analysis = get_result(project, AnalysisResult.KIND_ANALYSIS)
+    recordings = project.datasets.count()
     done = {
-        "upload": project.datasets.exists(),
+        "upload": recordings > 0,
         "cleaning": cleaning is not None,
         "analysis": analysis is not None,
         "export": False,
     }
     stale = {"cleaning": is_stale(project, cleaning), "analysis": is_stale(project, analysis)}
+    stale["export"] = stale["analysis"]
+    status = {
+        "upload": (ngettext("%(count)s recording", "%(count)s recordings", recordings)
+                   % {"count": number_format(recordings, force_grouping=True)}) if recordings else _("no recordings"),
+        "cleaning": _cleaning_status(cleaning),
+        "analysis": _("computed %(time)s") % {"time": _computed_time(analysis)} if analysis else _("not run"),
+        "export": _("ready") if analysis else _("needs analysis"),
+    }
     return [
         {
             "key": key,
@@ -87,16 +99,35 @@ def _steps(project: Project, current: str) -> list[dict[str, Any]]:
             "current": key == current,
             "done": done[key],
             "stale": stale.get(key, False),
+            "status": _("outdated") if stale.get(key) else status[key],
         }
         for index, (key, url_name) in enumerate(STEPS)
     ]
 
 
+def _cleaning_status(result: AnalysisResult | None) -> str:
+    if result is None:
+        return _("not run")
+    rejected = result.payload["preview"]["cleaning_summary"]["totals"]["artifact_rejected_points"]
+    return ngettext("%(count)s rejected sample", "%(count)s rejected samples", rejected) % {
+        "count": number_format(rejected, force_grouping=True)}
+
+
+def _computed_time(result: AnalysisResult) -> str:
+    """When a result was computed: the time for today's runs, the date for older ones."""
+    computed = timezone.localtime(result.computed_at)
+    return computed.strftime("%H:%M" if computed.date() == timezone.localdate() else "%Y-%m-%d")
+
+
 def _page(request: HttpRequest, project: Project, step: str, partial: str, context: dict[str, Any]) -> HttpResponse:
     """A project screen: the full page, or only its main area (``partial``) for HTMX requests."""
-    context = {"project": project, "step": step, "steps": _steps(project, step), "partial": partial,
-               "htmx": _is_htmx(request), **context}
-    return render(request, partial if _is_htmx(request) else "gsr/project_page.html", context)
+    steps = _steps(project, step)
+    context = {"project": project, "step": step, "steps": steps, "partial": partial, "htmx": _is_htmx(request),
+               **context}
+    if not context["htmx"]:
+        context["step_label"] = next(item["label"] for item in steps if item["current"])
+        context["other_projects"] = Project.objects.exclude(pk=project.pk).order_by("-updated_at")[:RAIL_PROJECTS]
+    return render(request, partial if context["htmx"] else "gsr/project_page.html", context)
 
 
 # ─── Projects ────────────────────────────────────────────────────────────────
@@ -405,7 +436,7 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         "result": result,
         "stale": is_stale(project, result),
         "error": error,
-        "included_count": len(included_datasets(project)),
+        "analysis_blocked": len(included_datasets(project)) < 2,
         "colors": colors,
     }
     if result is not None:

@@ -196,7 +196,7 @@ def test_upload_overview_flags_recordings_without_shared_window(client, late_pro
 
     # Without a shared window the next step is not offered.
     page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
-    next_link = f'<a class="button" href="{reverse("gsr:cleaning", args=[project.pk])}">'
+    next_link = f'<a class="button lg" href="{reverse("gsr:cleaning", args=[project.pk])}">'
     assert 'aria-disabled="true"' in page and next_link not in page
     assert "Exclude or delete the recording that does not overlap." in page
 
@@ -274,7 +274,7 @@ def test_cleaning_screen_computes_preview_on_first_visit(client, project) -> Non
     stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_CLEANING)
     assert [row["alias"] for row in stored.payload["datasets"]] == ["A", "B", "C"]
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
-    assert 'hx-trigger="load"' not in page and "badge stale" not in page
+    assert 'hx-trigger="load"' not in page and "run-status stale" not in page
 
 
 @pytest.mark.django_db
@@ -352,6 +352,11 @@ def _settings_form(page: str) -> str:
     return page[start:page.index("</form>", start)]
 
 
+def _run_bar(page: str) -> str:
+    start = page.index('<div class="run-bar"')
+    return page[start:page.index("</div>", start)]
+
+
 @pytest.mark.django_db
 def test_cleaning_settings_are_collapsed_with_a_summary_and_tooltips(client, project) -> None:
     project.pipeline_config = {**project.pipeline_config, "time_range_to": 3.0, "clean_filter_iqr": True}
@@ -360,8 +365,13 @@ def test_cleaning_settings_are_collapsed_with_a_summary_and_tooltips(client, pro
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
     form = _settings_form(page)
-    assert '<details class="settings-panel">' in form  # closed by default
-    assert "Signals: 2/3 · Window: …–3 min · Filters: 5/5 · Median: 5 · 2 changed" in form
+    assert '<details class="settings-panel" id="cleaning-settings-panel">' in form  # closed by default
+    # The run bar above lists the values; its Edit settings button opens the panel.
+    run_bar = _run_bar(page)
+    assert ("<li>Signals: 2/3</li><li>Window: …–3 min</li><li>Filters: 5/5</li><li>Median: 5</li><li>2 changed</li>"
+            in run_bar)
+    assert 'data-open-settings aria-controls="cleaning-settings-panel">Edit settings</button>' in run_bar
+    assert "Not run yet" in run_bar
     # Explanations moved from inline hints into keyboard-reachable tooltips.
     assert 'class="hint"' not in form
     assert 'aria-describedby="tip-group-zscore"' in form and 'role="tooltip" id="tip-group-zscore"' in form
@@ -376,10 +386,10 @@ def test_cleaning_settings_are_collapsed_with_a_summary_and_tooltips(client, pro
 def test_cleaning_settings_panel_stays_open_on_errors(client, project) -> None:
     form = _cleaning_form(project, clean_filter_physiological_min_us=30, clean_filter_physiological_max_us=20)
     fragment = client.post(reverse("gsr:cleaning", args=[project.pk]), form, **HTMX).content.decode()
-    assert '<details class="settings-panel" open>' in fragment
+    assert '<details class="settings-panel" id="cleaning-settings-panel" open>' in fragment
 
     fragment = client.post(reverse("gsr:cleaning", args=[project.pk]), _cleaning_form(project), **HTMX).content.decode()
-    assert '<details class="settings-panel">' in fragment and "alert error" not in fragment
+    assert '<details class="settings-panel" id="cleaning-settings-panel">' in fragment and "alert error" not in fragment
 
 
 # ─── 3 Analysis ──────────────────────────────────────────────────────────────
@@ -393,7 +403,7 @@ def test_analysis_run_stores_both_results_in_two_tabs(client, project) -> None:
     fragment = _run_analysis(client, project).content.decode()
     for kind in ("syncTimeline", "episodeSignals", "heatmap", "coarousalStates"):
         assert f'data-chart="{kind}"' in fragment
-    assert 'hx-swap-oob="true"' in fragment and "badge fresh" in fragment
+    assert 'hx-swap-oob="true"' in fragment and "run-status fresh" in fragment
 
     stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
     assert set(stored.payload) == {"preview", "synchrony", "coarousal", "datasets"}
@@ -417,17 +427,22 @@ def test_analysis_screen_has_landmarks_aria_tabs_and_labelled_charts(client, pro
     assert 'role="tabpanel" id="panel-coarousal" aria-labelledby="tab-coarousal"' in page
     # Charts are canvases, so each one carries a text alternative.
     assert 'data-chart="heatmap"' in page and 'role="img" aria-label="Synchronization matrix"' in page
-    # The stepper states each step in text, not only by colour.
-    assert '<span class="sr-only">(done)</span>' in page and 'class="step-status"' not in page
+    # The rail states each step's status in text, not only by colour; the work area is headed by the step.
+    assert '<aside class="rail"' in page and "<h1>Analysis</h1>" in page
+    assert '<small class="step-status">3 recordings</small>' in page and "outdated" not in page
+    assert '<small class="step-status">ready</small>' in page
+    # The settings drawer mounts outside the HTMX swap target.
+    assert page.index('id="main"') < page.index("</main>") < page.index('id="drawer-root"')
 
     project.save()
     project.datasets.filter(alias="C").update(included=False)
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
-    assert '<span class="step-status">outdated</span>' in page
+    assert '<small class="step-status">outdated</small>' in page
 
     client.post(reverse("set_language"), {"language": "pl", "next": "/"})
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
-    assert '<span class="sr-only">(gotowe)</span>' in page and '<span class="step-status">nieaktualne</span>' in page
+    assert '<small class="step-status">3 nagrania</small>' in page
+    assert '<small class="step-status">nieaktualne</small>' in page
     assert 'role="img" aria-label="Macierz synchronizacji"' in page
 
 
@@ -436,35 +451,36 @@ def test_analysis_settings_are_collapsed_with_run_and_apply_buttons(client, proj
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
     form = _settings_form(page)
-    assert '<details class="settings-panel">' in form
-    assert "Threshold: 0.6 · Window: 30 s · High/Low z: 1/-1 · Min. participants: 2 · 2 changed" in form
+    assert '<details class="settings-panel" id="analysis-settings-panel">' in form
+    assert ("<li>Threshold: 0.6</li><li>Window: 30 s</li><li>High/Low z: 1/-1</li><li>Min. participants: 2</li>"
+            "<li>2 changed</li>") in _run_bar(page)
     assert 'class="hint"' not in form and 'role="tooltip" id="tip-contagion_surrogate_count"' in form
     assert ">Apply settings</button>" in form
     for param in params.ANALYSIS_PARAMS:
         assert f'name="{param.name}"' in form
-    # Without a result the run bar offers the first run; it submits the (collapsed) settings form.
-    assert 'form="analysis-settings">Run analysis</button>' in page
+    # Without a result the empty state offers the first run as a large button; it submits the collapsed settings form.
+    assert '<button type="submit" class="lg" form="analysis-settings">Run analysis</button>' in page
 
     fragment = _run_analysis(client, project).content.decode()
     assert 'form="analysis-settings"' not in fragment  # fresh result: nothing to recompute
     project.pipeline_config = {**project.pipeline_config, "synchrony_threshold": 0.7}
     project.save()
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
-    assert "badge stale" in page and 'form="analysis-settings"' in page
+    assert "run-status stale" in page and 'form="analysis-settings">Recompute</button>' in _run_bar(page)
 
     form = _analysis_form(project, contagion_min_participants=5)
     fragment = client.post(reverse("gsr:analysis", args=[project.pk]), form, **HTMX).content.decode()
-    assert '<details class="settings-panel" open>' in fragment
+    assert '<details class="settings-panel" id="analysis-settings-panel" open>' in fragment
 
 
 @pytest.mark.django_db
 def test_polish_screens_use_polish_numbers_and_labels(client, project) -> None:
     project.pipeline_config = {**project.pipeline_config, "time_range_to": 2.5, "synchrony_threshold": 0.75}
     project.save()
-    form = _settings_form(client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode())
-    assert "Okno: …–2,5 min" in form
-    form = _settings_form(client.get(reverse("gsr:analysis", args=[project.pk])).content.decode())
-    assert "Próg: 0,75" in form and "Próg wysoki/niski z: 1/-1" in form
+    assert "Okno: …–2,5 min" in _run_bar(client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode())
+    page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
+    assert "Próg: 0,75" in _run_bar(page) and "Próg wysoki/niski z: 1/-1" in _run_bar(page)
+    form = _settings_form(page)
     assert "zmienione (domyślnie 0,6)" in form
     # The input fields keep dot decimals: that is what <input type="number"> accepts.
     assert 'name="synchrony_threshold" step="any" value="0.75"' in form
@@ -476,7 +492,7 @@ def test_polish_screens_use_polish_numbers_and_labels(client, project) -> None:
 def test_upload_step_is_called_import_in_both_languages(client, project) -> None:
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
-    assert "1. Import" in page and "Upload</a>" not in page
+    assert "<h1>Import</h1>" in page and "<b>Import</b>" in page and "<b>Upload</b>" not in page
 
 
 @pytest.mark.django_db
@@ -502,17 +518,17 @@ def test_analysis_settings_are_saved_and_result_goes_stale(client, project) -> N
     assert all(pair["dtw_distance"] is None for pair in stored.payload["synchrony"]["pairs"])
 
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
-    assert "badge stale" not in page
+    assert "run-status stale" not in page
 
     # A cleaning change makes the analysis stale, but an analysis change does not touch the cleaning preview.
     client.post(reverse("gsr:cleaning_refresh", args=[project.pk]), **HTMX)
     project.pipeline_config = {**project.pipeline_config, "median_kernel": 7}
     project.save()
-    assert "badge stale" in client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
+    assert "run-status stale" in client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
     project.pipeline_config = {**project.pipeline_config, "median_kernel": 5, "synchrony_threshold": 0.7}
     project.save()
-    assert "badge stale" not in client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
-    assert "badge stale" in client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
+    assert "run-status stale" not in client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
+    assert "run-status stale" in client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
 
 
 @pytest.mark.django_db

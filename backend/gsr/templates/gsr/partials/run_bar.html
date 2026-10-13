@@ -1,0 +1,15 @@
+{% load i18n %}{% comment %}Settings chips + result status of a computed step. settings_id = the settings panel that "Edit settings"
+opens; run_form = the form that "Recompute" submits when the result is outdated.{% endcomment %}
+<div class="run-bar" id="run-bar">
+  <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+  <ul class="kv" aria-label="{% translate 'Current settings' %}">{% for item in settings_summary %}<li>{{ item }}</li>{% endfor %}</ul>
+  <span class="run-actions">
+    {% if result %}
+      <span class="run-status {% if stale %}stale{% else %}fresh{% endif %}"><span class="dot" aria-hidden="true"></span>{% if stale %}{% translate "Outdated result" %}{% else %}{% translate "Up to date" %}{% endif %} · {% blocktranslate with time=result.computed_at|date:"Y-m-d H:i" seconds=result.duration_seconds|floatformat:1 %}Computed {{ time }} · {{ seconds }} s{% endblocktranslate %}</span>
+    {% else %}
+      <span class="run-status none"><span class="dot" aria-hidden="true"></span>{% translate "Not run yet" %}</span>
+    {% endif %}
+    <button type="button" class="secondary" data-open-settings aria-controls="{{ settings_id }}">{% translate "Edit settings" %}</button>
+    {% if result and stale %}<button type="submit" form="{{ run_form }}"{% if run_disabled %} disabled{% endif %}>{% translate "Recompute" %}</button>{% endif %}
+  </span>
+</div>

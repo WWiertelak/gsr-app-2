@@ -1,15 +1,26 @@
 {% extends "gsr/base.html" %}
 {% load i18n %}
-{% block title %}{{ project.name }}{% endblock %}
-{% block content %}
-<nav class="project-bar">
-  <div class="crumbs">
-    <a href="{% url 'gsr:projects' %}">{% translate "Projects" %}</a>
-    <span class="muted">/</span>
-    <h1>{{ project.name }}</h1>
-  </div>
-  {% include "gsr/partials/stepper.html" %}
+{% block title %}{{ step_label }} · {{ project.name }}{% endblock %}
+{% block rail %}
+<details class="rail-project">
+  <summary><span class="name">{{ project.name }}</span><small>{% translate "Switch project" %} ▾</small></summary>
+  <ul>
+    {% for other in other_projects %}
+      <li><a href="{% url 'gsr:project' other.pk %}">{{ other.name }}</a></li>
+    {% endfor %}
+    <li><a class="all" href="{% url 'gsr:projects' %}">{% translate "All projects" %}</a></li>
+  </ul>
+</details>
+<nav aria-labelledby="rail-steps-title">
+  <h2 class="rail-section" id="rail-steps-title">{% translate "Project steps" %}</h2>
+  {% include "gsr/partials/rail_steps.html" %}
 </nav>
+{% endblock %}
+{% block page_head %}
+<p class="crumbs"><a href="{% url 'gsr:projects' %}">{% translate "Projects" %}</a> <span aria-hidden="true">/</span> {{ project.name }}</p>
+<h1>{{ step_label }}</h1>
+{% endblock %}
+{% block content %}
 <div id="main">
   {% include partial %}
 </div>

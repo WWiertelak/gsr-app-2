@@ -1,14 +1,15 @@
 {% load i18n gsr_tags %}
+{% include "gsr/partials/run_bar.html" with settings_id="analysis-settings-panel" run_form="analysis-settings" run_disabled=analysis_blocked %}
 <div class="layout-sidebar">
   <form class="card sidebar" id="analysis-settings" method="post" action="{% url 'gsr:analysis' project.pk %}"
         hx-post="{% url 'gsr:analysis' project.pk %}" hx-target="#main" hx-swap="innerHTML"
-        hx-indicator="#busy" hx-disabled-elt="find button">
+        hx-indicator="#busy" hx-disabled-elt="find button, #run-bar button, #analysis-empty button">
     {% csrf_token %}
     <input type="hidden" name="tab" value="{{ tab }}" data-tab-input>
     <h2>{% translate "Analysis controls" %}</h2>
 
-    <details class="settings-panel"{% if error %} open{% endif %}>
-      {% include "gsr/partials/settings_summary.html" %}
+    <details class="settings-panel" id="analysis-settings-panel"{% if error %} open{% endif %}>
+      <summary><span class="settings-title">{% translate "Settings" %}</span></summary>
 
       <fieldset>
         <legend>{% translate "Synchronization settings" %}</legend>
@@ -28,38 +29,31 @@
         </details>
       </fieldset>
 
-      <div class="actions">
-        <button type="submit"{% if included_count < 2 %} disabled{% endif %}>{% translate "Apply settings" %}</button>
-        <button type="submit" class="secondary" formaction="{% url 'gsr:analysis_reset' project.pk %}" hx-post="{% url 'gsr:analysis_reset' project.pk %}" formnovalidate>{% translate "Reset defaults" %}</button>
+      <div class="settings-actions">
+        <button type="submit"{% if analysis_blocked %} disabled{% endif %}>{% translate "Apply settings" %}</button>
         {% translate "Applying settings runs the analysis again: one run computes both synchronization and co-arousal with the cleaning settings from step 2." as apply_help %}
         {% include "gsr/partials/tip.html" with text=apply_help tip_id="tip-apply" %}
+        <button type="submit" class="ghost" formaction="{% url 'gsr:analysis_reset' project.pk %}" hx-post="{% url 'gsr:analysis_reset' project.pk %}" formnovalidate>{% translate "Reset defaults" %}</button>
       </div>
     </details>
   </form>
 
   <div class="stack">
     {% if error %}{% include "gsr/partials/error.html" %}{% endif %}
-    {% if included_count < 2 %}
+    {% if analysis_blocked %}
       <div class="alert warning">{% translate "Select at least two signals to compute synchronization." %} <a href="{% url 'gsr:cleaning' project.pk %}">{% translate "Go to Cleaning" %}</a></div>
     {% endif %}
 
     <section class="card" aria-labelledby="analysis-results-title">
       <h2 class="sr-only" id="analysis-results-title">{% translate "Analysis results" %}</h2>
-      <div class="run-bar">
-        {% if result %}
-          <span>{% blocktranslate with time=result.computed_at|date:"Y-m-d H:i" seconds=result.duration_seconds|floatformat:1 %}Last run {{ time }} · {{ seconds }} s{% endblocktranslate %}</span>
-          {% if stale %}
-            <span class="badge stale">{% translate "Outdated result" %}</span>
-            <span class="muted small">{% translate "Settings or signals changed since this run. Run the analysis again." %}</span>
-            <button type="submit" class="small" form="analysis-settings"{% if included_count < 2 %} disabled{% endif %}>{% translate "Recompute" %}</button>
-          {% else %}
-            <span class="badge fresh">{% translate "settings unchanged" %}</span>
-          {% endif %}
-        {% else %}
-          <span class="muted">{% translate "No results for this step yet. Set the parameters and run the analysis." %}</span>
-          <button type="submit" class="small" form="analysis-settings"{% if included_count < 2 %} disabled{% endif %}>{% translate "Run analysis" %}</button>
-        {% endif %}
-      </div>
+      {% if not result %}
+        <div class="empty-state" id="analysis-empty">
+          <p>{% translate "No results for this step yet. Set the parameters and run the analysis." %}</p>
+          <button type="submit" class="lg" form="analysis-settings"{% if analysis_blocked %} disabled{% endif %}>{% translate "Run analysis" %}</button>
+        </div>
+      {% elif stale %}
+        <p class="alert warning">{% translate "Settings or signals changed since this run. Run the analysis again." %}</p>
+      {% endif %}
 
       <div class="tabs" role="tablist" aria-labelledby="analysis-results-title">
         <a href="?tab=synchronization" role="tab" id="tab-synchronization" aria-controls="panel-synchronization" data-tab="synchronization" class="{% if tab == 'synchronization' %}active{% endif %}" aria-selected="{% if tab == 'synchronization' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'synchronization' %}0{% else %}-1{% endif %}">{% translate "Synchronization" %}</a>
@@ -159,7 +153,7 @@
               </div>
             </div>
           </div>
-        {% else %}
+        {% elif result %}
           <p class="muted">{% translate "No results for this step yet." %}</p>
         {% endif %}
       </div>
@@ -261,15 +255,19 @@
               </div>
             </div>
           </div>
-        {% else %}
+        {% elif result %}
           <p class="muted">{% translate "No results for this step yet." %}</p>
         {% endif %}
       </div>
 
-      {% if result %}
-        <div class="actions end"><a class="button" href="{% url 'gsr:export' project.pk %}">{% translate "Next: Export" %} →</a></div>
-      {% endif %}
     </section>
   </div>
 </div>
-{% if htmx %}{% include "gsr/partials/stepper.html" with oob=True %}{% endif %}
+{% if result %}
+  <div class="action-bar">
+    <span class="muted">{% translate "The results go into the PDF report and the ZIP." %}</span>
+    <span class="grow"></span>
+    <a class="button lg" href="{% url 'gsr:export' project.pk %}">{% translate "Next: Export" %} →</a>
+  </div>
+{% endif %}
+{% if htmx %}{% include "gsr/partials/rail_steps.html" with oob=True %}{% endif %}
