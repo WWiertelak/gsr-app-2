@@ -255,7 +255,7 @@
     var low = Math.min.apply(null, values);
     var high = Math.max.apply(null, values);
     var pad = (high - low) * 0.6 || Math.max(Math.abs(high) * 0.1, 0.5);
-    return niceRange(low - pad, high + pad);
+    return niceRange(low >= 0 ? Math.max(0, low - pad) : low - pad, high + pad);
   }
 
   // One marker per stretch of clipped samples: a sample closer than `gap` to the previous marker is skipped.
