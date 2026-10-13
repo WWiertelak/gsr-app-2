@@ -369,17 +369,65 @@ table.data tr.nsig td { color: var(--ink-3); }
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: var(--s4) var(--s5); }
 @media (max-width: 520px) { .chart-grid { grid-template-columns: minmax(0, 1fr); } }
 
-/* Overlap bars (Upload) */
-.overlap { display: grid; grid-template-columns: minmax(80px, 160px) minmax(0, 1fr); gap: var(--s2) var(--s3); align-items: center; margin: var(--s2) 0 var(--s1); }
-.overlap .track { position: relative; height: 12px; background: var(--sunken); border-radius: 3px; }
-.overlap .bar { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
-.overlap .bar.common { background: repeating-linear-gradient(45deg, var(--accent), var(--accent) 6px, var(--accent-hover) 6px, var(--accent-hover) 12px); }
-.overlap .name { display: flex; align-items: center; gap: var(--s2); font-size: var(--fs-sm); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Upload: overlap timeline on a clock axis; the shared window is shaded across every row */
+.timeline {
+  display: grid; grid-template-columns: minmax(64px, max-content) minmax(0, 1fr) max-content;
+  gap: 6px var(--s3); align-items: center; margin: var(--s2) 0 var(--s3); font-size: var(--fs-sm);
+}
+.tl-axis { grid-column: 2; grid-row: 1; position: relative; height: 18px; color: var(--ink-3); font-size: var(--fs-xs); }
+.tl-axis span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.tl-plot { grid-column: 2; grid-row: 2 / span var(--rows); align-self: stretch; position: relative; }
+.tl-grid { position: absolute; top: -4px; bottom: -4px; border-left: 1px solid var(--line); }
+.tl-window { position: absolute; top: -4px; bottom: -4px; background: var(--accent-weak); border-inline: 1px solid var(--accent); }
+.tl-name { grid-column: 1; display: flex; align-items: center; gap: var(--s2); min-width: 0; font-weight: 600; white-space: nowrap; }
+.tl-track { grid-column: 2; position: relative; height: 10px; }
+.tl-bar { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: var(--color); }
+.tl-bar.excluded { background: repeating-linear-gradient(45deg, var(--color), var(--color) 3px, transparent 3px, transparent 6px); opacity: 0.6; }
+.tl-range { grid-column: 3; color: var(--ink-2); font-size: var(--fs-xs); white-space: nowrap; }
+.tl-error { grid-column: 2 / span 2; padding: var(--s1) var(--s3); }
+.window-summary { display: grid; gap: 2px; }
 
-/* Upload */
-.dropzone { border: 1.5px dashed var(--line-2); border-radius: var(--r-md); padding: var(--s4); background: var(--canvas); display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; }
-.dropzone input[type="file"] { flex: 1 1 260px; font-size: var(--fs-sm); }
-.alias-form input { max-width: 14rem; }
+/* Upload: drop zone, recordings table, raw signal views */
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); margin-bottom: var(--s3); }
+.card .card-head h2 { margin: 0; }
+.card-head > .muted { font-size: var(--fs-sm); }
+.card-head .segmented { margin-left: auto; align-self: center; }
+.dropzone {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s4); padding: var(--s4) var(--s5);
+  border: 1.5px dashed var(--line-2); border-radius: var(--r-md); background: var(--canvas);
+}
+.dropzone.is-dragging { border-color: var(--accent); background: var(--accent-weak); }
+.dropzone:has(input:focus-visible) label.button { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dz-icon {
+  width: 40px; height: 40px; flex: none; padding: 9px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface);
+  fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.dz-text { flex: 1 1 260px; display: grid; gap: 2px; min-width: 0; }
+.dz-text strong { font-size: var(--fs-md); }
+.dz-text span { color: var(--ink-2); font-size: var(--fs-sm); }
+.js .dz-submit { display: none; }
+.upload-empty { padding-bottom: 0; }
+table.data.recordings { margin-top: var(--s3); }
+table.data.recordings td { vertical-align: middle; }
+table.data.recordings td.file { color: var(--ink-2); overflow-wrap: anywhere; }
+table.data.recordings tr.excluded td { color: var(--ink-3); }
+.alias-form { display: flex; align-items: center; gap: var(--s2); }
+.alias-form input { max-width: 12rem; min-height: 28px; font-weight: 600; border-color: transparent; background: transparent; }
+.alias-form input:hover { border-color: var(--line-2); background: var(--surface); }
+.alias-form input:focus-visible, .alias-form input[aria-invalid="true"] { border-color: var(--accent); background: var(--surface); }
+.alias-form input[aria-invalid="true"] { border-color: var(--error); }
+.alias-msg { display: block; padding-left: 18px; font-size: var(--fs-xs); color: var(--ok); }
+.alias-msg:empty { display: none; }
+.alias-msg.error { color: var(--error); }
+.badge.neutral { background: var(--sunken); color: var(--ink-2); }
+button.icon { width: 28px; min-height: 28px; padding: 0; color: var(--ink-3); }
+button.icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+button.icon:not(:disabled):hover { color: var(--error); background: var(--error-weak); }
+.segmented { display: inline-flex; padding: 2px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--sunken); }
+.segmented button { min-height: 26px; border: 0; border-radius: 4px; background: transparent; color: var(--ink-2); font-weight: 500; }
+.segmented button:not(:disabled):hover { background: var(--surface); border: 0; color: var(--ink); }
+.segmented button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(20, 33, 43, 0.12); }
+.chart-card .chart-title { margin: 0 0 var(--s1); font-size: var(--fs-sm); display: flex; align-items: center; gap: var(--s2); }
 
 /* Tabs */
 .tabs { display: flex; gap: var(--s5); border-bottom: 1px solid var(--line); margin: var(--s4) 0; }

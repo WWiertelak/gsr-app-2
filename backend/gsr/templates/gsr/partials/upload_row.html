@@ -1,0 +1,37 @@
+{% load i18n %}{% comment %}One recording on the Upload screen. The alias saves inline (HTMX, on Enter or when the field loses focus)
+and the response is this row again; without JavaScript, Enter posts the form and the page reloads.{% endcomment %}
+{% with dataset=item.dataset %}
+<tr id="recording-{{ dataset.pk }}"{% if not dataset.included %} class="excluded"{% endif %}>
+  <td>
+    <form class="alias-form" method="post" action="{% url 'gsr:dataset_rename' project.pk dataset.pk %}"
+          hx-post="{% url 'gsr:dataset_rename' project.pk dataset.pk %}" hx-trigger="submit, change" hx-sync="this:drop" hx-target="closest tr" hx-swap="outerHTML">
+      {% csrf_token %}
+      <span class="dot" style="background: {{ item.color }}" aria-hidden="true"></span>
+      <input type="text" name="alias" value="{{ alias_value }}" maxlength="120" required
+             aria-label="{% blocktranslate with file=dataset.original_filename %}Alias of {{ file }}{% endblocktranslate %}"
+             {% if alias_error %}aria-invalid="true" aria-describedby="alias-msg-{{ dataset.pk }}"{% endif %}>
+    </form>
+    <span class="alias-msg{% if alias_error %} error{% endif %}" id="alias-msg-{{ dataset.pk }}" role="status">{% if alias_error %}{{ alias_error }}{% elif alias_saved %}✓ {% translate "Saved" %}{% endif %}</span>
+  </td>
+  <td class="left file">{{ dataset.original_filename }}</td>
+  <td>{{ item.start|default:"—" }}</td>
+  <td>{{ item.end|default:"—" }}</td>
+  <td>{% if item.minutes is not None %}{{ item.minutes|floatformat:1 }} min{% else %}—{% endif %}</td>
+  <td>{{ item.samples|default:"—" }}</td>
+  <td class="left">
+    <span class="badge good">✓ {% translate "Loaded" %}</span>
+    {% if dataset.parsed_metadata.excel_repaired_values %}
+      <span class="badge neutral">{% blocktranslate count counter=dataset.parsed_metadata.excel_repaired_values %}{{ counter }} Excel fix{% plural %}{{ counter }} Excel fixes{% endblocktranslate %}</span>
+    {% endif %}
+    {% if not dataset.included %}<span class="badge neutral">{% translate "excluded on Cleaning" %}</span>{% endif %}
+  </td>
+  <td>
+    <form method="post" action="{% url 'gsr:dataset_delete' project.pk dataset.pk %}" data-confirm="{% translate 'Are you sure you want to delete this signal?' %}">
+      {% csrf_token %}
+      <button type="submit" class="ghost icon" title="{% translate 'Delete' %}" aria-label="{% blocktranslate with alias=dataset.alias %}Delete {{ alias }}{% endblocktranslate %}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3"/></svg>
+      </button>
+    </form>
+  </td>
+</tr>
+{% endwith %}

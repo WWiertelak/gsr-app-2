@@ -210,16 +210,38 @@ def upload(request: HttpRequest, pk: Any) -> HttpResponse:
 def _upload_context(project: Project) -> dict[str, Any]:
     datasets = list(project.datasets.order_by("created_at"))
     colors = signal_colors(project)
+    ranges = _recorded_ranges(datasets)
+    overlap_error = _overlap_error(ranges)
+    recordings_label = _recordings_label(len(datasets))
+    if not overlap_error and len(ranges) > 1:
+        window = min(end for _start, end in ranges.values()) - max(start for start, _end in ranges.values())
+        recordings_label = _("%(recordings)s · common window %(minutes)s min") % {
+            "recordings": recordings_label, "minutes": number_format(round(window.total_seconds() / 60.0, 1), 1)}
     return {
-        "datasets": [{"dataset": dataset, "color": colors[dataset.alias]} for dataset in datasets],
-        "overlap_error": _overlap_error(datasets),
-        "recordings_label": _recordings_label(len(datasets)),
+        "datasets": [_dataset_row(dataset, colors[dataset.alias]) for dataset in datasets],
+        "overlap_error": overlap_error,
+        "recordings_label": recordings_label,
+        "max_upload_mb": settings.MAX_UPLOAD_MB,
     }
 
 
-def _overlap_error(datasets: list[Dataset]) -> str | None:
-    """Why the included recordings cannot be cleaned together (no shared clock window), from upload metadata."""
-    ranges = {
+def _dataset_row(dataset: Dataset, color: str) -> dict[str, Any]:
+    """One row of the recordings table: clock range, duration and sample count from the upload metadata."""
+    metadata = dataset.parsed_metadata or {}
+    row: dict[str, Any] = {"dataset": dataset, "color": color, "start": None, "end": None, "minutes": None,
+                           "samples": None}
+    if {"recorded_start", "recorded_end"} <= set(metadata):
+        start, end = pd.Timestamp(metadata["recorded_start"]), pd.Timestamp(metadata["recorded_end"])
+        row.update(start=start.strftime("%H:%M:%S"), end=end.strftime("%H:%M:%S"),
+                   minutes=(end - start).total_seconds() / 60.0)
+    if metadata.get("row_count") is not None:
+        row["samples"] = number_format(metadata["row_count"], force_grouping=True)
+    return row
+
+
+def _recorded_ranges(datasets: list[Dataset]) -> dict[str, tuple[pd.Timestamp, pd.Timestamp]]:
+    """Clock range of each included recording, from upload metadata."""
+    return {
         dataset.alias: (
             pd.Timestamp(dataset.parsed_metadata["recorded_start"]),
             pd.Timestamp(dataset.parsed_metadata["recorded_end"]),
@@ -227,6 +249,10 @@ def _overlap_error(datasets: list[Dataset]) -> str | None:
         for dataset in datasets
         if dataset.included and {"recorded_start", "recorded_end"} <= set(dataset.parsed_metadata or {})
     }
+
+
+def _overlap_error(ranges: dict[str, tuple[pd.Timestamp, pd.Timestamp]]) -> str | None:
+    """Why the included recordings cannot be cleaned together (no shared clock window)."""
     if len(ranges) < 2 or max(start for start, _end in ranges.values()) < min(end for _start, end in ranges.values()):
         return None
     return no_overlap_message(ranges)[0]
@@ -253,18 +279,36 @@ def upload_overview(request: HttpRequest, pk: Any) -> HttpResponse:
 
 @require_POST
 def dataset_rename(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpResponse:
+    """Rename a signal. HTMX (inline save on Enter or blur) gets its table row back, with the result."""
     project = _project(pk)
     dataset = get_object_or_404(Dataset, pk=dataset_pk, project=project)
+    error = None
     try:
         alias = normalize_alias(request.POST.get("alias") or "")
         if project.datasets.exclude(pk=dataset.pk).filter(alias=alias).exists():
             raise ValidationError(_("Alias already exists in project: %(alias)s") % {"alias": alias})
     except ValidationError as exc:
-        messages.error(request, " ".join(exc.messages))
+        error = " ".join(exc.messages)
     else:
         dataset.alias = alias
         dataset.save(update_fields=["alias"])
-        messages.success(request, _("Signal renamed to %(alias)s.") % {"alias": alias})
+    if _is_htmx(request):
+        context = {
+            "project": project,
+            "item": _dataset_row(dataset, signal_colors(project)[dataset.alias]),
+            "alias_value": (request.POST.get("alias") or "") if error else dataset.alias,
+            "alias_error": error,
+            "alias_saved": error is None,
+        }
+        response = render(request, "gsr/partials/upload_row.html", context)
+        if error is None:
+            # The overlap timeline and the raw charts show the alias too: reload them.
+            response["HX-Trigger"] = "gsr:datasets-changed"
+        return response
+    if error:
+        messages.error(request, error)
+    else:
+        messages.success(request, _("Signal renamed to %(alias)s.") % {"alias": dataset.alias})
     return redirect("gsr:upload", project.pk)
 
 

@@ -244,6 +244,7 @@ def recording_overview(datasets: list[Dataset], max_points: int = PREVIEW_MAX_PO
 
     ranged = [row for row in rows if row["error"] is None]
     overlap: dict[str, Any] | None = None
+    ticks: list[dict[str, Any]] = []
     if ranged:
         earliest = min(row["start"] for row in ranged)
         latest = max(row["end"] for row in ranged)
@@ -251,6 +252,7 @@ def recording_overview(datasets: list[Dataset], max_points: int = PREVIEW_MAX_PO
         for row in ranged:
             row["bar_left_pct"] = round(100.0 * (row["start"] - earliest).total_seconds() / span, 2)
             row["bar_width_pct"] = round(100.0 * (row["end"] - row["start"]).total_seconds() / span, 2)
+        ticks = clock_ticks(earliest, latest)
         # The window of the included recordings only: those are what Cleaning will synchronize.
         included = [row for row in ranged if row["dataset"].included] or ranged
         common_start = max(row["start"] for row in included)
@@ -263,4 +265,25 @@ def recording_overview(datasets: list[Dataset], max_points: int = PREVIEW_MAX_PO
             overlap["duration_minutes"] = (common_end - common_start).total_seconds() / 60.0
             overlap["bar_left_pct"] = round(100.0 * (common_start - earliest).total_seconds() / span, 2)
             overlap["bar_width_pct"] = round(100.0 * (common_end - common_start).total_seconds() / span, 2)
-    return {"rows": rows, "overlap": overlap}
+    return {"rows": rows, "overlap": overlap, "ticks": ticks}
+
+
+TICK_STEPS_SECONDS = (1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400)
+
+
+def clock_ticks(earliest: pd.Timestamp, latest: pd.Timestamp, max_ticks: int = 7) -> list[dict[str, Any]]:
+    """Round clock times between ``earliest`` and ``latest`` for the overlap timeline's axis, as % positions."""
+    span = (latest - earliest).total_seconds()
+    if span <= 0:
+        return []
+    step = next((step for step in TICK_STEPS_SECONDS if span / step <= max_ticks), TICK_STEPS_SECONDS[-1])
+    midnight = earliest.normalize()
+    offset = int(np.ceil((earliest - midnight).total_seconds() / step)) * step
+    ticks = []
+    while (moment := midnight + pd.Timedelta(seconds=offset)) <= latest:
+        ticks.append({
+            "label": moment.strftime("%H:%M" if step >= 60 else "%H:%M:%S"),
+            "pct": round(100.0 * (moment - earliest).total_seconds() / span, 2),
+        })
+        offset += step
+    return ticks

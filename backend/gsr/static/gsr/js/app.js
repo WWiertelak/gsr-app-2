@@ -1,12 +1,15 @@
 /*
  * Page behaviour: hydrate [data-chart] elements with ECharts (also after HTMX
  * swaps), result switches (pair curves, merged episode table), analysis tabs (ARIA tabs with arrow keys), info
- * tooltips, confirm dialogs, the run bar's "Edit settings",
+ * tooltips, confirm dialogs, the run bar's "Edit settings", the Upload drop zone and its Separate/Overlay view switch,
  * progress for plain form posts and on the button that started a computation, and the Export screen's chart capture
  * for the PDF report and the ZIP.
  */
 (function () {
   "use strict";
+
+  // Styles that only make sense with this script (e.g. the drop zone's upload button is replaced by auto-submit).
+  document.documentElement.classList.add("js");
 
   function labels() {
     var element = document.getElementById("gsr-chart-labels");
@@ -168,6 +171,67 @@
     if (summary) {
       summary.focus();
     }
+  });
+
+  // ── Upload drop zone: dropped or chosen files are uploaded at once (the form's own Upload button is the
+  // no-script fallback) ──
+  function uploadFiles(zone, files) {
+    var input = zone.querySelector('input[type="file"]');
+    if (!input || !files || !files.length) {
+      return;
+    }
+    if (input.files !== files) {
+      input.files = files;
+    }
+    zone.closest("form").requestSubmit();
+  }
+
+  ["dragenter", "dragover"].forEach(function (type) {
+    document.addEventListener(type, function (event) {
+      var zone = event.target.closest && event.target.closest("[data-dropzone]");
+      if (zone && event.dataTransfer && Array.prototype.indexOf.call(event.dataTransfer.types, "Files") >= 0) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        zone.classList.add("is-dragging");
+      }
+    });
+  });
+  document.addEventListener("dragleave", function (event) {
+    var zone = event.target.closest && event.target.closest("[data-dropzone]");
+    if (zone && !zone.contains(event.relatedTarget)) {
+      zone.classList.remove("is-dragging");
+    }
+  });
+  document.addEventListener("drop", function (event) {
+    var zone = event.target.closest && event.target.closest("[data-dropzone]");
+    if (zone) {
+      event.preventDefault();
+      zone.classList.remove("is-dragging");
+      uploadFiles(zone, event.dataTransfer && event.dataTransfer.files);
+    }
+  });
+  document.addEventListener("change", function (event) {
+    var zone = event.target.matches('input[type="file"]') && event.target.closest("[data-dropzone]");
+    if (zone) {
+      uploadFiles(zone, event.target.files);
+    }
+  });
+
+  // ── View switch (Upload raw signals: Separate | Overlay): show one panel, draw its charts on first show ──
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-view]");
+    var scope = button && button.closest("[data-views]");
+    if (!scope) {
+      return;
+    }
+    scope.querySelectorAll("[data-view]").forEach(function (other) {
+      other.setAttribute("aria-pressed", other === button ? "true" : "false");
+    });
+    scope.querySelectorAll("[data-view-panel]").forEach(function (panel) {
+      panel.hidden = panel.dataset.viewPanel !== button.dataset.view;
+    });
+    hydrate(scope);
+    resizeCharts();
   });
 
   // ── Info tooltips: placed next to their (i) button, above it when there is room, so they do not
