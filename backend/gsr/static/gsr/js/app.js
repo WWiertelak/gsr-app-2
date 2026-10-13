@@ -314,8 +314,8 @@
   });
 
   // Before a swap: remember the drawer's scroll position, open sections and unapplied edits, so they can be put back
-  // on the refreshed drawer. Edits sent by the drawer's own form (Apply or Reset) are put back only when that run
-  // failed (the refreshed drawer carries data-autoopen), so the user still sees what they changed.
+  // on the refreshed drawer. Edits sent by Apply are put back only when that run failed (the refreshed drawer carries
+  // data-autoopen), so the user still sees what they changed; Reset defaults discards them.
   function snapshotDrawer(source) {
     var form = drawerForm();
     if (!form) {
@@ -323,13 +323,14 @@
     }
     var body = form.querySelector(".drawer-body");
     var fromDrawer = !!source && form.contains(source);
+    var isReset = fromDrawer && /-reset$/.test(source.id || "");
     return {
       fromDrawer: fromDrawer,
       scroll: body ? body.scrollTop : 0,
       details: Array.prototype.map.call(form.querySelectorAll("details[open][id]"), function (details) {
         return details.id;
       }),
-      edits: Array.prototype.filter.call(editableFields(form), isEdited).map(function (input) {
+      edits: isReset ? [] : Array.prototype.filter.call(editableFields(form), isEdited).map(function (input) {
         return { name: input.name, value: input.value, checked: input.checked, type: input.type };
       })
     };
