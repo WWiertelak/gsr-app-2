@@ -1,4 +1,4 @@
-/* Report layout: A4 pages for the PDF (WeasyPrint). Colours follow app.css. */
+/* Report layout: A4 pages for the PDF (WeasyPrint). Colours still use the legacy GSRv2 palette until the PDF phase (3.1) restyles it. */
 @font-face { font-family: "DejaVu Sans"; font-weight: normal; src: url("{{ font_dir }}/DejaVuSans.ttf"); }
 @font-face { font-family: "DejaVu Sans"; font-weight: bold; src: url("{{ font_dir }}/DejaVuSans-Bold.ttf"); }
 :root {
