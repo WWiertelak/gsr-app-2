@@ -497,7 +497,7 @@ def test_export_json_records_settings_versions_and_inputs(client, project) -> No
     document = json.loads(response.content)
     assert document["project"]["name"] == "Sesja łódzka"
     assert document["config"]["synchrony_surrogate_count"] == 20 and document["config"]["scaling_enabled"] is True
-    assert {"python", "numpy", "pandas", "scipy", "reportlab"} <= set(document["versions"])
+    assert {"python", "numpy", "pandas", "scipy", "weasyprint"} <= set(document["versions"])
     hashes = {row["alias"]: row["sha256"] for row in document["datasets"]}
     assert hashes == {dataset.alias: dataset.file_sha256 for dataset in project.datasets.all()}
     assert document["synchrony"]["stats"] and document["coarousal"]["stats"]

@@ -1,0 +1,47 @@
+<!doctype html>
+{# The analysis report page, converted to PDF by WeasyPrint (gsr/reporting/report.py). #}
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ document_title }}</title>
+  <style>{% include "gsr/report/report.css" %}</style>
+</head>
+<body>
+  <header class="cover">
+    <p class="eyebrow">GSR_APP 2.0</p>
+    <h1 class="report-title">{{ title_page.title }}</h1>
+    <p class="cover-project">{{ title_page.project }}</p>
+    {% include "gsr/report/table.html" with table=title_page.meta %}
+    {% if title_page.stale_warning %}<p class="callout warning"><strong>{{ title_page.stale_warning }}</strong></p>{% endif %}
+    <h2>{{ title_page.description_heading }}</h2>
+    <p class="description">{{ title_page.description|linebreaksbr }}</p>
+  </header>
+
+  {% for section in sections %}
+    <section class="report-section" id="{{ section.id }}">
+      <h1 class="section-title">{{ section.title }}</h1>
+      {% for block in section.blocks %}
+        {% if block.type == "h2" %}
+          <h2>{{ block.text }}</h2>
+        {% elif block.type == "p" %}
+          <p{% if block.style %} class="{{ block.style }}"{% endif %}>{{ block.text }}</p>
+        {% elif block.type == "note" %}
+          <p class="note{% if block.style %} {{ block.style }}{% endif %}"><strong>{{ block.label }}:</strong> {{ block.text }}</p>
+        {% elif block.type == "list" %}
+          <ul>{% for item in block.items %}<li>{{ item }}</li>{% endfor %}</ul>
+        {% elif block.type == "params" %}
+          <dl class="params">{% for term, definition in block.items %}<dt>{{ term }}</dt><dd>{{ definition }}</dd>{% endfor %}</dl>
+        {% elif block.type == "table" %}
+          {% include "gsr/report/table.html" with table=block %}
+        {% elif block.type == "chart" %}
+          <figure class="chart chart-{{ block.key }}">
+            <figcaption>{{ block.title }}</figcaption>
+            <img src="{{ block.src }}" alt="{{ block.title }}">
+          </figure>
+        {% endif %}
+      {% endfor %}
+    </section>
+  {% endfor %}
+</body>
+</html>

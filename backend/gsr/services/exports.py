@@ -32,7 +32,7 @@ MAX_CHART_BYTES = 8 * 1024 * 1024
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 PNG_DATA_URL_PREFIX = "data:image/png;base64,"
 
-VERSIONED_PACKAGES = ("django", "numpy", "pandas", "scipy", "scikit-learn", "dtaidistance", "reportlab")
+VERSIONED_PACKAGES = ("django", "numpy", "pandas", "scipy", "scikit-learn", "dtaidistance", "weasyprint")
 
 
 def parse_chart_images(data: Any) -> dict[str, bytes]:

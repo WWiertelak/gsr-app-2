@@ -1,0 +1,160 @@
+/* Report layout: A4 pages for the PDF (WeasyPrint). Colours follow app.css. */
+@font-face { font-family: "DejaVu Sans"; font-weight: normal; src: url("{{ font_dir }}/DejaVuSans.ttf"); }
+@font-face { font-family: "DejaVu Sans"; font-weight: bold; src: url("{{ font_dir }}/DejaVuSans-Bold.ttf"); }
+:root {
+  --ink: #102a43;
+  --ink-soft: #486581;
+  --accent: #0a9396;
+  --accent-dark: #005f73;
+  --accent-soft: #e6f4f3;
+  --warning: #bb3e03;
+  --warning-soft: #fff4e5;
+  --line: #d9e2ec;
+  --stripe: #f5f9fb;
+}
+
+@page {
+  size: A4;
+  margin: 20mm 15mm 18mm 15mm;
+  font-family: "DejaVu Sans", sans-serif;  /* margin boxes do not inherit the body font */
+  @top-left { content: string(section); font-size: 7.5pt; color: #486581; }
+  @top-right { content: string(project); font-size: 7.5pt; color: #486581; }
+  @bottom-left { content: string(report-title); font-size: 7.5pt; color: #486581; }
+  @bottom-right { content: counter(page) " / " counter(pages); font-size: 7.5pt; color: #486581; }
+}
+@page :first {
+  @top-left { content: none; }
+  @top-right { content: none; }
+}
+
+* { box-sizing: border-box; }
+html { background: #ffffff; }
+body {
+  margin: 0;
+  font-family: "DejaVu Sans", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: 9pt;
+  line-height: 1.45;
+  color: var(--ink);
+  background: #ffffff;
+}
+
+/* Cover */
+.cover { padding-top: 20mm; }
+.eyebrow {
+  margin: 0 0 4mm;
+  font-size: 8pt;
+  font-weight: bold;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.report-title {
+  margin: 0;
+  font-size: 26pt;
+  line-height: 1.15;
+  color: var(--accent-dark);
+  string-set: report-title content();
+}
+.cover-project {
+  margin: 2mm 0 10mm;
+  padding-bottom: 6mm;
+  border-bottom: 2px solid var(--accent);
+  font-size: 15pt;
+  color: var(--ink-soft);
+  string-set: project content();
+}
+.description { margin: 0; }
+
+/* Sections */
+.report-section { break-before: page; }
+.section-title {
+  margin: 0 0 5mm;
+  padding-bottom: 2mm;
+  border-bottom: 2px solid var(--accent);
+  font-size: 17pt;
+  line-height: 1.2;
+  color: var(--accent-dark);
+  string-set: section content();
+}
+h2 {
+  margin: 6mm 0 2.5mm;
+  font-size: 11.5pt;
+  line-height: 1.3;
+  color: var(--accent-dark);
+  break-after: avoid;
+}
+p { margin: 0 0 2.5mm; orphans: 3; widows: 3; }
+p.lead { font-size: 10pt; color: var(--ink-soft); }
+p.muted { color: var(--ink-soft); font-style: italic; }
+p.formula {
+  padding: 2mm 3mm;
+  border-left: 3px solid var(--line);
+  background: var(--stripe);
+  color: var(--ink-soft);
+}
+.callout, .note.callout {
+  margin: 4mm 0;
+  padding: 3mm 4mm;
+  border-left: 4px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  background: var(--accent-soft);
+}
+.callout.warning, .note.warning {
+  padding: 3mm 4mm;
+  border-left: 4px solid var(--warning);
+  border-radius: 0 4px 4px 0;
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+ul { margin: 0 0 3mm; padding-left: 5mm; }
+li { margin-bottom: 1mm; }
+dl.params { margin: 0 0 3mm; }
+dl.params dt { font-weight: bold; color: var(--accent-dark); break-after: avoid; }
+dl.params dd { margin: 0 0 2mm 5mm; }
+
+/* Tables */
+table {
+  width: 100%;
+  margin: 0 0 5mm;
+  border-collapse: collapse;
+  font-size: 8pt;
+  line-height: 1.35;
+}
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th {
+  padding: 1.8mm 2mm;
+  border-bottom: 1.5px solid var(--accent-dark);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-weight: bold;
+  text-align: left;
+  vertical-align: bottom;
+}
+td {
+  padding: 1.5mm 2mm;
+  border-bottom: 0.5px solid var(--line);
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+tbody tr:nth-child(even) td { background: var(--stripe); }
+.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Label/value tables: the label column reads as a row heading. */
+table.kv { width: auto; min-width: 60%; }
+table.kv td:first-child { width: 45%; color: var(--ink-soft); }
+table.kv td:last-child { font-weight: bold; }
+table.settings { width: 100%; }
+table.settings td:last-child { font-weight: normal; }
+table.files td:last-child { overflow-wrap: anywhere; font-size: 7pt; letter-spacing: 0.02em; color: var(--ink-soft); }
+
+/* Charts */
+figure.chart { margin: 4mm 0 6mm; break-inside: avoid; }
+figure.chart figcaption {
+  margin-bottom: 2mm;
+  font-size: 9.5pt;
+  font-weight: bold;
+  color: var(--accent-dark);
+}
+figure.chart img { display: block; width: 100%; height: auto; border: 0.5px solid var(--line); }
+figure.chart-sync_matrix img { width: auto; max-width: 100%; max-height: 150mm; margin: 0 auto; }

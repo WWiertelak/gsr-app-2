@@ -1,0 +1,7 @@
+<table class="{{ table.kind }}">
+  <thead><tr>{% for cell in table.header %}<th{% if forloop.counter0 in table.numeric %} class="num"{% endif %}>{{ cell }}</th>{% endfor %}</tr></thead>
+  <tbody>
+    {% for row in table.rows %}<tr>{% for cell in row %}<td{% if forloop.counter0 in table.numeric %} class="num"{% endif %}>{{ cell }}</td>{% endfor %}</tr>
+    {% endfor %}
+  </tbody>
+</table>

@@ -26,7 +26,7 @@ from django.views.decorators.http import require_POST
 from . import charts, params
 from .models import AnalysisResult, Dataset, Project
 from .pipeline.config import PipelineConfig
-from .reporting.pdf import render_report_pdf
+from .reporting.report import render_report_pdf
 from .services import exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias

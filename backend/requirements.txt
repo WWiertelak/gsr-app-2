@@ -6,4 +6,4 @@ scikit-learn==1.7.1
 dtaidistance==2.3.13
 gunicorn==23.0.0
 whitenoise==6.9.0
-reportlab==4.4.4
+weasyprint==68.1
