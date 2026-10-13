@@ -1,9 +1,9 @@
 {% load i18n gsr_tags %}{% with p=row.param %}
 {% if p.kind == "bool" %}
-<label class="toggle"><input type="checkbox" name="{{ p.name }}" value="1"{% if row.value %} checked{% endif %}> {{ p.label }}</label>
+<div class="field-head"><label class="toggle"><input type="checkbox" name="{{ p.name }}" value="1"{% if row.value %} checked{% endif %}> {{ p.label }}</label>{% include "gsr/partials/tip.html" with text=p.help tip_id="tip-"|add:p.name %}</div>
 {% else %}
 <div class="field">
-  <label for="f-{{ p.name }}">{{ p.label }}</label>
+  <div class="field-head"><label for="f-{{ p.name }}">{{ p.label }}</label>{% include "gsr/partials/tip.html" with text=p.help tip_id="tip-"|add:p.name %}</div>
   {% if p.kind == "choice" %}
     <select id="f-{{ p.name }}" name="{{ p.name }}">
       {% for value, label in p.choices %}<option value="{{ value }}"{% if value == row.value %} selected{% endif %}>{{ label }}</option>{% endfor %}
@@ -14,5 +14,4 @@
   {% if not p.nullable %}<span class="default-note{% if row.modified %} modified{% endif %}">{% if row.modified %}{% blocktranslate with value=p.default|input_value %}changed (default {{ value }}){% endblocktranslate %}{% else %}{% translate "default" %}{% endif %}</span>{% endif %}
 </div>
 {% endif %}
-{% if p.help %}<p class="hint">{{ p.help }}</p>{% endif %}
 {% endwith %}

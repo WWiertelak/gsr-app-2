@@ -1,0 +1,1 @@
+{% load i18n %}{% if text %}<span class="tip"><button type="button" class="tip-btn" aria-label="{% translate 'More information' %}" aria-describedby="{{ tip_id }}">i</button><span class="tip-text" role="tooltip" id="{{ tip_id }}">{{ text }}</span></span>{% endif %}

@@ -4,43 +4,46 @@
         hx-post="{% url 'gsr:cleaning' project.pk %}" hx-target="#main" hx-swap="innerHTML"
         hx-indicator="#busy" hx-disabled-elt="find button">
     {% csrf_token %}
+    {% translate "Checked signals will be processed and visible in the charts. Unchecking a signal excludes it from cleaning and downstream analysis." as signals_help %}
     <h2>{% translate "Cleaning controls" %}</h2>
+    <details class="settings-panel"{% if error %} open{% endif %}>
+      {% include "gsr/partials/settings_summary.html" %}
 
-    <fieldset>
-      <legend>{% translate "Signals" %}</legend>
-      <p class="hint">{% translate "Checked signals will be processed and visible in the charts. Unchecking a signal excludes it from cleaning and downstream analysis." %}</p>
-      <div class="signal-list">
-        {% for item in datasets %}
-          <label><input type="checkbox" name="datasets" value="{{ item.dataset.pk }}"{% if item.dataset.included %} checked{% endif %}>
-            <span class="dot" style="background: {{ item.color }}"></span>{{ item.dataset.alias }}</label>
-        {% empty %}
-          <p class="muted">{% translate "No signals uploaded yet." %}</p>
-        {% endfor %}
-      </div>
-    </fieldset>
-
-    {% for entry in groups %}
       <fieldset>
-        <legend>
-          {% if entry.toggle %}
-            <label class="toggle"><input type="checkbox" name="{{ entry.toggle.param.name }}" value="1"{% if entry.toggle.value %} checked{% endif %}> {{ entry.group.title }}</label>
-          {% else %}
-            {{ entry.group.title }}
-          {% endif %}
-        </legend>
-        <p class="hint">{{ entry.group.help }}</p>
-        {% if entry.toggle and entry.toggle.param.help %}<p class="hint">{{ entry.toggle.param.help }}</p>{% endif %}
-        <div class="{% if entry.rows|length == 2 %}field-pair{% endif %}">
-          {% for row in entry.rows %}<div>{% include "gsr/partials/param_field.html" %}</div>{% endfor %}
+        <legend>{% translate "Signals" %}{% include "gsr/partials/tip.html" with text=signals_help tip_id="tip-signals" %}</legend>
+        <div class="signal-list">
+          {% for item in datasets %}
+            <label><input type="checkbox" name="datasets" value="{{ item.dataset.pk }}"{% if item.dataset.included %} checked{% endif %}>
+              <span class="dot" style="background: {{ item.color }}"></span>{{ item.dataset.alias }}</label>
+          {% empty %}
+            <p class="muted">{% translate "No signals uploaded yet." %}</p>
+          {% endfor %}
         </div>
       </fieldset>
-    {% endfor %}
 
-    <div class="actions">
-      <button type="submit">{% translate "Apply settings" %}</button>
-      <button type="submit" class="secondary" formaction="{% url 'gsr:cleaning_reset' project.pk %}" hx-post="{% url 'gsr:cleaning_reset' project.pk %}" formnovalidate>{% translate "Reset defaults" %}</button>
-    </div>
-    <p class="hint">{% translate "Applying settings recomputes the preview; it can take a few seconds." %}</p>
+      {% for entry in groups %}
+        <fieldset>
+          <legend>
+            {% if entry.toggle %}
+              <label class="toggle"><input type="checkbox" name="{{ entry.toggle.param.name }}" value="1"{% if entry.toggle.value %} checked{% endif %}> {{ entry.group.title }}</label>
+            {% else %}
+              {{ entry.group.title }}
+            {% endif %}
+            {% include "gsr/partials/tip.html" with text=entry.help tip_id="tip-group-"|add:entry.group.key %}
+          </legend>
+          <div class="{% if entry.rows|length == 2 %}field-pair{% endif %}">
+            {% for row in entry.rows %}<div>{% include "gsr/partials/param_field.html" %}</div>{% endfor %}
+          </div>
+        </fieldset>
+      {% endfor %}
+
+      <div class="actions">
+        <button type="submit">{% translate "Apply settings" %}</button>
+        <button type="submit" class="secondary" formaction="{% url 'gsr:cleaning_reset' project.pk %}" hx-post="{% url 'gsr:cleaning_reset' project.pk %}" formnovalidate>{% translate "Reset defaults" %}</button>
+        {% translate "Applying settings recomputes the preview; it can take a few seconds." as apply_help %}
+        {% include "gsr/partials/tip.html" with text=apply_help tip_id="tip-apply" %}
+      </div>
+    </details>
   </form>
 
   <div class="stack">

@@ -284,6 +284,41 @@ def test_cleaning_without_datasets_points_to_upload(client) -> None:
     assert reverse("gsr:upload", args=[project.pk]) in page and 'hx-trigger="load"' not in page
 
 
+def _settings_form(page: str) -> str:
+    start = page.index('<form class="card sidebar"')
+    return page[start:page.index("</form>", start)]
+
+
+@pytest.mark.django_db
+def test_cleaning_settings_are_collapsed_with_a_summary_and_tooltips(client, project) -> None:
+    project.pipeline_config = {**project.pipeline_config, "time_range_to": 3.0, "clean_filter_iqr": True}
+    project.save()
+    project.datasets.filter(alias="C").update(included=False)
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
+    form = _settings_form(page)
+    assert '<details class="settings-panel">' in form  # closed by default
+    assert "Signals: 2/3 · Window: …–3 min · Filters: 5/5 · Median: 5 · 2 changed" in form
+    # Explanations moved from inline hints into keyboard-reachable tooltips.
+    assert 'class="hint"' not in form
+    assert 'aria-describedby="tip-group-zscore"' in form and 'role="tooltip" id="tip-group-zscore"' in form
+    assert "Rejects points that are statistical outliers against the full signal." in form
+    assert "Applying settings recomputes the preview" in form
+    # Every setting is still in the form, so Apply posts the same fields as before.
+    for param in params.cleaning_params():
+        assert f'name="{param.name}"' in form
+
+
+@pytest.mark.django_db
+def test_cleaning_settings_panel_stays_open_on_errors(client, project) -> None:
+    form = _cleaning_form(project, clean_filter_physiological_min_us=30, clean_filter_physiological_max_us=20)
+    fragment = client.post(reverse("gsr:cleaning", args=[project.pk]), form, **HTMX).content.decode()
+    assert '<details class="settings-panel" open>' in fragment
+
+    fragment = client.post(reverse("gsr:cleaning", args=[project.pk]), _cleaning_form(project), **HTMX).content.decode()
+    assert '<details class="settings-panel">' in fragment and "alert error" not in fragment
+
+
 # ─── 3 Analysis ──────────────────────────────────────────────────────────────
 
 
@@ -303,6 +338,32 @@ def test_analysis_run_stores_both_results_in_two_tabs(client, project) -> None:
 
     page = client.get(reverse("gsr:analysis", args=[project.pk]) + "?tab=coarousal").content.decode()
     assert 'data-tab-panel="synchronization" hidden' in page and 'data-tab-panel="coarousal">' in page
+
+
+@pytest.mark.django_db
+def test_analysis_settings_are_collapsed_with_run_and_apply_buttons(client, project) -> None:
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
+    form = _settings_form(page)
+    assert '<details class="settings-panel">' in form
+    assert "Threshold: 0.6 · Window: 30 s · High/Low z: 1/-1 · Min. participants: 2 · 2 changed" in form
+    assert 'class="hint"' not in form and 'role="tooltip" id="tip-contagion_surrogate_count"' in form
+    assert ">Apply settings</button>" in form
+    for param in params.ANALYSIS_PARAMS:
+        assert f'name="{param.name}"' in form
+    # Without a result the run bar offers the first run; it submits the (collapsed) settings form.
+    assert 'form="analysis-settings">Run analysis</button>' in page
+
+    fragment = _run_analysis(client, project).content.decode()
+    assert 'form="analysis-settings"' not in fragment  # fresh result: nothing to recompute
+    project.pipeline_config = {**project.pipeline_config, "synchrony_threshold": 0.7}
+    project.save()
+    page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
+    assert "badge stale" in page and 'form="analysis-settings"' in page
+
+    form = _analysis_form(project, contagion_min_participants=5)
+    fragment = client.post(reverse("gsr:analysis", args=[project.pk]), form, **HTMX).content.decode()
+    assert '<details class="settings-panel" open>' in fragment
 
 
 @pytest.mark.django_db
@@ -511,6 +572,7 @@ def test_language_switch_translates_screens_and_chart_labels(client, project) ->
     client.post(reverse("set_language"), {"language": "pl", "next": "/"})
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
     assert "Panel czyszczenia" in page and "Zakres fizjologiczny" in page
+    assert "Sygnały: 3/3" in page and "Ustawienia" in page and 'aria-label="Więcej informacji"' in page
 
 
 def test_polish_catalog_is_compiled() -> None:

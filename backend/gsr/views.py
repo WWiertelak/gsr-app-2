@@ -228,18 +228,22 @@ def _cleaning_context(project: Project, error: str | None = None) -> dict[str, A
         {
             "group": group,
             "toggle": params.field_rows((group.toggle,), values)[0] if group.toggle else None,
+            "help": " ".join(str(text) for text in (group.help, group.toggle and group.toggle.help) if text),
             "rows": params.field_rows(group.params, values),
         }
         for group in params.CLEANING_GROUPS
     ]
+    datasets = [{"dataset": dataset, "color": colors[dataset.alias]}
+                for dataset in project.datasets.order_by("created_at")]
+    included_count = len(included_datasets(project))
     context: dict[str, Any] = {
         "groups": groups,
-        "datasets": [{"dataset": dataset, "color": colors[dataset.alias]}
-                     for dataset in project.datasets.order_by("created_at")],
+        "settings_summary": params.cleaning_summary(values, included_count, len(datasets)),
+        "datasets": datasets,
         "result": result,
         "stale": is_stale(project, result),
         "error": error,
-        "included_count": len(included_datasets(project)),
+        "included_count": included_count,
     }
     if result is not None:
         preview = result.payload["preview"]
@@ -352,6 +356,7 @@ def _analysis_context(project: Project, tab: str, error: str | None = None) -> d
         "sync_advanced": params.field_rows(params.SYNCHRONY_ADVANCED, values),
         "coarousal_essential": params.field_rows(params.COAROUSAL_ESSENTIAL, values),
         "coarousal_advanced": params.field_rows(params.COAROUSAL_ADVANCED, values),
+        "settings_summary": params.analysis_summary(values),
         "result": result,
         "stale": is_stale(project, result),
         "error": error,
