@@ -133,8 +133,7 @@ def _read_csv_with_encoding_fallback(path: Path, skiprows: int) -> tuple[pd.Data
 
     tried = ", ".join(SUPPORTED_CSV_ENCODINGS)
     raise ParseError(
-        f"Could not decode file {path.name}. Supported encodings tried: {tried}. "
-        "Save as UTF-8 CSV or contact support.",
+        f"Could not decode file {path.name}. Supported encodings tried: {tried}. Save as UTF-8 CSV or contact support.",
         code="encoding",
     )
 

@@ -396,7 +396,9 @@ def run_pipeline(dataset_files: dict[str, Path], config: PipelineConfig) -> Pipe
             "Datasets do not share an absolute-time overlap. Group analysis requires recordings "
             f"from the same time window. Recorded ranges: {ranges}",
             code="no_overlap",
-            details={"ranges": {alias: (parsed[alias]["time"].min(), parsed[alias]["time"].max()) for alias in aliases}},
+            details={
+                "ranges": {alias: (parsed[alias]["time"].min(), parsed[alias]["time"].max()) for alias in aliases}
+            },
         )
 
     dataset_states: dict[str, DatasetPipelineState] = {}

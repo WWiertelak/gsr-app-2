@@ -179,8 +179,10 @@ def _upload_context(project: Project) -> dict[str, Any]:
 def _overlap_error(datasets: list[Dataset]) -> str | None:
     """Why the included recordings cannot be cleaned together (no shared clock window), from upload metadata."""
     ranges = {
-        dataset.alias: (pd.Timestamp(dataset.parsed_metadata["recorded_start"]),
-                        pd.Timestamp(dataset.parsed_metadata["recorded_end"]))
+        dataset.alias: (
+            pd.Timestamp(dataset.parsed_metadata["recorded_start"]),
+            pd.Timestamp(dataset.parsed_metadata["recorded_end"]),
+        )
         for dataset in datasets
         if dataset.included and {"recorded_start", "recorded_end"} <= set(dataset.parsed_metadata or {})
     }
@@ -247,8 +249,9 @@ def dataset_exclude(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespo
         return redirect(f"gsr:{step}", project.pk)
     if step == "cleaning":
         return _page(request, project, step, "gsr/partials/cleaning_main.html", _cleaning_context(project, error))
-    return _page(request, project, step, "gsr/partials/analysis_main.html",
-                 _analysis_context(project, ANALYSIS_TABS[0], error))
+    return _page(
+        request, project, step, "gsr/partials/analysis_main.html", _analysis_context(project, ANALYSIS_TABS[0], error)
+    )
 
 
 @require_POST

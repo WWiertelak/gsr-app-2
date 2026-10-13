@@ -59,8 +59,10 @@ def overlap_outliers(ranges: dict[str, tuple]) -> tuple[list[str], tuple | None]
 def parse_reason(code: str | None, row: int | None = None) -> str:
     """Why an eSense CSV could not be read, without the file name."""
     if code == "missing_header":
-        return _("This is not an eSense CSV export: no header row with a MICROSIEMENS column "
-                 "was found in the first 80 lines.")
+        return _(
+            "This is not an eSense CSV export: no header row with a MICROSIEMENS column "
+            "was found in the first 80 lines."
+        )
     if code == "encoding":
         return _("The file's text encoding is not supported. Save it as a UTF-8 CSV and upload it again.")
     if code == "missing_time_column":
@@ -68,8 +70,7 @@ def parse_reason(code: str | None, row: int | None = None) -> str:
     if code == "missing_signal_column":
         return _("The file has no MICROSIEMENS column.")
     if code == "non_monotonic":
-        return _("The time goes backwards at data row %(row)s; only a midnight rollover may do that.") % {
-            "row": row}
+        return _("The time goes backwards at data row %(row)s; only a midnight rollover may do that.") % {"row": row}
     if code == "no_rows":
         return _("The file contains no readable signal rows.")
     return _("The file could not be read as an eSense CSV export.")
@@ -117,7 +118,9 @@ def describe(exc: Exception, project: Project, step: str) -> UserError:
         return UserError(message, lines, _excludable(project, outliers), [upload])
     if code == "parse":
         message = _("Signal %(alias)s cannot be read. %(reason)s") % {
-            "alias": alias, "reason": parse_reason(details.get("reason"), details.get("row"))}
+            "alias": alias,
+            "reason": parse_reason(details.get("reason"), details.get("row")),
+        }
         return UserError(message, exclude=_excludable(project, [alias]), links=[upload])
     if code == "missing_file":
         message = _("The file of signal %(alias)s is missing. Upload it again.") % {"alias": alias}
@@ -126,8 +129,9 @@ def describe(exc: Exception, project: Project, step: str) -> UserError:
         message = _("Signal %(alias)s has no samples in the common time window.") % {"alias": alias}
         return UserError(message, exclude=_excludable(project, [alias]), links=[upload])
     if code == "empty_time_range":
-        message = _("Signal %(alias)s has no samples in the selected time range. "
-                    "Widen the time range in the cleaning settings.") % {"alias": alias}
+        message = _(
+            "Signal %(alias)s has no samples in the selected time range. Widen the time range in the cleaning settings."
+        ) % {"alias": alias}
         return UserError(message, exclude=_excludable(project, [alias]))
     if code == "no_merge_overlap":
         return UserError(_("The recordings have no time points in common after synchronization."), links=[upload])

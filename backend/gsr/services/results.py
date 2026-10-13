@@ -220,8 +220,11 @@ def recording_overview(datasets: list[Dataset], max_points: int = PREVIEW_MAX_PO
         try:
             frame, _ = load_esense_csv(Path(dataset.file.path))
         except (FileNotFoundError, ParseError) as exc:
-            row["error"] = (parse_reason(exc.code, exc.row) if isinstance(exc, ParseError)
-                            else gettext("The file is missing. Upload it again."))
+            row["error"] = (
+                parse_reason(exc.code, exc.row)
+                if isinstance(exc, ParseError)
+                else gettext("The file is missing. Upload it again.")
+            )
             rows.append(row)
             continue
         recorded = recording_range(frame)

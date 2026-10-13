@@ -171,9 +171,12 @@ def test_upload_rejects_unreadable_file_and_keeps_others(client, recordings) -> 
 def late_project(tmp_path) -> Project:
     """A and B record together from 12:00:00; C starts at 13:00:00, so the three share no window."""
     files = write_group(
-        tmp_path, "late", {"A": Participant(tonic_us=4.0), "B": Participant(tonic_us=5.0),
-                           "C": Participant(tonic_us=6.0)},
-        {"C": RecordingFormat(start_time="13:00:00:000")}, seconds=60.0, seed=1,
+        tmp_path,
+        "late",
+        {"A": Participant(tonic_us=4.0), "B": Participant(tonic_us=5.0), "C": Participant(tonic_us=6.0)},
+        {"C": RecordingFormat(start_time="13:00:00:000")},
+        seconds=60.0,
+        seed=1,
     )
     project = Project.objects.create(name="P", pipeline_config=dict(FAST))
     for alias, path in files.items():
