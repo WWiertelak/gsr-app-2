@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import unicodedata
 from pathlib import Path
 
@@ -33,6 +34,22 @@ def normalize_alias(value: str) -> str:
     return _normalize_label(value, field="Alias", max_length=120)
 
 
+_LEADING_TOKEN = re.compile(r"[^\W_]+")
+
+
+def propose_alias(project: Project, filename: str) -> str:
+    """Default alias for an upload: the leading word or number of the file name stem.
+
+    "12_anna_session.csv" -> "12", "anna-2024.csv" -> "anna". When that token is empty or
+    already taken in the project, fall back to the full stem.
+    """
+    stem = Path(filename).stem.strip() or "dataset"
+    match = _LEADING_TOKEN.search(unicodedata.normalize("NFC", stem))
+    if match and not project.datasets.filter(alias=match.group()).exists():
+        return match.group()
+    return stem
+
+
 def normalize_original_filename(value: str) -> str:
     return _normalize_label(value, field="Filename", max_length=512)
 
@@ -47,7 +64,7 @@ def recording_range(frame) -> dict[str, str]:
 def add_dataset(project: Project, upload: UploadedFile, alias: str | None = None) -> Dataset:
     """Persist one uploaded recording; rejects files the pipeline parser cannot read."""
     original_filename = normalize_original_filename(Path(upload.name or "upload.csv").name)
-    alias = normalize_alias(alias if alias is not None else Path(original_filename).stem)
+    alias = normalize_alias(alias if alias is not None else propose_alias(project, original_filename))
 
     max_bytes = settings.MAX_UPLOAD_MB * 1024 * 1024
     if upload.size is not None and upload.size > max_bytes:

@@ -2,7 +2,7 @@
 <div class="stack">
   <section class="card">
     <h2>{% translate "1. Upload" %}</h2>
-    <p class="hint">{% translate "Upload one eSense CSV export per participant. The alias defaults to the file name; rename it below." %}</p>
+    <p class="hint">{% translate "Upload one eSense CSV export per participant. The alias defaults to the first word or number of the file name; rename it below." %}</p>
     <form method="post" action="{% url 'gsr:upload' project.pk %}" enctype="multipart/form-data" data-busy>
       {% csrf_token %}
       <div class="dropzone">
