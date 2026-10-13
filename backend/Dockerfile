@@ -7,6 +7,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Pango (with HarfBuzz and fontconfig) for WeasyPrint, the report's HTML-to-PDF converter.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
@@ -28,9 +33,12 @@ RUN chmod +x docker-entrypoint.sh \
     && chown -R gsr:gsr /data
 
 # SQLite database and uploaded files live on the /data volume.
+# Matplotlib and fontconfig caches go to /tmp: the gsr user cannot write to /app.
 ENV SQLITE_PATH=/data/db.sqlite3 \
     STORAGE_ROOT=/data/storage \
-    PORT=8000
+    PORT=8000 \
+    MPLCONFIGDIR=/tmp/matplotlib \
+    XDG_CACHE_HOME=/tmp/cache
 
 USER gsr
 VOLUME ["/data"]

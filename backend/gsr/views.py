@@ -26,7 +26,8 @@ from django.views.decorators.http import require_POST
 from . import charts, params
 from .models import AnalysisResult, Dataset, Project
 from .pipeline.config import PipelineConfig
-from .reporting.pdf import render_report_pdf
+from .reporting.chart_images import render_chart_images
+from .reporting.report import render_report_html, render_report_pdf
 from .services import exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
@@ -510,9 +511,10 @@ def export_zip(request: HttpRequest, pk: Any) -> HttpResponse:
     return _attachment(content, _download_name(project, "results.zip"), "application/zip")
 
 
-def report_payload(project: Project, result: AnalysisResult, chart_images: dict[str, bytes],
-                   lang: str) -> dict[str, Any]:
+def report_payload(project: Project, result: AnalysisResult, lang: str) -> dict[str, Any]:
     payload = result.payload
+    config = PipelineConfig.from_dict(result.config).model_dump()
+    report_charts = charts.report_charts(payload, signal_colors(project), config)
     return {
         "lang": lang,
         "project_name": project.name,
@@ -522,22 +524,26 @@ def report_payload(project: Project, result: AnalysisResult, chart_images: dict[
         "stale": is_stale(project, result),
         "dataset_aliases": [row["alias"] for row in payload.get("datasets", [])],
         "datasets": payload.get("datasets", []),
-        "config": PipelineConfig.from_dict(result.config).model_dump(),
+        "config": config,
         "preview": payload.get("preview", {}),
         "synchrony": payload.get("synchrony"),
         "coarousal": payload.get("coarousal"),
         "versions": exports.versions(),
-        "chart_images": chart_images,
+        "chart_images": render_chart_images(report_charts, charts.chart_labels()),
     }
 
 
-def export_pdf(request: HttpRequest, pk: Any) -> HttpResponse:
-    """The PDF report in the current UI language; charts come from the Export screen's capture."""
-    if request.method not in ("GET", "POST"):
-        return HttpResponseNotAllowed(["GET", "POST"])
+def export_report(request: HttpRequest, pk: Any) -> HttpResponse:
+    """The report as a web page, in the current UI language (the same page the PDF is made from)."""
     project = _project(pk)
     result = _analysis_result_or_404(project)
-    chart_images = exports.parse_chart_images(request.POST) if request.method == "POST" else {}
+    return HttpResponse(render_report_html(report_payload(project, result, get_language() or "pl")))
+
+
+def export_pdf(request: HttpRequest, pk: Any) -> HttpResponse:
+    """The PDF report in the current UI language, with charts drawn server-side."""
+    project = _project(pk)
+    result = _analysis_result_or_404(project)
     lang = get_language() or "pl"
-    content = render_report_pdf(report_payload(project, result, chart_images, lang))
+    content = render_report_pdf(report_payload(project, result, lang))
     return _attachment(content, _download_name(project, f"report_{lang[:2]}.pdf"), "application/pdf")

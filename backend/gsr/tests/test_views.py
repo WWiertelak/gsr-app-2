@@ -431,16 +431,20 @@ def test_export_needs_an_analysis_run(client, project) -> None:
     page = client.get(reverse("gsr:export", args=[project.pk])).content.decode()
     assert reverse("gsr:analysis", args=[project.pk]) in page and "data-capture-charts" not in page
     assert client.get(reverse("gsr:export_pdf", args=[project.pk])).status_code == 404
+    assert client.get(reverse("gsr:export_report", args=[project.pk])).status_code == 404
     assert client.get(reverse("gsr:export_file", args=[project.pk, "synchrony_pairs.csv"])).status_code == 404
 
 
 @pytest.mark.django_db
-def test_export_screen_offers_report_charts_for_capture(client, project) -> None:
+def test_export_screen_links_the_report_and_captures_zip_charts(client, project) -> None:
     _run_analysis(client, project)
     page = client.get(reverse("gsr:export", args=[project.pk])).content.decode()
     for key in ("raw_overlay", "clean_overlay", "sync_timeline", "sync_signals", "sync_matrix", "coarousal_states"):
         assert f'data-key="{key}"' in page and f'name="chart_{key}"' in page
-    assert page.count("data-capture-charts") == 2
+    # Only the ZIP captures charts in the browser; the report draws its own.
+    assert page.count("data-capture-charts") == 1
+    assert f'href="{reverse("gsr:export_pdf", args=[project.pk])}"' in page
+    assert f'href="{reverse("gsr:export_report", args=[project.pk])}"' in page
 
 
 def _csv_rows(content: bytes) -> list[dict[str, str]]:
@@ -497,7 +501,7 @@ def test_export_json_records_settings_versions_and_inputs(client, project) -> No
     document = json.loads(response.content)
     assert document["project"]["name"] == "Sesja łódzka"
     assert document["config"]["synchrony_surrogate_count"] == 20 and document["config"]["scaling_enabled"] is True
-    assert {"python", "numpy", "pandas", "scipy", "reportlab"} <= set(document["versions"])
+    assert {"python", "numpy", "pandas", "scipy", "weasyprint", "matplotlib"} <= set(document["versions"])
     hashes = {row["alias"]: row["sha256"] for row in document["datasets"]}
     assert hashes == {dataset.alias: dataset.file_sha256 for dataset in project.datasets.all()}
     assert document["synchrony"]["stats"] and document["coarousal"]["stats"]
@@ -540,20 +544,30 @@ def test_export_zip_bundles_tables_json_and_posted_chart_pngs(client, project) -
 
 
 @pytest.mark.django_db
-def test_export_pdf_follows_ui_language_and_embeds_charts(client, project) -> None:
+def test_export_pdf_follows_ui_language(client, project) -> None:
     _run_analysis(client, project)
     url = reverse("gsr:export_pdf", args=[project.pk])
 
-    without_charts = client.get(url)
-    assert without_charts.status_code == 200 and without_charts["Content-Type"] == "application/pdf"
-    assert without_charts.content.startswith(b"%PDF") and "report_pl.pdf" in without_charts["Content-Disposition"]
-
-    with_charts = client.post(url, {"chart_sync_timeline": _png_data_url(), "chart_coarousal_states": _png_data_url()})
-    assert with_charts.content.startswith(b"%PDF") and len(with_charts.content) > len(without_charts.content)
+    polish = client.get(url)
+    assert polish.status_code == 200 and polish["Content-Type"] == "application/pdf"
+    assert polish.content.startswith(b"%PDF") and "report_pl.pdf" in polish["Content-Disposition"]
 
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     english = client.get(url)
     assert "report_en.pdf" in english["Content-Disposition"]
+
+
+@pytest.mark.django_db
+def test_export_report_page_draws_its_charts_server_side(client, project) -> None:
+    _run_analysis(client, project)
+    page = client.get(reverse("gsr:export_report", args=[project.pk])).content.decode()
+    assert '<html lang="pl">' in page and "Raport analizy GSR" in page and "Sesja łódzka" in page
+    # Every report chart is an embedded PNG; the page loads no JavaScript.
+    assert page.count('src="data:image/png;base64,') == 6 and "<script" not in page
+
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    page = client.get(reverse("gsr:export_report", args=[project.pk])).content.decode()
+    assert '<html lang="en">' in page and "GSR Analysis Report" in page
 
 
 # ─── Language switch ─────────────────────────────────────────────────────────

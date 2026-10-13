@@ -1,36 +1,30 @@
-"""Bilingual (PL/EN) PDF report of a synchronization + co-arousal run.
+"""Bilingual (PL/EN) report of a synchronization + co-arousal run, as HTML and as PDF.
 
-Ported from GSRv2 ``gsr/pipeline/reporting.py`` (ReportLab): title page, results
-summary, import, cleaning, synchronization, co-arousal and methodology sections.
-The segment analysis, correlation, trend and scaling sections were dropped with
+Ported from GSRv2 ``gsr/pipeline/reporting.py``: title page, results summary,
+import, cleaning, synchronization, co-arousal and methodology sections. The
+segment analysis, correlation, trend and scaling sections were dropped with
 those analyses; a reproducibility appendix (settings, library versions, input
-file SHA-256) replaces the segment CSV appendix. Charts are PNGs captured in the
-browser from the same ECharts options as the screens.
+file SHA-256) replaces the segment CSV appendix.
+
+``build_report`` turns the run payload into sections of blocks (headings,
+paragraphs, tables, charts) that ``templates/gsr/report/report.html`` lays out;
+WeasyPrint converts that page to PDF. Charts are PNGs drawn server-side
+(``chart_images``) from the same data as the screens' ECharts charts.
 """
 
 from __future__ import annotations
 
-import html
-import io
+import base64
 import re
 from pathlib import Path
 from typing import Any
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import cm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from django.template.loader import render_to_string
 
 from ..pipeline.preprocessing import analysed_range
 from .methodology import METHODOLOGY, METHODS_COMPARISON
 
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
-FONT_NAME = "DejaVuSans"
-FONT_NAME_BOLD = "DejaVuSans-Bold"
-FONT_SIZE_TABLE = 8
 
 _TR: dict[str, dict[str, str]] = {
     "pl": {
@@ -410,13 +404,6 @@ def _tr(lang: str, key: str) -> str:
     return _TR.get(lang, _TR["pl"]).get(key, key)
 
 
-def _register_fonts() -> None:
-    """DejaVu Sans (vendored, covers Polish diacritics); the family mapping makes <b> use the bold face."""
-    for font_name, filename in ((FONT_NAME, "DejaVuSans.ttf"), (FONT_NAME_BOLD, "DejaVuSans-Bold.ttf")):
-        if font_name not in pdfmetrics.getRegisteredFontNames():
-            pdfmetrics.registerFont(TTFont(font_name, str(FONT_DIR / filename)))
-    pdfmetrics.registerFontFamily(FONT_NAME, normal=FONT_NAME, bold=FONT_NAME_BOLD, italic=FONT_NAME, boldItalic=FONT_NAME_BOLD)
-
 
 # ISO datetime: 2023-01-15T14:23:45.123456 → 14:23:45
 _ISO_DATETIME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}:\d{2})")
@@ -459,78 +446,58 @@ def _fmt_min(value: Any) -> str:
     return f"{total_seconds // 60}:{total_seconds % 60:02d}"
 
 
-def _escaped_multiline(value: Any, fallback: str) -> str:
-    """Escape user-authored project text while preserving its paragraph breaks."""
-    text = str(value or "").strip() or fallback
-    return html.escape(text, quote=True).replace("\n", "<br/>")
+# ─── Blocks ──────────────────────────────────────────────────────────────────
+# Each block is a dict with a "type" the template switches on.
 
 
-def _build_styles() -> dict[str, Any]:
-    styles = getSampleStyleSheet()
-    for name in ("Title", "Heading1", "Heading2", "Heading3"):
-        styles[name].fontName = FONT_NAME_BOLD
-    styles["BodyText"].fontName = FONT_NAME
-    styles["BodyText"].fontSize = 10
-    styles["BodyText"].leading = 13
-    muted = ParagraphStyle("Muted", parent=styles["BodyText"], textColor=colors.HexColor("#5f6c7b"))
-    cell_style = ParagraphStyle(
-        "TableCell", fontName=FONT_NAME, fontSize=FONT_SIZE_TABLE, leading=FONT_SIZE_TABLE + 3, wordWrap="CJK"
-    )
-    cell_header_style = ParagraphStyle(
-        "TableCellHeader", fontName=FONT_NAME_BOLD, fontSize=FONT_SIZE_TABLE, leading=FONT_SIZE_TABLE + 3,
-        wordWrap="CJK",
-    )
-    return {"base": styles, "muted": muted, "cell": cell_style, "cell_header": cell_header_style}
+def _cell(value: Any) -> str:
+    return value if isinstance(value, str) else _fmt(value)
 
 
-def _table(story: list[Any], rows: list[list[Any]], widths: list[float], styles: dict[str, Any]) -> None:
-    """Render a table with word-wrapped cells and consistent styling."""
-    wrapped = [
-        [
-            Paragraph(html.escape(cell if isinstance(cell, str) else _fmt(cell), quote=True),
-                      styles["cell_header"] if row_index == 0 else styles["cell"])
-            for cell in row
-        ]
-        for row_index, row in enumerate(rows)
-    ]
-    table = Table(wrapped, colWidths=widths, repeatRows=1)
-    table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#edf3ff")),
-                ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#ccd6e5")),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("TOPPADDING", (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ]
-        )
-    )
-    story.append(table)
-    story.append(Spacer(1, 0.35 * cm))
+def _table(header: list[str], rows: list[list[Any]], *, numeric: tuple[int, ...] = (),
+           kind: str = "grid") -> dict[str, Any]:
+    """``numeric`` columns are right-aligned; ``kind="kv"`` is a two-column label/value table."""
+    return {
+        "type": "table",
+        "kind": kind,
+        "header": header,
+        "rows": [[_cell(value) for value in row] for row in rows],
+        "numeric": numeric,
+    }
 
 
-def _embed_charts(story: list[Any], styles: dict[str, Any], payload: dict[str, Any], section: str, lang: str) -> None:
+def _kv_table(lang: str, rows: list[list[Any]], first: str = "field") -> dict[str, Any]:
+    return _table([_tr(lang, first), _tr(lang, "value")], rows, kind="kv")
+
+
+def _h2(text: str) -> dict[str, Any]:
+    return {"type": "h2", "text": text}
+
+
+def _p(text: str, style: str = "") -> dict[str, Any]:
+    return {"type": "p", "text": text, "style": style}
+
+
+def _note(label: str, text: str, style: str = "") -> dict[str, Any]:
+    return {"type": "note", "label": label, "text": text, "style": style}
+
+
+def _charts(payload: dict[str, Any], section: str, lang: str) -> list[dict[str, Any]]:
     images = payload.get("chart_images") or {}
-    for key in CHART_SECTIONS[section]:
-        image_bytes = images.get(key)
-        if not image_bytes:
-            continue
-        image = Image(io.BytesIO(image_bytes))
-        image._restrictSize(17.2 * cm, 22.0 * cm)
-        story.append(
-            KeepTogether(
-                [Paragraph(html.escape(_tr(lang, f"chart_{key}")), styles["base"]["Heading3"]), image,
-                 Spacer(1, 0.4 * cm)]
-            )
-        )
+    return [
+        {
+            "type": "chart",
+            "key": key,
+            "title": _tr(lang, f"chart_{key}"),
+            "src": "data:image/png;base64," + base64.b64encode(images[key]).decode("ascii"),
+        }
+        for key in CHART_SECTIONS[section]
+        if images.get(key)
+    ]
 
 
-def _heading(story: list[Any], styles: dict[str, Any], text: str) -> None:
-    story.append(PageBreak())
-    story.append(Paragraph(html.escape(text), styles["base"]["Heading1"]))
-    story.append(Spacer(1, 0.2 * cm))
+def _section(section_id: str, title: str, blocks: list[dict[str, Any]]) -> dict[str, Any]:
+    return {"id": section_id, "title": title, "blocks": blocks}
 
 
 def _significance(lang: str, coarousal: dict[str, Any]) -> str:
@@ -540,35 +507,30 @@ def _significance(lang: str, coarousal: dict[str, Any]) -> str:
     return _tr(lang, "contagion_significant" if stats.get("coarousal_significant") else "contagion_not_significant")
 
 
+def _members(values: Any) -> str:
+    return ", ".join(str(member) for member in values or [])
+
+
 # ─── Sections ────────────────────────────────────────────────────────────────
 
 
-def _section_title(story: list[Any], styles: dict[str, Any], payload: dict[str, Any], lang: str) -> None:
-    base = styles["base"]
-    story.append(Paragraph(_tr(lang, "report_title"), base["Title"]))
-    story.append(Spacer(1, 0.3 * cm))
-    _table(
-        story,
-        [
-            [_tr(lang, "field"), _tr(lang, "value")],
+def _title_page(payload: dict[str, Any], lang: str) -> dict[str, Any]:
+    return {
+        "title": _tr(lang, "report_title"),
+        "project": payload.get("project_name") or "-",
+        "meta": _kv_table(lang, [
             [_tr(lang, "project"), payload.get("project_name") or "-"],
             [_tr(lang, "generated_at"), payload.get("generated_at") or "-"],
             [_tr(lang, "computed_at"), payload.get("computed_at") or "-"],
             [_tr(lang, "signals"), ", ".join(payload.get("dataset_aliases") or []) or "-"],
-        ],
-        [5.0 * cm, 11.6 * cm],
-        styles,
-    )
-    if payload.get("stale"):
-        story.append(Paragraph(f"<b>{html.escape(_tr(lang, 'stale_warning'))}</b>", base["BodyText"]))
-        story.append(Spacer(1, 0.2 * cm))
-    story.append(Paragraph(_tr(lang, "description"), base["Heading2"]))
-    story.append(
-        Paragraph(_escaped_multiline(payload.get("project_description"), _tr(lang, "no_description")), base["BodyText"])
-    )
+        ]),
+        "stale_warning": _tr(lang, "stale_warning") if payload.get("stale") else "",
+        "description_heading": _tr(lang, "description"),
+        "description": str(payload.get("project_description") or "").strip() or _tr(lang, "no_description"),
+    }
 
 
-def _section_executive_summary(story: list[Any], styles: dict[str, Any], payload: dict[str, Any], lang: str) -> None:
+def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     preview = payload.get("preview") or {}
     totals = (preview.get("cleaning_summary") or {}).get("totals") or {}
     preview_range = analysed_range(preview, payload.get("config") or {})
@@ -579,7 +541,6 @@ def _section_executive_summary(story: list[Any], styles: dict[str, Any], payload
     coarousal_stats = coarousal.get("stats") or {}
 
     rows = [
-        [_tr(lang, "metric"), _tr(lang, "value")],
         [
             _tr(lang, "summary_scope"),
             f"{len(aliases)} {_tr(lang, 'summary_participants')}; "
@@ -615,62 +576,53 @@ def _section_executive_summary(story: list[Any], styles: dict[str, Any], payload
             ),
         ],
     ]
-    _heading(story, styles, _tr(lang, "executive_summary"))
-    _table(story, rows, [5.0 * cm, 11.6 * cm], styles)
-    story.append(Spacer(1, 0.15 * cm))
-    story.append(
-        Paragraph(
-            f"<b>{_tr(lang, 'interpretation_note')}:</b> {_tr(lang, 'summary_interpretation_note')}",
-            styles["base"]["BodyText"],
-        )
-    )
+    return _section("summary", _tr(lang, "executive_summary"), [
+        _kv_table(lang, rows, first="metric"),
+        _note(_tr(lang, "interpretation_note"), _tr(lang, "summary_interpretation_note"), style="callout"),
+    ])
 
 
-def _section_import(story: list[Any], styles: dict[str, Any], payload: dict[str, Any], lang: str) -> None:
-    _heading(story, styles, _tr(lang, "import_heading"))
+def _section_import(payload: dict[str, Any], lang: str) -> dict[str, Any]:
+    blocks: list[dict[str, Any]] = []
     datasets = payload.get("datasets") or []
     if datasets:
-        rows = [[_tr(lang, "alias"), _tr(lang, "file"), _tr(lang, "raw_points"), _tr(lang, "start_raw"),
-                 _tr(lang, "end_raw")]]
-        for dataset in datasets:
-            rows.append([
-                dataset.get("alias") or "-",
-                dataset.get("filename") or "-",
-                _fmt(dataset.get("raw_points")),
-                _fmt(dataset.get("recorded_start")),
-                _fmt(dataset.get("recorded_end")),
-            ])
-        _table(story, rows, [3.2 * cm, 6.2 * cm, 2.4 * cm, 2.4 * cm, 2.4 * cm], styles)
-    _embed_charts(story, styles, payload, "import", lang)
+        blocks.append(_table(
+            [_tr(lang, key) for key in ("alias", "file", "raw_points", "start_raw", "end_raw")],
+            [
+                [dataset.get("alias") or "-", dataset.get("filename") or "-", _fmt(dataset.get("raw_points")),
+                 _fmt(dataset.get("recorded_start")), _fmt(dataset.get("recorded_end"))]
+                for dataset in datasets
+            ],
+            numeric=(2,),
+        ))
+    blocks += _charts(payload, "import", lang)
+    return _section("import", _tr(lang, "import_heading"), blocks)
 
 
-def _signal_statistics_tables(story: list[Any], styles: dict[str, Any], cleaning: dict[str, Any], lang: str) -> None:
+def _signal_statistics_tables(cleaning: dict[str, Any], lang: str) -> list[dict[str, Any]]:
     """RAW and CLEAN descriptive statistics per signal (mean, std, min, median, max in µS)."""
     statistics = cleaning.get("signal_statistics") or []
     stat_keys = ("count", "mean", "std", "min", "median", "max")
     header = [_tr(lang, key) for key in ("alias", "stat_n", "stat_mean", "stat_std", "stat_min", "stat_median",
                                          "stat_max")]
-    widths = [3.2 * cm, 2.0 * cm, 2.3 * cm, 2.3 * cm, 2.2 * cm, 2.3 * cm, 2.3 * cm]
+    blocks: list[dict[str, Any]] = []
     for variant, heading_key in (("raw", "signal_stats_raw"), ("clean", "signal_stats_clean")):
-        rows = [header]
-        for entry in statistics:
-            stats = entry.get(variant)
-            if isinstance(stats, dict):
-                rows.append([entry.get("alias") or "-"] + [_fmt(stats.get(key)) for key in stat_keys])
-        if len(rows) > 1:
-            story.append(Paragraph(_tr(lang, heading_key), styles["base"]["Heading2"]))
-            _table(story, rows, widths, styles)
+        rows = [
+            [entry.get("alias") or "-"] + [_fmt(entry[variant].get(key)) for key in stat_keys]
+            for entry in statistics
+            if isinstance(entry.get(variant), dict)
+        ]
+        if rows:
+            blocks += [_h2(_tr(lang, heading_key)), _table(header, rows, numeric=(1, 2, 3, 4, 5, 6))]
+    return blocks
 
 
-def _section_cleaning(story: list[Any], styles: dict[str, Any], payload: dict[str, Any], lang: str) -> None:
-    base = styles["base"]
-    _heading(story, styles, _tr(lang, "cleaning_heading"))
+def _section_cleaning(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     preview = payload.get("preview") or {}
     cfg = payload.get("config") or {}
     preview_range = analysed_range(preview, cfg)
     alignment = preview.get("alignment") or {}
 
-    story.append(Paragraph(_tr(lang, "cleaning_params"), base["Heading2"]))
     mapping = [
         (_tr(lang, "median_kernel"), cfg.get("median_kernel")),
         (_tr(lang, "physio_range"), cfg.get("clean_filter_physiological_range")),
@@ -687,103 +639,87 @@ def _section_cleaning(story: list[Any], styles: dict[str, Any], payload: dict[st
         (_tr(lang, "alignment_range"), f"{_fmt(alignment.get('start'))}–{_fmt(alignment.get('end'))}"),
         (_tr(lang, "alignment_duration"), alignment.get("duration_seconds")),
     ]
-    _table(story, [[_tr(lang, "field"), _tr(lang, "value")], *[[label, _fmt(value)] for label, value in mapping]],
-           [9.0 * cm, 7.6 * cm], styles)
-
-    story.append(Paragraph(_tr(lang, "sync_heading"), base["Heading2"]))
-    sync_rows = [[_tr(lang, key) for key in ("alias", "start_raw", "end_raw", "raw_points", "clean_points")]]
-    for dataset in payload.get("datasets") or []:
-        sync_rows.append([
-            dataset.get("alias") or "-",
-            _fmt(dataset.get("recorded_start")),
-            _fmt(dataset.get("recorded_end")),
-            _fmt(dataset.get("raw_points")),
-            _fmt(dataset.get("in_window_points")),
-        ])
-    _table(story, sync_rows, [3.2 * cm, 3.5 * cm, 3.5 * cm, 3.0 * cm, 3.4 * cm], styles)
+    blocks: list[dict[str, Any]] = [
+        _h2(_tr(lang, "cleaning_params")),
+        _kv_table(lang, [[label, _fmt(value)] for label, value in mapping]),
+        _h2(_tr(lang, "sync_heading")),
+        _table(
+            [_tr(lang, key) for key in ("alias", "start_raw", "end_raw", "raw_points", "clean_points")],
+            [
+                [dataset.get("alias") or "-", _fmt(dataset.get("recorded_start")), _fmt(dataset.get("recorded_end")),
+                 _fmt(dataset.get("raw_points")), _fmt(dataset.get("in_window_points"))]
+                for dataset in payload.get("datasets") or []
+            ],
+            numeric=(3, 4),
+        ),
+    ]
 
     cleaning = preview.get("cleaning_summary") or {}
     if cleaning:
-        _signal_statistics_tables(story, styles, cleaning, lang)
-        story.append(Paragraph(_tr(lang, "rejection_summary"), base["Heading2"]))
+        blocks += _signal_statistics_tables(cleaning, lang)
+        blocks.append(_h2(_tr(lang, "rejection_summary")))
         per_alias = cleaning.get("per_alias") or []
         if per_alias:
-            rows = [[_tr(lang, key) for key in ("alias", "synced", "artifacts", "signal_quality", "outside_range",
-                                                 "in_window")]]
-            for entry in per_alias:
-                rows.append([
-                    entry.get("alias") or "-",
-                    _fmt(entry.get("synced_points")),
-                    f"{_fmt(entry.get('artifact_rejected_points'))} ({_fmt(entry.get('artifact_rejected_pct'))}%)",
-                    _tr(lang, f"quality_{entry.get('signal_quality', 'poor')}"),
-                    _fmt(entry.get("outside_time_window_points")),
-                    _fmt(entry.get("in_time_window_points")),
-                ])
-            _table(story, rows, [3.2 * cm, 2.5 * cm, 2.5 * cm, 2.3 * cm, 3.0 * cm, 3.1 * cm], styles)
+            blocks.append(_table(
+                [_tr(lang, key) for key in ("alias", "synced", "artifacts", "signal_quality", "outside_range",
+                                             "in_window")],
+                [
+                    [
+                        entry.get("alias") or "-",
+                        _fmt(entry.get("synced_points")),
+                        f"{_fmt(entry.get('artifact_rejected_points'))} ({_fmt(entry.get('artifact_rejected_pct'))}%)",
+                        _tr(lang, f"quality_{entry.get('signal_quality', 'poor')}"),
+                        _fmt(entry.get("outside_time_window_points")),
+                        _fmt(entry.get("in_time_window_points")),
+                    ]
+                    for entry in per_alias
+                ],
+                numeric=(1, 2, 4, 5),
+            ))
 
         identical_groups = cleaning.get("identical_signal_groups") or []
         if identical_groups:
             groups_text = "; ".join(" = ".join(str(alias) for alias in group) for group in identical_groups)
-            story.append(
-                Paragraph(
-                    f"<b>{html.escape(_tr(lang, 'identical_signals_warning'))}:</b> {html.escape(groups_text)}",
-                    styles["muted"],
-                )
-            )
-            story.append(Spacer(1, 0.15 * cm))
+            blocks.append(_note(_tr(lang, "identical_signals_warning"), groups_text, style="warning"))
 
         totals = cleaning.get("totals")
         if isinstance(totals, dict):
-            _table(
-                story,
-                [
-                    [_tr(lang, "metric"), _tr(lang, "value")],
-                    [_tr(lang, "synced_points_total"), _fmt(totals.get("synced_points"))],
-                    [_tr(lang, "artifacts_total"), _fmt(totals.get("artifact_rejected_points"))],
-                    [_tr(lang, "outside_range_total"), _fmt(totals.get("outside_time_window_points"))],
-                    [_tr(lang, "before_downsample"), _fmt(totals.get("merged_points_before_downsampling"))],
-                    [_tr(lang, "after_downsample"), _fmt(totals.get("merged_points_after_downsampling"))],
-                    [_tr(lang, "dropped_downsample"), _fmt(totals.get("downsampled_points"))],
-                ],
-                [10.0 * cm, 6.6 * cm],
-                styles,
-            )
-    _embed_charts(story, styles, payload, "cleaning", lang)
+            blocks.append(_kv_table(lang, [
+                [_tr(lang, "synced_points_total"), _fmt(totals.get("synced_points"))],
+                [_tr(lang, "artifacts_total"), _fmt(totals.get("artifact_rejected_points"))],
+                [_tr(lang, "outside_range_total"), _fmt(totals.get("outside_time_window_points"))],
+                [_tr(lang, "before_downsample"), _fmt(totals.get("merged_points_before_downsampling"))],
+                [_tr(lang, "after_downsample"), _fmt(totals.get("merged_points_after_downsampling"))],
+                [_tr(lang, "dropped_downsample"), _fmt(totals.get("downsampled_points"))],
+            ], first="metric"))
+    blocks += _charts(payload, "cleaning", lang)
+    return _section("cleaning", _tr(lang, "cleaning_heading"), blocks)
 
 
-def _section_synchrony(story: list[Any], styles: dict[str, Any], payload: dict[str, Any], lang: str) -> None:
+def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | None:
     synchrony = payload.get("synchrony")
     if not isinstance(synchrony, dict):
-        return
-    base = styles["base"]
-    _heading(story, styles, _tr(lang, "synchrony_heading"))
+        return None
     stats = synchrony.get("stats") or {}
     config = payload.get("config") or {}
-    _table(
-        story,
-        [
-            [_tr(lang, "metric"), _tr(lang, "value")],
-            [_tr(lang, "sync_mean"), _fmt(stats.get("mean_synchrony"))],
-            [_tr(lang, "sync_episode_count"), _fmt(stats.get("episode_count"))],
-            [_tr(lang, "sync_cluster_count"), _fmt(stats.get("cluster_count"))],
-            [_tr(lang, "sync_mode"), _fmt(config.get("synchrony_signed"))],
-            [_tr(lang, "sync_surrogate_enabled"), _fmt(config.get("synchrony_surrogate_enabled"))],
-            [_tr(lang, "sync_surrogate_method"),
-             _fmt(stats.get("surrogate_method") or config.get("synchrony_surrogate_method"))],
-            [_tr(lang, "sync_surrogate_count"),
-             _fmt(stats.get("surrogate_count") or config.get("synchrony_surrogate_count"))],
-            [_tr(lang, "sync_surrogate_seed"), _fmt(config.get("synchrony_surrogate_seed"))],
-            [_tr(lang, "sync_group_p"), _fmt(stats.get("mean_synchrony_p_value"))],
-        ],
-        [8.0 * cm, 8.6 * cm],
-        styles,
-    )
+    blocks: list[dict[str, Any]] = [_kv_table(lang, [
+        [_tr(lang, "sync_mean"), _fmt(stats.get("mean_synchrony"))],
+        [_tr(lang, "sync_episode_count"), _fmt(stats.get("episode_count"))],
+        [_tr(lang, "sync_cluster_count"), _fmt(stats.get("cluster_count"))],
+        [_tr(lang, "sync_mode"), _fmt(config.get("synchrony_signed"))],
+        [_tr(lang, "sync_surrogate_enabled"), _fmt(config.get("synchrony_surrogate_enabled"))],
+        [_tr(lang, "sync_surrogate_method"),
+         _fmt(stats.get("surrogate_method") or config.get("synchrony_surrogate_method"))],
+        [_tr(lang, "sync_surrogate_count"),
+         _fmt(stats.get("surrogate_count") or config.get("synchrony_surrogate_count"))],
+        [_tr(lang, "sync_surrogate_seed"), _fmt(config.get("synchrony_surrogate_seed"))],
+        [_tr(lang, "sync_group_p"), _fmt(stats.get("mean_synchrony_p_value"))],
+    ], first="metric")]
 
-    story.append(Paragraph(_tr(lang, "sync_episodes_heading"), base["Heading2"]))
+    blocks.append(_h2(_tr(lang, "sync_episodes_heading")))
     episodes = synchrony.get("episodes") or []
     if episodes:
-        rows = [[_tr(lang, key) for key in ("no_seg", "sync_ep_time", "sync_ep_duration", "sync_ep_members",
-                                             "sync_ep_size", "sync_ep_mean", "sync_ep_peak")]]
+        rows = []
         for index, episode in enumerate(episodes):
             start, end = episode.get("start_relative"), episode.get("end_relative")
             duration = end - start if isinstance(start, (int, float)) and isinstance(end, (int, float)) else None
@@ -791,175 +727,180 @@ def _section_synchrony(story: list[Any], styles: dict[str, Any], payload: dict[s
                 _fmt(index + 1),
                 f"{_fmt_min(start)}–{_fmt_min(end)}",
                 _fmt_min(duration),
-                ", ".join(str(member) for member in episode.get("members") or []),
+                _members(episode.get("members")),
                 _fmt(episode.get("size")),
                 _fmt(episode.get("mean_strength")),
                 _fmt(episode.get("peak_strength")),
             ])
-        _table(story, rows, [1.0 * cm, 2.6 * cm, 2.2 * cm, 5.0 * cm, 1.4 * cm, 2.2 * cm, 2.2 * cm], styles)
+        blocks.append(_table(
+            [_tr(lang, key) for key in ("no_seg", "sync_ep_time", "sync_ep_duration", "sync_ep_members",
+                                         "sync_ep_size", "sync_ep_mean", "sync_ep_peak")],
+            rows,
+            numeric=(0, 2, 4, 5, 6),
+        ))
     else:
-        story.append(Paragraph(_tr(lang, "sync_no_episodes"), base["BodyText"]))
-        story.append(Spacer(1, 0.15 * cm))
+        blocks.append(_p(_tr(lang, "sync_no_episodes"), style="muted"))
 
     pairs = synchrony.get("pairs") or []
     if pairs:
-        story.append(Paragraph(_tr(lang, "sync_pairs_heading"), base["Heading2"]))
         has_pair_p = any("p_value" in pair for pair in pairs)
-        rows = [[
+        header = [
             _tr(lang, "sync_pair"),
             _tr(lang, "sync_xcorr"),
             *([_tr(lang, "sync_pair_p")] if has_pair_p else []),
             _tr(lang, "sync_lag"),
             _tr(lang, "sync_coherence"),
             _tr(lang, "sync_dtw"),
-        ]]
-        for pair in pairs:
-            rows.append([
+        ]
+        rows = [
+            [
                 f"{pair.get('alias_a')} · {pair.get('alias_b')}",
                 _fmt(pair.get("max_xcorr")),
                 *([_fmt(pair.get("p_value"))] if has_pair_p else []),
                 _fmt(pair.get("lag_seconds")),
                 _fmt(pair.get("coherence")),
                 _fmt(pair.get("dtw_distance")),
-            ])
-        column_count = 6 if has_pair_p else 5
-        _table(story, rows, [16.6 * cm / column_count] * column_count, styles)
+            ]
+            for pair in pairs
+        ]
+        blocks += [_h2(_tr(lang, "sync_pairs_heading")),
+                   _table(header, rows, numeric=tuple(range(1, len(header))))]
 
     clusters = (synchrony.get("clusters") or {}).get("clusters") or []
     if clusters:
-        story.append(Paragraph(_tr(lang, "sync_clusters_heading"), base["Heading2"]))
-        rows = [[_tr(lang, "sync_cluster"), _tr(lang, "sync_members"), _tr(lang, "sync_cluster_mean")]]
+        rows = []
         for cluster in clusters:
             label = cluster.get("cluster")
             rows.append([
                 _fmt((label + 1) if isinstance(label, int) else label),
-                ", ".join(str(member) for member in cluster.get("members") or []),
+                _members(cluster.get("members")),
                 _fmt(cluster.get("mean_synchrony")),
             ])
-        _table(story, rows, [3.0 * cm, 10.6 * cm, 3.0 * cm], styles)
+        blocks += [_h2(_tr(lang, "sync_clusters_heading")),
+                   _table([_tr(lang, "sync_cluster"), _tr(lang, "sync_members"), _tr(lang, "sync_cluster_mean")], rows,
+                          numeric=(0, 2))]
 
-    if any((payload.get("chart_images") or {}).get(key) for key in CHART_SECTIONS["synchrony"]):
-        story.append(Paragraph(_tr(lang, "sync_charts"), base["Heading2"]))
-        _embed_charts(story, styles, payload, "synchrony", lang)
+    charts = _charts(payload, "synchrony", lang)
+    if charts:
+        blocks += [_h2(_tr(lang, "sync_charts")), *charts]
+    return _section("synchrony", _tr(lang, "synchrony_heading"), blocks)
 
 
-def _section_coarousal(story: list[Any], styles: dict[str, Any], payload: dict[str, Any], lang: str) -> None:
+def _section_coarousal(payload: dict[str, Any], lang: str) -> dict[str, Any] | None:
     coarousal = payload.get("coarousal")
     if not isinstance(coarousal, dict):
-        return
-    base = styles["base"]
-    _heading(story, styles, _tr(lang, "contagion_heading"))
+        return None
     p_value = coarousal.get("coarousal_p_value")
     stats = coarousal.get("stats") or {}
     config = payload.get("config") or {}
-    _table(
-        story,
-        [
-            [_tr(lang, "metric"), _tr(lang, "value")],
-            [_tr(lang, "contagion_coarousal"), _fmt(coarousal.get("coarousal_index"))],
-            [_tr(lang, "contagion_null_mean"), _fmt(coarousal.get("coarousal_null_mean"))],
-            [_tr(lang, "contagion_null_sd"), _fmt(coarousal.get("coarousal_null_sd"))],
-            [_tr(lang, "sync_surrogate_count"), _fmt(config.get("contagion_surrogate_count"))],
-            [_tr(lang, "sync_surrogate_seed"), _fmt(config.get("contagion_surrogate_seed"))],
-            [_tr(lang, "contagion_p"), _fmt(p_value) if p_value is not None else "—"],
-            [_tr(lang, "sync_episode_count"), _fmt(stats.get("episode_count"))],
-            [_tr(lang, "contagion_significance"), _significance(lang, coarousal)],
-        ],
-        [8.0 * cm, 8.6 * cm],
-        styles,
-    )
+    blocks: list[dict[str, Any]] = [_kv_table(lang, [
+        [_tr(lang, "contagion_coarousal"), _fmt(coarousal.get("coarousal_index"))],
+        [_tr(lang, "contagion_null_mean"), _fmt(coarousal.get("coarousal_null_mean"))],
+        [_tr(lang, "contagion_null_sd"), _fmt(coarousal.get("coarousal_null_sd"))],
+        [_tr(lang, "sync_surrogate_count"), _fmt(config.get("contagion_surrogate_count"))],
+        [_tr(lang, "sync_surrogate_seed"), _fmt(config.get("contagion_surrogate_seed"))],
+        [_tr(lang, "contagion_p"), _fmt(p_value) if p_value is not None else "—"],
+        [_tr(lang, "sync_episode_count"), _fmt(stats.get("episode_count"))],
+        [_tr(lang, "contagion_significance"), _significance(lang, coarousal)],
+    ], first="metric")]
 
-    story.append(Paragraph(_tr(lang, "contagion_episodes_heading"), base["Heading2"]))
+    blocks.append(_h2(_tr(lang, "contagion_episodes_heading")))
     episodes = coarousal.get("episodes") or []
     if episodes:
-        rows = [[_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_time", "sync_ep_duration",
-                                             "contagion_ep_contrib", "contagion_ep_strength",
-                                             "contagion_ep_noncontrib")]]
-        for index, episode in enumerate(episodes):
-            contributors = episode.get("contributors") or []
-            non_contributors = episode.get("non_contributors") or []
-            rows.append([
+        rows = [
+            [
                 _fmt(index + 1),
                 _tr(lang, _CONTAGION_DIR_KEYS.get(str(episode.get("direction")), "contagion_ep_dir")),
                 f"{_fmt_min((episode.get('start_s') or 0) / 60)}–{_fmt_min((episode.get('end_s') or 0) / 60)}",
                 _fmt_min((episode.get("duration_s") or 0) / 60),
-                ", ".join(str(member) for member in contributors) if contributors else "—",
+                _members(episode.get("contributors")) or "—",
                 _tr(lang, f"contagion_strength_{episode.get('strength')}"),
-                ", ".join(str(member) for member in non_contributors) if non_contributors else "—",
-            ])
-        _table(story, rows, [1.0 * cm, 2.0 * cm, 2.4 * cm, 2.0 * cm, 3.6 * cm, 1.8 * cm, 3.4 * cm], styles)
+                _members(episode.get("non_contributors")) or "—",
+            ]
+            for index, episode in enumerate(episodes)
+        ]
+        blocks.append(_table(
+            [_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_time", "sync_ep_duration",
+                                         "contagion_ep_contrib", "contagion_ep_strength", "contagion_ep_noncontrib")],
+            rows,
+            numeric=(0, 3),
+        ))
     else:
-        story.append(Paragraph(_tr(lang, "contagion_no_episodes"), base["BodyText"]))
-        story.append(Spacer(1, 0.15 * cm))
+        blocks.append(_p(_tr(lang, "contagion_no_episodes"), style="muted"))
 
     primary = coarousal.get("primary_timeline") or []
     if primary:
-        story.append(Paragraph(_tr(lang, "contagion_primary_heading"), base["Heading2"]))
-        rows = [[_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_time", "sync_ep_duration")]]
-        for index, segment in enumerate(primary):
-            rows.append([
+        rows = [
+            [
                 _fmt(index + 1),
                 _tr(lang, _CONTAGION_DIR_KEYS.get(str(segment.get("label")), "contagion_ep_dir")),
                 f"{_fmt_min(segment.get('start_min'))}–{_fmt_min(segment.get('end_min'))}",
                 _fmt_min((segment.get("duration_s") or 0) / 60),
-            ])
-        _table(story, rows, [1.5 * cm, 4.0 * cm, 5.5 * cm, 5.6 * cm], styles)
+            ]
+            for index, segment in enumerate(primary)
+        ]
+        blocks += [
+            _h2(_tr(lang, "contagion_primary_heading")),
+            _table([_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_time", "sync_ep_duration")],
+                   rows, numeric=(0, 3)),
+        ]
 
     state_percentages = coarousal.get("state_percentages") or []
     if state_percentages:
-        story.append(Paragraph(_tr(lang, "contagion_state_heading"), base["Heading2"]))
-        rows = [[_tr(lang, key) for key in ("alias", "contagion_state_high", "contagion_state_neutral",
-                                             "contagion_state_low")]]
-        for row in state_percentages:
-            rows.append([row.get("alias") or "-", _fmt(row.get("high_pct")), _fmt(row.get("neutral_pct")),
-                         _fmt(row.get("low_pct"))])
-        _table(story, rows, [5.0 * cm, 3.8 * cm, 3.8 * cm, 3.8 * cm], styles)
-    _embed_charts(story, styles, payload, "coarousal", lang)
+        rows = [
+            [row.get("alias") or "-", _fmt(row.get("high_pct")), _fmt(row.get("neutral_pct")), _fmt(row.get("low_pct"))]
+            for row in state_percentages
+        ]
+        blocks += [
+            _h2(_tr(lang, "contagion_state_heading")),
+            _table([_tr(lang, key) for key in ("alias", "contagion_state_high", "contagion_state_neutral",
+                                                "contagion_state_low")], rows, numeric=(1, 2, 3)),
+        ]
+    blocks += _charts(payload, "coarousal", lang)
+    return _section("coarousal", _tr(lang, "contagion_heading"), blocks)
 
 
-def _section_methodology(story: list[Any], styles: dict[str, Any], payload: dict[str, Any], lang: str) -> None:
-    base = styles["base"]
+def _methodology_blocks(block: tuple) -> list[dict[str, Any]]:
+    kind = block[0]
+    if kind == "p":
+        return [_p(block[1])]
+    if kind == "formula":
+        return [_p(block[1], style="formula")]
+    if kind == "note":
+        return [_note(block[1], block[2])]
+    if kind == "list":
+        return [{"type": "list", "items": list(block[1])}]
+    if kind == "params":
+        return [{"type": "params", "items": list(block[1])}]
+    return []
+
+
+def _section_methodology(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     content = METHODOLOGY.get(lang, METHODOLOGY["pl"])
-    _heading(story, styles, content["title"])
-    story.append(Paragraph(content["intro"], base["BodyText"]))
-    story.append(Spacer(1, 0.2 * cm))
-
-    def block_flowables(block: tuple) -> list[Any]:
-        kind = block[0]
-        if kind == "p":
-            return [Paragraph(block[1], base["BodyText"])]
-        if kind == "formula":
-            return [Paragraph(block[1], styles["muted"])]
-        if kind == "note":
-            return [Paragraph(f"<b>{block[1]}:</b> {block[2]}", base["BodyText"])]
-        if kind == "list":
-            return [Paragraph(f"• {item}", base["BodyText"]) for item in block[1]]
-        if kind == "params":
-            return [Paragraph(f"<b>{term}</b> — {definition}", base["BodyText"]) for term, definition in block[1]]
-        return []
-
+    blocks: list[dict[str, Any]] = [_p(content["intro"], style="lead")]
     for section in content["sections"]:
-        items: list[Any] = [Paragraph(section["title"], base["Heading2"])]
+        blocks.append(_h2(section["title"]))
         for block in section["blocks"]:
-            items.extend(block_flowables(block))
-        story.append(KeepTogether(items[:2]))
-        story.extend(items[2:])
-        story.append(Spacer(1, 0.15 * cm))
+            blocks += _methodology_blocks(block)
 
     comparison = METHODS_COMPARISON.get(lang, METHODS_COMPARISON["pl"])
-    story.append(KeepTogether([Paragraph(comparison["title"], base["Heading2"]),
-                               Paragraph(comparison["intro"], base["BodyText"])]))
-    rows: list[list[str]] = [_tr(lang, "comp_headers").split("|")]
-    for row in comparison["rows"]:
-        rows.append([
-            str(row[0]),
-            f"{row[1]}. {row[2]}. {_tr(lang, 'comp_high')}: {row[3]}.",
-            f"{row[4]}. {_tr(lang, 'comp_limitation')}: {row[5]}.",
-        ])
-    _table(story, rows, [3.0 * cm, 7.0 * cm, 6.6 * cm], styles)
-
-    story.append(KeepTogether([Paragraph(_tr(lang, "results_comparison_heading"), base["Heading2"]),
-                               Paragraph(_tr(lang, "results_comparison_intro"), base["BodyText"])]))
+    blocks += [
+        _h2(comparison["title"]),
+        _p(comparison["intro"]),
+        _table(
+            _tr(lang, "comp_headers").split("|"),
+            [
+                [
+                    str(row[0]),
+                    f"{row[1]}. {row[2]}. {_tr(lang, 'comp_high')}: {row[3]}.",
+                    f"{row[4]}. {_tr(lang, 'comp_limitation')}: {row[5]}.",
+                ]
+                for row in comparison["rows"]
+            ],
+        ),
+        _h2(_tr(lang, "results_comparison_heading")),
+        _p(_tr(lang, "results_comparison_intro")),
+    ]
     participant_count = len(payload.get("dataset_aliases") or [])
 
     def p_reading(value: Any) -> str:
@@ -967,8 +908,7 @@ def _section_methodology(story: list[Any], styles: dict[str, Any], payload: dict
             return _tr(lang, "res_p_unavailable")
         return _tr(lang, "res_p_significant" if float(value) < 0.05 else "res_p_not_significant")
 
-    result_rows: list[list[str]] = [[_tr(lang, key) for key in ("res_method", "res_metric", "res_value",
-                                                                 "res_reading")]]
+    result_rows: list[list[str]] = []
     synchrony = payload.get("synchrony")
     if isinstance(synchrony, dict):
         sstats = synchrony.get("stats") or {}
@@ -994,62 +934,62 @@ def _section_methodology(story: list[Any], styles: dict[str, Any], payload: dict
              _tr(lang, "res_episodes_reading")],
             [_tr(lang, "res_cont"), _tr(lang, "res_cont_p"), _fmt(c_p) if c_p is not None else "—", p_reading(c_p)],
         ]
-    _table(story, result_rows, [2.8 * cm, 3.7 * cm, 2.1 * cm, 8.0 * cm], styles)
+    blocks.append(_table([_tr(lang, key) for key in ("res_method", "res_metric", "res_value", "res_reading")],
+                         result_rows, numeric=(2,)))
+    return _section("methodology", content["title"], blocks)
 
 
-def _section_appendix(story: list[Any], styles: dict[str, Any], payload: dict[str, Any], lang: str) -> None:
-    base = styles["base"]
-    _heading(story, styles, _tr(lang, "appendix_heading"))
-    story.append(Paragraph(_tr(lang, "appendix_intro"), base["BodyText"]))
-    story.append(Spacer(1, 0.2 * cm))
-
-    story.append(Paragraph(_tr(lang, "appendix_files"), base["Heading2"]))
-    rows = [[_tr(lang, "alias"), _tr(lang, "file"), "SHA-256"]]
-    for dataset in payload.get("datasets") or []:
-        rows.append([dataset.get("alias") or "-", dataset.get("filename") or "-", dataset.get("sha256") or "-"])
-    _table(story, rows, [2.6 * cm, 5.0 * cm, 9.0 * cm], styles)
-
-    story.append(Paragraph(_tr(lang, "appendix_versions"), base["Heading2"]))
-    rows = [[_tr(lang, "package"), _tr(lang, "version")]]
-    rows += [[package, version] for package, version in (payload.get("versions") or {}).items()]
-    _table(story, rows, [8.0 * cm, 8.6 * cm], styles)
-
-    story.append(Paragraph(_tr(lang, "appendix_settings"), base["Heading2"]))
+def _section_appendix(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     config = payload.get("config") or {}
-    # Raw values here (not _fmt) so the table can be copied back into the settings exactly.
-    rows = [[_tr(lang, "field"), _tr(lang, "value")]]
-    rows += [[name, "-" if value is None else str(value)] for name, value in config.items()]
-    _table(story, rows, [9.0 * cm, 7.6 * cm], styles)
+    blocks = [
+        _p(_tr(lang, "appendix_intro")),
+        _h2(_tr(lang, "appendix_files")),
+        _table(
+            [_tr(lang, "alias"), _tr(lang, "file"), "SHA-256"],
+            [[dataset.get("alias") or "-", dataset.get("filename") or "-", dataset.get("sha256") or "-"]
+             for dataset in payload.get("datasets") or []],
+            kind="files",
+        ),
+        _h2(_tr(lang, "appendix_versions")),
+        _table([_tr(lang, "package"), _tr(lang, "version")],
+               [[package, version] for package, version in (payload.get("versions") or {}).items()]),
+        _h2(_tr(lang, "appendix_settings")),
+        # Raw values here (not _fmt) so the table can be copied back into the settings exactly.
+        _table([_tr(lang, "field"), _tr(lang, "value")],
+               [[name, "-" if value is None else str(value)] for name, value in config.items()], kind="kv settings"),
+    ]
+    return _section("appendix", _tr(lang, "appendix_heading"), blocks)
 
 
-def build_story(payload: dict[str, Any]) -> list[Any]:
-    """The report flowables; ``payload['lang']`` selects Polish or English."""
-    _register_fonts()
-    styles = _build_styles()
+def build_report(payload: dict[str, Any]) -> dict[str, Any]:
+    """Template context of the report; ``payload['lang']`` selects Polish or English."""
     lang = resolve_lang(payload.get("lang"))
-    story: list[Any] = []
-    _section_title(story, styles, payload, lang)
-    _section_executive_summary(story, styles, payload, lang)
-    _section_import(story, styles, payload, lang)
-    _section_cleaning(story, styles, payload, lang)
-    _section_synchrony(story, styles, payload, lang)
-    _section_coarousal(story, styles, payload, lang)
-    _section_methodology(story, styles, payload, lang)
-    _section_appendix(story, styles, payload, lang)
-    return story
+    sections = [
+        _section_executive_summary(payload, lang),
+        _section_import(payload, lang),
+        _section_cleaning(payload, lang),
+        _section_synchrony(payload, lang),
+        _section_coarousal(payload, lang),
+        _section_methodology(payload, lang),
+        _section_appendix(payload, lang),
+    ]
+    return {
+        "lang": lang,
+        "document_title": f"{_tr(lang, 'report_title')} {payload.get('project_name', '')}".strip(),
+        "title_page": _title_page(payload, lang),
+        "sections": [section for section in sections if section is not None],
+    }
+
+
+def render_report_html(payload: dict[str, Any], *, for_pdf: bool = False) -> str:
+    """The report page; ``for_pdf`` embeds the bundled DejaVu fonts (WeasyPrint has no system fonts to fall back on)."""
+    context = build_report(payload)
+    context["font_dir"] = FONT_DIR.as_uri() if for_pdf else ""
+    return render_to_string("gsr/report/report.html", context)
 
 
 def render_report_pdf(payload: dict[str, Any]) -> bytes:
-    lang = resolve_lang(payload.get("lang"))
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=1.2 * cm,
-        leftMargin=1.2 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm,
-        title=f"{_tr(lang, 'report_title')} {payload.get('project_name', '')}".strip(),
-    )
-    doc.build(build_story(payload))
-    return buffer.getvalue()
+    # Imported here: WeasyPrint loads the system Pango library on import, which only the PDF download needs.
+    from weasyprint import HTML
+
+    return HTML(string=render_report_html(payload, for_pdf=True), base_url=str(FONT_DIR)).write_pdf()
