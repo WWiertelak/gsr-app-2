@@ -368,6 +368,8 @@ table.data tr.nsig td { color: var(--ink-3); }
 .chart-card h4 { margin: 0 0 var(--s1); font-size: var(--fs-sm); display: flex; align-items: center; gap: var(--s2); }
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: var(--s4) var(--s5); }
 @media (max-width: 520px) { .chart-grid { grid-template-columns: minmax(0, 1fr); } }
+/* The Separate/Overlay switch toggles `hidden`; keep it winning over `.chart-grid { display: grid }` */
+[data-view-panel][hidden] { display: none; }
 
 /* Upload: overlap timeline on a clock axis; the shared window is shaded across every row */
 .timeline {
