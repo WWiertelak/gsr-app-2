@@ -1,8 +1,9 @@
-{% load i18n %}<ol class="stepper" id="stepper"{% if oob %} hx-swap-oob="true"{% endif %}>
+{% load i18n %}<ol class="stepper" id="stepper" aria-label="{% translate 'Project steps' %}"{% if oob %} hx-swap-oob="true"{% endif %}>
   {% for item in steps %}
     <li>
-      <a href="{{ item.url }}" class="{% if item.current %}current{% endif %}{% if item.done %} done{% endif %}{% if item.stale %} stale{% endif %}"{% if item.current %} aria-current="step"{% endif %}{% if item.stale %} title="{% translate 'Outdated result' %}"{% endif %}>
+      <a href="{{ item.url }}" class="{% if item.current %}current{% endif %}{% if item.done %} done{% endif %}{% if item.stale %} stale{% endif %}"{% if item.current %} aria-current="step"{% endif %}>
         <span class="num">{{ item.number }}</span>{{ item.label }}
+        {% if item.stale %}<span class="step-status">{% translate "outdated" %}</span>{% elif item.done %}<span class="sr-only">({% translate "done" %})</span>{% endif %}
       </a>
     </li>
   {% endfor %}

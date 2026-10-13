@@ -86,15 +86,15 @@
         <div class="chart-grid">
           {% for item in charts.per_signal %}
             <div class="chart-card">
-              <h4><span class="dot" style="background: {{ item.color }}"></span>{{ item.alias }}</h4>
-              {% with index=forloop.counter0|stringformat:"s" %}{% include "gsr/partials/chart.html" with kind="cleanVsRaw" data=item chart_id="clean-"|add:index name="clean_"|add:item.alias height=260 %}{% endwith %}
+              <h3><span class="dot" style="background: {{ item.color }}"></span>{{ item.alias }}</h3>
+              {% with index=forloop.counter0|stringformat:"s" %}{% include "gsr/partials/chart.html" with label=_("Cleaned vs raw") sub=item.alias kind="cleanVsRaw" data=item chart_id="clean-"|add:index name="clean_"|add:item.alias height=260 %}{% endwith %}
             </div>
           {% endfor %}
         </div>
         {% if charts.per_signal|length > 1 %}
           <div class="chart-card" style="margin-top: 0.7rem">
-            <h4>{% translate "Signal overlay" %}</h4>
-            {% include "gsr/partials/chart.html" with kind="overlay" data=charts.overlay chart_id="clean-overlay" name="clean_overlay" height=320 %}
+            <h3>{% translate "Signal overlay" %}</h3>
+            {% include "gsr/partials/chart.html" with label=_("Signal overlay") kind="overlay" data=charts.overlay chart_id="clean-overlay" name="clean_overlay" height=320 %}
           </div>
         {% endif %}
       </section>
