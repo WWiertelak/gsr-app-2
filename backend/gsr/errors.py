@@ -19,7 +19,6 @@ from django.utils.translation import ngettext
 
 from .models import Project
 from .pipeline.common import PipelineError
-from .pipeline.parser import ParseError
 
 
 @dataclass
@@ -74,10 +73,6 @@ def parse_reason(code: str | None, row: int | None = None) -> str:
     if code == "no_rows":
         return _("The file contains no readable signal rows.")
     return _("The file could not be read as an eSense CSV export.")
-
-
-def describe_parse_error(exc: ParseError) -> str:
-    return parse_reason(exc.code, exc.row)
 
 
 def _upload_link(project: Project) -> dict[str, str]:

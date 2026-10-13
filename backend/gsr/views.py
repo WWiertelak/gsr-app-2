@@ -373,7 +373,7 @@ def cleaning_csv(request: HttpRequest, pk: Any) -> HttpResponse:
     try:
         content = exports.clean_signals_csv(project, result)
     except AnalysisError as exc:
-        messages.error(request, str(exc))
+        messages.error(request, describe(exc, project, "export").message)
         return redirect("gsr:cleaning", project.pk)
     return _attachment(content, _download_name(project, "clean_signals.csv"), "text/csv; charset=utf-8")
 
@@ -534,7 +534,7 @@ def export_file(request: HttpRequest, pk: Any, name: str) -> HttpResponse:
         else:
             content = exports.table_exports(result)[name]
     except AnalysisError as exc:
-        messages.error(request, str(exc))
+        messages.error(request, describe(exc, project, "export").message)
         return redirect("gsr:export", project.pk)
     content_type = "application/json" if name.endswith(".json") else "text/csv; charset=utf-8"
     return _attachment(content, _download_name(project, name), content_type)
@@ -549,7 +549,7 @@ def export_zip(request: HttpRequest, pk: Any) -> HttpResponse:
     try:
         content = exports.build_zip(project, result, chart_images, _results_json(project, result))
     except AnalysisError as exc:
-        messages.error(request, str(exc))
+        messages.error(request, describe(exc, project, "export").message)
         return redirect("gsr:export", project.pk)
     return _attachment(content, _download_name(project, "results.zip"), "application/zip")
 
