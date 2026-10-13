@@ -49,13 +49,13 @@
   {% for series in raw_series %}
     <div class="chart-card">
       <h4><span class="dot" style="background: {{ series.color }}"></span>{{ series.alias }}</h4>
-      {% with index=forloop.counter0|stringformat:"s" %}{% include "gsr/partials/chart.html" with kind="rawSignal" data=series chart_id="raw-"|add:index name="raw_"|add:series.alias height=240 %}{% endwith %}
+      {% with index=forloop.counter0|stringformat:"s" %}{% include "gsr/partials/chart.html" with label=_("RAW signals (import)") sub=series.alias kind="rawSignal" data=series chart_id="raw-"|add:index name="raw_"|add:series.alias height=240 %}{% endwith %}
     </div>
   {% endfor %}
 </div>
 {% if raw_overlay %}
   <div class="chart-card" style="margin-top: 0.7rem">
     <h4>{% translate "Signal overlay" %}</h4>
-    {% include "gsr/partials/chart.html" with kind="overlay" data=raw_overlay chart_id="raw-overlay" name="raw_overlay" height=320 %}
+    {% include "gsr/partials/chart.html" with label=_("Signal overlay") kind="overlay" data=raw_overlay chart_id="raw-overlay" name="raw_overlay" height=320 %}
   </div>
 {% endif %}

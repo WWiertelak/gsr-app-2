@@ -43,7 +43,8 @@
       <div class="alert warning">{% translate "Select at least two signals to compute synchronization." %} <a href="{% url 'gsr:cleaning' project.pk %}">{% translate "Go to Cleaning" %}</a></div>
     {% endif %}
 
-    <section class="card">
+    <section class="card" aria-labelledby="analysis-results-title">
+      <h2 class="sr-only" id="analysis-results-title">{% translate "Analysis results" %}</h2>
       <div class="run-bar">
         {% if result %}
           <span>{% blocktranslate with time=result.computed_at|date:"Y-m-d H:i" seconds=result.duration_seconds|floatformat:1 %}Last run {{ time }} · {{ seconds }} s{% endblocktranslate %}</span>
@@ -60,12 +61,12 @@
         {% endif %}
       </div>
 
-      <nav class="tabs" role="tablist">
-        <a href="?tab=synchronization" role="tab" data-tab="synchronization" class="{% if tab == 'synchronization' %}active{% endif %}" aria-selected="{% if tab == 'synchronization' %}true{% else %}false{% endif %}">{% translate "Synchronization" %}</a>
-        <a href="?tab=coarousal" role="tab" data-tab="coarousal" class="{% if tab == 'coarousal' %}active{% endif %}" aria-selected="{% if tab == 'coarousal' %}true{% else %}false{% endif %}">{% translate "Co-arousal" %}</a>
-      </nav>
+      <div class="tabs" role="tablist" aria-labelledby="analysis-results-title">
+        <a href="?tab=synchronization" role="tab" id="tab-synchronization" aria-controls="panel-synchronization" data-tab="synchronization" class="{% if tab == 'synchronization' %}active{% endif %}" aria-selected="{% if tab == 'synchronization' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'synchronization' %}0{% else %}-1{% endif %}">{% translate "Synchronization" %}</a>
+        <a href="?tab=coarousal" role="tab" id="tab-coarousal" aria-controls="panel-coarousal" data-tab="coarousal" class="{% if tab == 'coarousal' %}active{% endif %}" aria-selected="{% if tab == 'coarousal' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'coarousal' %}0{% else %}-1{% endif %}">{% translate "Co-arousal" %}</a>
+      </div>
 
-      <div role="tabpanel" data-tab-panel="synchronization"{% if tab != "synchronization" %} hidden{% endif %}>
+      <div role="tabpanel" id="panel-synchronization" aria-labelledby="tab-synchronization" tabindex="0" data-tab-panel="synchronization"{% if tab != "synchronization" %} hidden{% endif %}>
         <p class="hint">{% translate "We look for fragments where signals begin to synchronize and group them into clusters." %}</p>
         {% if result and synchrony %}
           <div class="stats">
@@ -79,15 +80,15 @@
             <div class="stat"><div class="label">{% translate "Cluster count" %}</div><div class="value">{{ synchrony.stats.cluster_count }}</div></div>
           </div>
 
-          <h4>{% translate "Synchronization timeline" %}</h4>
-          {% include "gsr/partials/chart.html" with kind="syncTimeline" data=sync_timeline chart_id="sync-timeline" name="sync_timeline" height=360 %}
+          <h3>{% translate "Synchronization timeline" %}</h3>
+          {% include "gsr/partials/chart.html" with label=_("Synchronization timeline") kind="syncTimeline" data=sync_timeline chart_id="sync-timeline" name="sync_timeline" height=360 %}
 
           {% if sync_signals.series %}
-            <h4>{% translate "Signals with marked episodes" %}</h4>
-            {% include "gsr/partials/chart.html" with kind="episodeSignals" data=sync_signals chart_id="sync-signals" name="sync_signals" height=320 %}
+            <h3>{% translate "Signals with marked episodes" %}</h3>
+            {% include "gsr/partials/chart.html" with label=_("Signals with marked episodes") kind="episodeSignals" data=sync_signals chart_id="sync-signals" name="sync_signals" height=320 %}
           {% endif %}
 
-          <h4>{% translate "Subgroup synchronization episodes" %}</h4>
+          <h3>{% translate "Subgroup synchronization episodes" %}</h3>
           <p class="hint">{% translate "Stretches where a subgroup of participants (at least 2) stays synchronized above the threshold." %}</p>
           {% if sync_episodes %}
             <div class="table-wrap">
@@ -112,7 +113,7 @@
             <p class="muted">{% translate "No subgroup synchronization episodes detected." %}</p>
           {% endif %}
 
-          <h4>{% translate "Pairwise metrics" %}</h4>
+          <h3>{% translate "Pairwise metrics" %}</h3>
           <div class="table-wrap">
             <table class="data">
               <thead>
@@ -142,11 +143,11 @@
 
           <div class="grid-2">
             <div>
-              <h4>{% translate "Synchronization matrix" %}</h4>
-              {% include "gsr/partials/chart.html" with kind="heatmap" data=sync_matrix chart_id="sync-matrix" name="sync_matrix" height=360 %}
+              <h3>{% translate "Synchronization matrix" %}</h3>
+              {% include "gsr/partials/chart.html" with label=_("Synchronization matrix") kind="heatmap" data=sync_matrix chart_id="sync-matrix" name="sync_matrix" height=360 %}
             </div>
             <div>
-              <h4>{% translate "Signal clusters" %}</h4>
+              <h3>{% translate "Signal clusters" %}</h3>
               <div class="cluster-list">
                 {% for cluster in synchrony.clusters.clusters %}
                   <div class="cluster-card">
@@ -163,7 +164,7 @@
         {% endif %}
       </div>
 
-      <div role="tabpanel" data-tab-panel="coarousal"{% if tab != "coarousal" %} hidden{% endif %}>
+      <div role="tabpanel" id="panel-coarousal" aria-labelledby="tab-coarousal" tabindex="0" data-tab-panel="coarousal"{% if tab != "coarousal" %} hidden{% endif %}>
         <p class="hint">{% translate "We look for moments when many participants are simultaneously in the same arousal state (High/Low) or genuinely co-vary (correlation-based co-movement). Signals are standardized (z-score) within the analysis window." %}</p>
         {% if result and coarousal %}
           <div class="stats">
@@ -186,12 +187,12 @@
           <p class="hint">{% translate "Co-arousal index = time-average of max(number of people in High state, number in Low state). Compared with a circular-shift null distribution (preserves autocorrelation, destroys only shared timing)." %}</p>
 
           {% if coarousal_states.rows %}
-            <h4>{% translate "Participant state map over time" %}</h4>
+            <h3>{% translate "Participant state map over time" %}</h3>
             <p class="hint">{% translate "Mean state of each participant in 1-minute bins: red = High (+1), white = Neutral (0), blue = Low (−1)." %}</p>
-            {% include "gsr/partials/chart.html" with kind="coarousalStates" data=coarousal_states chart_id="coarousal-states" name="coarousal_states" height=coarousal_height %}
+            {% include "gsr/partials/chart.html" with label=_("Participant state map over time") kind="coarousalStates" data=coarousal_states chart_id="coarousal-states" name="coarousal_states" height=coarousal_height %}
           {% endif %}
 
-          <h4>{% translate "Co-arousal episodes" %}</h4>
+          <h3>{% translate "Co-arousal episodes" %}</h3>
           <p class="hint">{% translate "Episodes where ≥ the required number of participants hold a shared state (High/Low), plus co-movement episodes (mean pairwise Spearman in the window ≥ threshold)." %}</p>
           {% if coarousal_episodes %}
             <div class="table-wrap">
@@ -218,7 +219,7 @@
 
           <div class="grid-2">
             <div>
-              <h4>{% translate "Timeline (non-overlapping)" %}</h4>
+              <h3>{% translate "Timeline (non-overlapping)" %}</h3>
               <p class="hint">{% translate "Each second gets one label by precedence: High/Low (joint extreme) > Co-movement. Adjacent same-label seconds are merged." %}</p>
               {% if coarousal.primary_timeline %}
                 <div class="table-wrap">
@@ -241,7 +242,7 @@
               {% endif %}
             </div>
             <div>
-              <h4>{% translate "Time in states (per signal)" %}</h4>
+              <h3>{% translate "Time in states (per signal)" %}</h3>
               <p class="hint">{% translate "Percent of time each signal was in the High, Neutral and Low state (z-score relative to its own baseline within the analysis window)." %}</p>
               <div class="table-wrap">
                 <table class="data">

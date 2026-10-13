@@ -1,6 +1,6 @@
 /*
  * Page behaviour: hydrate [data-chart] elements with ECharts (also after HTMX
- * swaps), analysis tabs, info tooltips, confirm dialogs, the busy overlay for plain form posts,
+ * swaps), analysis tabs (ARIA tabs with arrow keys), info tooltips, confirm dialogs, the busy overlay for plain form posts,
  * and the Export screen's chart capture for the PDF report and the ZIP.
  */
 (function () {
@@ -69,6 +69,7 @@
       var active = link.dataset.tab === name;
       link.classList.toggle("active", active);
       link.setAttribute("aria-selected", active ? "true" : "false");
+      link.tabIndex = active ? 0 : -1;
     });
     document.querySelectorAll("[data-tab-panel]").forEach(function (panel) {
       panel.hidden = panel.dataset.tabPanel !== name;
@@ -97,7 +98,63 @@
     }
   });
 
-  // ── Info tooltips: Escape hides the open one until the pointer/focus leaves it ──
+  // Roving focus within the tab list: Left/Right wrap around, Home/End jump to the ends.
+  document.addEventListener("keydown", function (event) {
+    var link = event.target.closest && event.target.closest('[role="tab"][data-tab]');
+    if (!link || event.altKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
+    var tabs = Array.prototype.slice.call(link.closest('[role="tablist"]').querySelectorAll('[role="tab"][data-tab]'));
+    var index = tabs.indexOf(link);
+    var next = {
+      ArrowRight: tabs[(index + 1) % tabs.length],
+      ArrowLeft: tabs[(index - 1 + tabs.length) % tabs.length],
+      Home: tabs[0],
+      End: tabs[tabs.length - 1]
+    }[event.key];
+    if (event.key === " ") {
+      next = link;
+    }
+    if (next) {
+      event.preventDefault();
+      activateTab(next.dataset.tab);
+      next.focus();
+    }
+  });
+
+  // ── Info tooltips: placed next to their (i) button, above it when there is room, so they do not
+  // cover the controls they describe; Escape hides the open one until the pointer/focus leaves it ──
+  function placeTip(tip) {
+    var button = tip.querySelector(".tip-btn");
+    var text = tip.querySelector(".tip-text");
+    if (!button || !text) {
+      return;
+    }
+    var gap = 6;
+    var margin = 8;
+    var anchor = button.getBoundingClientRect();
+    var box = text.getBoundingClientRect();
+    var left = Math.min(Math.max(margin, anchor.left), window.innerWidth - box.width - margin);
+    var top = anchor.top - box.height - gap;
+    if (top < margin) {
+      top = anchor.bottom + gap;
+    }
+    text.style.left = Math.max(margin, left) + "px";
+    text.style.top = top + "px";
+  }
+
+  ["mouseover", "focusin"].forEach(function (type) {
+    document.addEventListener(type, function (event) {
+      var tip = event.target.closest && event.target.closest(".tip");
+      if (tip) {
+        placeTip(tip);
+      }
+    });
+  });
+  window.addEventListener("scroll", function () {
+    document.querySelectorAll(".tip:hover, .tip:focus-within").forEach(placeTip);
+  }, true);
+
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
       document.querySelectorAll(".tip:hover, .tip:focus-within").forEach(function (tip) {

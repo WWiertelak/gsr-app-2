@@ -341,6 +341,34 @@ def test_analysis_run_stores_both_results_in_two_tabs(client, project) -> None:
 
 
 @pytest.mark.django_db
+def test_analysis_screen_has_landmarks_aria_tabs_and_labelled_charts(client, project) -> None:
+    _run_analysis(client, project)
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
+    assert page.count("<main") == 1 and "<h4" not in page
+    assert '<h2 class="sr-only" id="analysis-results-title">Analysis results</h2>' in page
+    # Tabs: each tab controls its panel; only the selected one is in the tab order.
+    assert ('id="tab-synchronization" aria-controls="panel-synchronization"' in page
+            and 'aria-selected="true" tabindex="0">Synchronization' in page
+            and 'aria-selected="false" tabindex="-1">Co-arousal' in page)
+    assert 'role="tabpanel" id="panel-coarousal" aria-labelledby="tab-coarousal"' in page
+    # Charts are canvases, so each one carries a text alternative.
+    assert 'data-chart="heatmap"' in page and 'role="img" aria-label="Synchronization matrix"' in page
+    # The stepper states each step in text, not only by colour.
+    assert '<span class="sr-only">(done)</span>' in page and 'class="step-status"' not in page
+
+    project.save()
+    project.datasets.filter(alias="C").update(included=False)
+    page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
+    assert '<span class="step-status">outdated</span>' in page
+
+    client.post(reverse("set_language"), {"language": "pl", "next": "/"})
+    page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
+    assert '<span class="sr-only">(gotowe)</span>' in page and '<span class="step-status">nieaktualne</span>' in page
+    assert 'role="img" aria-label="Macierz synchronizacji"' in page
+
+
+@pytest.mark.django_db
 def test_analysis_settings_are_collapsed_with_run_and_apply_buttons(client, project) -> None:
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
