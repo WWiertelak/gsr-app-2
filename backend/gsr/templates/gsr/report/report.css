@@ -1,8 +1,6 @@
-/* Report layout: A4 pages for the PDF (WeasyPrint), a centred sheet in the browser. Colours follow app.css. */
-{% if font_dir %}
+/* Report layout: A4 pages for the PDF (WeasyPrint). Colours follow app.css. */
 @font-face { font-family: "DejaVu Sans"; font-weight: normal; src: url("{{ font_dir }}/DejaVuSans.ttf"); }
 @font-face { font-family: "DejaVu Sans"; font-weight: bold; src: url("{{ font_dir }}/DejaVuSans-Bold.ttf"); }
-{% endif %}
 :root {
   --ink: #102a43;
   --ink-soft: #486581;
