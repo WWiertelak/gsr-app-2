@@ -18,6 +18,7 @@ from django.db import transaction
 from django.db.models import Count
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone, translation
 from django.utils.formats import number_format
@@ -304,6 +305,9 @@ def dataset_rename(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespon
         if error is None:
             # The overlap timeline and the raw charts show the alias too: reload them.
             response["HX-Trigger"] = "gsr:datasets-changed"
+            response.write(render_to_string(
+                "gsr/partials/upload_action_bar.html", {**_upload_context(project), "project": project, "oob": True},
+                request))
         return response
     if error:
         messages.error(request, error)

@@ -1,0 +1,12 @@
+{% load i18n %}{% comment %}The Upload screen's sticky action bar; an inline alias save returns it out of band, since its text names the aliases.{% endcomment %}
+<div class="action-bar" id="upload-action-bar"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {% if overlap_error %}
+    <span class="blocked" id="next-blocked">{{ overlap_error }} {% translate "Exclude or delete the recording that does not overlap." %}</span>
+    <span class="grow"></span>
+    <a class="button lg" role="link" aria-disabled="true" aria-describedby="next-blocked">{% translate "Next: Cleaning" %} →</a>
+  {% else %}
+    <span class="muted">{{ recordings_label }}</span>
+    <span class="grow"></span>
+    <a class="button lg" href="{% url 'gsr:cleaning' project.pk %}">{% translate "Next: Cleaning" %} →</a>
+  {% endif %}
+</div>

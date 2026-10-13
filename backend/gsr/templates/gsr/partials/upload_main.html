@@ -67,15 +67,5 @@
   {% endif %}
 </div>
 {% if datasets %}
-  <div class="action-bar">
-    {% if overlap_error %}
-      <span class="blocked" id="next-blocked">{{ overlap_error }} {% translate "Exclude or delete the recording that does not overlap." %}</span>
-      <span class="grow"></span>
-      <a class="button lg" role="link" aria-disabled="true" aria-describedby="next-blocked">{% translate "Next: Cleaning" %} →</a>
-    {% else %}
-      <span class="muted">{{ recordings_label }}</span>
-      <span class="grow"></span>
-      <a class="button lg" href="{% url 'gsr:cleaning' project.pk %}">{% translate "Next: Cleaning" %} →</a>
-    {% endif %}
-  </div>
+  {% include "gsr/partials/upload_action_bar.html" %}
 {% endif %}

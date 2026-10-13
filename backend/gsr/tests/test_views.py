@@ -270,6 +270,24 @@ def test_upload_overview_flags_recordings_without_shared_window(client, late_pro
     assert not project.datasets.get(alias="C").included
     page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
     assert 'aria-disabled="true"' not in page and next_link in page
+
+
+@pytest.mark.django_db
+def test_inline_alias_save_refreshes_the_action_bar(client, late_project) -> None:
+    project = late_project
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    assert 'id="upload-action-bar"' in page and "C does not overlap" in page
+    rename = reverse("gsr:dataset_rename", args=[project.pk, project.datasets.get(alias="C").pk])
+    fragment = client.post(rename, {"alias": "Carl"}, **HTMX).content.decode()
+    bar = fragment[fragment.index('<div class="action-bar" id="upload-action-bar" hx-swap-oob="true">'):]
+    assert "Carl does not overlap" in bar and 'aria-disabled="true"' in bar and "C does not overlap" not in bar
+
+    # Without the outlier the bar offers the next step with the common window.
+    client.post(reverse("gsr:dataset_exclude", args=[project.pk, project.datasets.get(alias="Carl").pk]), {"next": "upload"})
+    fragment = client.post(rename, {"alias": "Cleo"}, **HTMX).content.decode()
+    bar = fragment[fragment.index('id="upload-action-bar"'):]
+    assert "3 recordings · common window" in bar and reverse("gsr:cleaning", args=[project.pk]) in bar
     overview = client.get(reverse("gsr:upload_overview", args=[project.pk])).content.decode()
     assert "alert success" in overview and "excluded" in overview
 
