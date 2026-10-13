@@ -6,6 +6,8 @@ import base64
 import csv
 import io
 import json
+import math
+import re
 import zipfile
 from pathlib import Path
 
@@ -16,7 +18,7 @@ from django.urls import reverse
 from django.utils import translation
 from PIL import Image
 
-from gsr import params
+from gsr import charts, params
 from gsr.models import AnalysisResult, Dataset, Project
 from gsr.pipeline.config import PipelineConfig
 from gsr.pipeline.preprocessing import build_stage_export_frame, run_pipeline, serialize_preview
@@ -501,7 +503,10 @@ def test_polish_screens_use_polish_numbers_and_labels(client, project) -> None:
     # The input fields keep dot decimals: that is what <input type="number"> accepts.
     assert 'name="synchrony_threshold" step="any" value="0.75"' in form
     fragment = _run_analysis(client, project).content.decode()
-    assert "przesunięcie kołowe · N=20" in fragment and ">circular" not in fragment
+    assert "przesunięcie kołowe × 20" in fragment and ">circular" not in fragment
+    # The mini timeline positions are CSS, so they keep dot decimals in Polish.
+    assert re.search(r'<i style="left: \d+\.\d\d%; width: \d+\.\d\d%">', fragment)
+    assert not re.search(r'(left|width): \d+,\d', fragment)
 
 
 @pytest.mark.django_db
@@ -520,6 +525,83 @@ def test_analysis_results_equal_the_analysis_service(client, project) -> None:
     assert json.loads(json.dumps(expected["synchrony"])) == stored.payload["synchrony"]
     assert json.loads(json.dumps(expected["coarousal"])) == stored.payload["coarousal"]
     assert expected["preview"]["cleaning_summary"] == stored.payload["preview"]["cleaning_summary"]
+
+
+@pytest.mark.django_db
+def test_cleaning_shows_quality_tiles_and_tips_instead_of_hint_paragraphs(client, project) -> None:
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    fragment = client.post(reverse("gsr:cleaning_refresh", args=[project.pk]), **HTMX).content.decode()
+    rows = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_CLEANING).payload["preview"][
+        "cleaning_summary"]["per_alias"]
+    assert fragment.count('<li class="tile">') == len(rows) == 3
+    for row in rows:
+        assert f"rejected {row['artifact_rejected_points']:,} of {row['synced_points']:,} samples" in fragment
+    assert 'class="hint"' not in fragment
+    assert 'role="tooltip" id="tip-quality"' in fragment and 'role="tooltip" id="tip-clean"' in fragment
+
+
+@pytest.mark.django_db
+def test_analysis_results_interpret_figures_and_place_episodes_in_time(client, project) -> None:
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    fragment = _run_analysis(client, project).content.decode()
+    payload = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS).payload
+    synchrony, coarousal = payload["synchrony"], payload["coarousal"]
+    assert 'class="hint"' not in fragment
+
+    # Tabs carry the episode counts; the KPI tiles say what the test means.
+    count = synchrony["stats"]["episode_count"]
+    assert f'Synchronization <span class="count">{count} episode{"" if count == 1 else "s"}</span>' in fragment
+    p_value = synchrony["stats"]["mean_synchrony_p_value"]
+    verdict = ('<span class="badge sig">above chance</span>' if p_value < 0.05
+               else '<span class="badge neutral">not above chance</span>')
+    assert f"{verdict} circular shift × 20" in fragment
+    assert "subgroups of ≥ 2 people above 0.6" in fragment
+
+    # Two-panel timeline: the pair curves are behind a switch.
+    assert 'data-pairs-for="sync-timeline"' in fragment and "Pair curves (3)" in fragment
+    timeline = json.loads(re.search(r'id="sync-timeline-data" type="application/json">(.*?)</script>',
+                                    fragment).group(1))
+    assert timeline["span"] == [math.floor(min(timeline["centers"])), math.ceil(max(timeline["centers"]))]
+
+    # Episode rows: E-numbers as on the chart, with a mini timeline.
+    for number, _episode in enumerate(synchrony["episodes"], start=1):
+        assert f"<strong>E{number}</strong>" in fragment
+    assert fragment.count('class="minibar"') == len(synchrony["episodes"])
+
+    # Significant pairs are bold, the rest recede.
+    significant = sum(pair["p_value"] < 0.05 for pair in synchrony["pairs"])
+    assert fragment.count('<tr class="sig">') == significant
+    assert fragment.count('<tr class="nsig">') == len(synchrony["pairs"]) - significant
+
+    # Co-arousal: one episode table with a "merge overlaps" switch instead of a second table; state bars.
+    if coarousal["episodes"]:
+        assert 'data-merge-toggle aria-controls="coarousal-episodes coarousal-merged"' in fragment
+        assert 'id="coarousal-merged" hidden' in fragment
+    assert fragment.count('class="state-bar"') == len(coarousal["state_percentages"])
+    states = json.loads(re.search(r'id="coarousal-states-data" type="application/json">(.*?)</script>',
+                                  fragment).group(1))
+    assert len(states["episodes"]) == len(coarousal["episodes"])
+
+
+def test_coarousal_chart_stacks_overlapping_episodes_in_lanes() -> None:
+    data = charts.coarousal_states({
+        "state_timeline": {"times_min": [0.0, 1.0], "per_alias": []},
+        "episodes": [
+            {"direction": "Co-movement", "start_min": 2.0, "end_min": 3.0, "contributors": ["A", "B"]},
+            {"direction": "High", "start_min": 0.5, "end_min": 2.5, "contributors": ["A"]},
+            {"direction": "Low", "start_min": 2.5, "end_min": 4.0, "contributors": []},
+        ],
+    })
+    assert [(episode["direction"], episode["lane"]) for episode in data["episodes"]] == [
+        ("High", 0), ("Co-movement", 1), ("Low", 0)]
+    assert data["lanes"] == 2
+    assert charts.coarousal_states({})["lanes"] == 0
+
+
+def test_sync_timeline_spans_whole_minutes_around_the_windows() -> None:
+    assert charts.sync_timeline({"windows": {"centers": [0.25, 5.5, 11.6]}})["span"] == [0, 12]
+    assert charts.sync_timeline({"windows": {"centers": [3.0]}})["span"] == [3, 4]
+    assert charts.sync_timeline({})["span"] is None
 
 
 @pytest.mark.django_db

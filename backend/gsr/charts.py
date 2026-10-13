@@ -7,6 +7,7 @@ same data feeds the off-screen charts the Export screen captures for the PDF.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from django.utils.translation import gettext as _
@@ -30,6 +31,9 @@ def chart_labels() -> dict[str, str]:
         "timeWindow": _("Time window"),
         "high": _("High ↑"),
         "low": _("Low ↓"),
+        "comove": _("Co-move ↔"),
+        "episodes": _("Episodes"),
+        "inSync": _("in sync"),
         "state": _("State"),
         "timeMin": _("Time (min)"),
         "savePng": _("Save PNG"),
@@ -92,9 +96,19 @@ def _episodes(synchrony: dict[str, Any]) -> list[dict[str, float]]:
             for episode in synchrony.get("episodes", [])]
 
 
+def timeline_span(synchrony: dict[str, Any]) -> list[float] | None:
+    """Whole minutes around the synchronization windows: the x range of the timeline and of the episode mini bars."""
+    centers = synchrony.get("windows", {}).get("centers", [])
+    if not centers:
+        return None
+    low, high = math.floor(min(centers)), math.ceil(max(centers))
+    return [low, high if high > low else low + 1]
+
+
 def sync_timeline(synchrony: dict[str, Any]) -> dict[str, Any]:
     windows = synchrony.get("windows", {})
     return {
+        "span": timeline_span(synchrony),
         "centers": windows.get("centers", []),
         "groupMean": windows.get("group_mean", []),
         "threshold": windows.get("threshold"),
@@ -120,11 +134,35 @@ def sync_matrix(synchrony: dict[str, Any]) -> dict[str, Any]:
     return {"matrix": synchrony.get("sync_matrix", []), "aliases": synchrony.get("aliases", [])}
 
 
+def episode_lanes(episodes: list[dict[str, Any]]) -> list[int]:
+    """Track lane per episode (sorted by start): an episode that starts before the previous one in a lane ends
+    moves to the next lane, so overlapping episodes stack instead of covering each other."""
+    lane_ends: list[float] = []
+    lanes = []
+    for episode in episodes:
+        lane = next((index for index, end in enumerate(lane_ends) if end <= episode["start_min"]), len(lane_ends))
+        if lane == len(lane_ends):
+            lane_ends.append(episode["end_min"])
+        else:
+            lane_ends[lane] = episode["end_min"]
+        lanes.append(lane)
+    return lanes
+
+
 def coarousal_states(coarousal: dict[str, Any]) -> dict[str, Any]:
     timeline = coarousal.get("state_timeline", {})
+    episodes = sorted(coarousal.get("episodes", []), key=lambda episode: episode["start_min"])
+    lanes = episode_lanes(episodes)
     return {
         "times": timeline.get("times_min", []),
         "rows": [{"alias": row["alias"], "states": row["states"]} for row in timeline.get("per_alias", [])],
+        # The episode track above the state map, on the same minute axis.
+        "episodes": [
+            {"start": episode["start_min"], "end": episode["end_min"], "direction": episode["direction"],
+             "lane": lane, "contributors": episode.get("contributors", [])}
+            for episode, lane in zip(episodes, lanes)
+        ],
+        "lanes": max(lanes) + 1 if lanes else 0,
     }
 
 

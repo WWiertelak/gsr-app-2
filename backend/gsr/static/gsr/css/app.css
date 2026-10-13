@@ -318,12 +318,50 @@ table.data tbody tr:hover td { background: var(--canvas); }
 table.data th:first-child, table.data td:first-child, table.data td.left, table.data th.left { text-align: left; }
 table.data tfoot td { font-weight: 600; border-top: 1px solid var(--line-2); border-bottom: 0; }
 
-/* Key figures: flat, separated by a rule instead of a box per number */
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--s3) var(--s5); margin: var(--s2) 0 var(--s4); }
-.stat { padding: 2px 0 2px var(--s3); border-left: 2px solid var(--line-2); }
-.stat .label { color: var(--ink-2); font-size: var(--fs-xs); }
-.stat .value { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.01em; margin-top: 2px; }
-.stat .sub { font-size: var(--fs-xs); color: var(--ink-3); }
+/* Significance (surrogate p < 0.05): bold rows and an "above chance" badge; the rest recede */
+table.data tr.sig td { font-weight: 600; color: var(--ink); }
+table.data tr.nsig td { color: var(--ink-3); }
+.badge.sig { background: var(--accent-weak); color: var(--accent); }
+.badge.neutral { background: var(--sunken); color: var(--ink-2); }
+.badge.high { background: #f9e3e5; color: var(--high); }
+.badge.low { background: #e2edf7; color: var(--low); }
+.badge.comove { background: #e9ecef; color: var(--comove); }
+
+/* Key figures and quality tiles: the label, the number, then what it means */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s3); margin: var(--s2) 0 var(--s5); padding: 0; list-style: none; }
+.tile { display: grid; align-content: start; gap: 2px; min-width: 0; padding: var(--s3) var(--s4); border: 1px solid var(--line); border-radius: var(--r-md); }
+.tile .label { display: flex; align-items: center; gap: var(--s2); color: var(--ink-2); font-size: var(--fs-xs); }
+.tile .tile-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.tile .tile-head .chip { padding: 0; background: none; font-size: var(--fs-sm); font-weight: 600; }
+.tile .value { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.01em; }
+.tile .value small { font-size: var(--fs-sm); font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
+.tile .sub { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); color: var(--ink-3); font-size: var(--fs-xs); }
+.quality-tiles .tile .value { font-size: var(--fs-lg); }
+
+/* Section heading row: title, (i) tip, a short subtitle in place of a hint paragraph, switches on the right */
+.section-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); margin-bottom: var(--s3); }
+.card .section-head h2, .card .section-head h3 { margin: 0; }
+.section-head .subtitle { color: var(--ink-3); font-size: var(--fs-xs); }
+.section-head .switch { margin-left: auto; }
+.section-gap { margin-top: var(--s5); }
+.switch { display: inline-flex; align-items: center; gap: var(--s2); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 500; white-space: nowrap; cursor: pointer; }
+.switch input {
+  appearance: none; position: relative; flex: none; width: 28px; height: 16px; margin: 0;
+  border-radius: 999px; background: var(--line-2); cursor: pointer; transition: background 0.15s;
+}
+.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: left 0.15s; }
+.switch input:checked { background: var(--accent); }
+.switch input:checked::after { left: 14px; }
+
+/* Episode mini timeline (where in the run) and time-in-state bars */
+.when { display: inline-flex; align-items: center; gap: var(--s2); white-space: nowrap; }
+.minibar { position: relative; flex: none; width: 80px; height: 8px; border-radius: 4px; background: var(--sunken); }
+.minibar i { position: absolute; top: 0; bottom: 0; min-width: 3px; border-radius: 4px; background: var(--ink-2); opacity: 0.55; }
+.state-bar { display: flex; min-width: 90px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--sunken); }
+.state-bar i { display: block; height: 100%; }
+.state-bar .high { background: var(--high); }
+.state-bar .neutral { background: var(--line); }
+.state-bar .low { background: var(--low); }
 
 .chart { width: 100%; min-height: 160px; }
 .chart-card { min-width: 0; }
@@ -345,9 +383,11 @@ table.data tfoot td { font-weight: 600; border-top: 1px solid var(--line-2); bor
 
 /* Tabs */
 .tabs { display: flex; gap: var(--s5); border-bottom: 1px solid var(--line); margin: var(--s4) 0; }
-.tabs a { padding: var(--s3) 0 var(--s3); text-decoration: none; color: var(--ink-3); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 600; }
+.tabs a { display: inline-flex; align-items: center; gap: var(--s2); padding: var(--s3) 0 var(--s3); text-decoration: none; color: var(--ink-3); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 600; }
 .tabs a:hover { color: var(--ink); }
 .tabs a.active { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs .count { padding: 1px var(--s2); border-radius: 999px; background: var(--sunken); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 600; }
+.tabs a.active .count { background: var(--accent-weak); color: var(--accent); }
 
 .cluster-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s3); }
 .cluster-card { border-left: 2px solid var(--line-2); padding: 2px 0 2px var(--s3); }

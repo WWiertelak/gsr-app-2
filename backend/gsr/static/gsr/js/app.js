@@ -1,6 +1,7 @@
 /*
  * Page behaviour: hydrate [data-chart] elements with ECharts (also after HTMX
- * swaps), analysis tabs (ARIA tabs with arrow keys), info tooltips, confirm dialogs, the run bar's "Edit settings",
+ * swaps), result switches (pair curves, merged episode table), analysis tabs (ARIA tabs with arrow keys), info
+ * tooltips, confirm dialogs, the run bar's "Edit settings",
  * progress for plain form posts and on the button that started a computation, and the Export screen's chart capture
  * for the PDF report and the ZIP.
  */
@@ -29,8 +30,11 @@
     if (element._gsrChart || !isVisible(element) || !window.echarts || !window.GSRCharts) {
       return;
     }
+    // A chart's "Pair curves" switch (the browser may restore it checked on reload).
+    var pairs = element.id && document.querySelector('[data-pairs-for="' + element.id + '"]');
     var option = window.GSRCharts.build(element.dataset.chart, readData(element.dataset.source), labels(), {
-      name: element.dataset.name
+      name: element.dataset.name,
+      pairs: Boolean(pairs && pairs.checked)
     });
     if (!option) {
       return;
@@ -40,7 +44,19 @@
     element._gsrChart = chart;
   }
 
+  // "Merge overlaps" swaps the co-arousal episode table for the non-overlapping timeline (aria-controls names both).
+  function applyMergeToggle(input) {
+    var ids = (input.getAttribute("aria-controls") || "").split(" ");
+    var episodes = document.getElementById(ids[0]);
+    var merged = document.getElementById(ids[1]);
+    if (episodes && merged) {
+      episodes.hidden = input.checked;
+      merged.hidden = !input.checked;
+    }
+  }
+
   function hydrate(root) {
+    (root || document).querySelectorAll("[data-merge-toggle]").forEach(applyMergeToggle);
     (root || document).querySelectorAll("[data-chart]").forEach(initChart);
   }
 
@@ -90,6 +106,22 @@
     });
     resizeCharts();
   }
+
+  document.addEventListener("change", function (event) {
+    var input = event.target;
+    if (input.matches("[data-pairs-for]")) {
+      var element = document.getElementById(input.dataset.pairsFor);
+      if (element && element._gsrChart) {
+        element._gsrChart.dispose();
+        element._gsrChart = null;
+      }
+      if (element) {
+        initChart(element);
+      }
+    } else if (input.matches("[data-merge-toggle]")) {
+      applyMergeToggle(input);
+    }
+  });
 
   document.addEventListener("click", function (event) {
     var link = event.target.closest("[data-tab]");

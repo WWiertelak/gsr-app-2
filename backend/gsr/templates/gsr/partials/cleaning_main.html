@@ -75,9 +75,29 @@
         </noscript>
       </section>
     {% else %}
-      <section class="card">
-        <h2>{% translate "Cleaned vs raw" %}</h2>
-        <p class="hint">{% translate "Signal after artifact removal (outliers, jumps), linear interpolation, Butterworth low-pass filter, and optional median filter. X-axis is relative time (minutes) from synchronization. Grey: raw signal, ×: rejected samples." %}</p>
+      <section class="card" aria-labelledby="quality-title">
+        {% translate "The rating is informational and does not exclude a signal: good <10% rejected samples, warning ≥10% and <30%, poor ≥30%." as quality_help %}
+        <div class="section-head"><h2 id="quality-title">{% translate "Signal quality" %}</h2>{% include "gsr/partials/tip.html" with text=quality_help tip_id="tip-quality" %}</div>
+        <ul class="tiles quality-tiles">
+          {% for row in quality_rows %}
+            <li class="tile">
+              <span class="tile-head"><span class="chip"><span class="dot" style="background: {{ row.color }}"></span>{{ row.alias }}</span>
+                <span class="badge {{ row.signal_quality }}">{% if row.signal_quality == "good" %}{% translate "good" %}{% elif row.signal_quality == "warning" %}{% translate "warning" %}{% else %}{% translate "poor" %}{% endif %}</span></span>
+              <span class="value">{{ row.artifact_rejected_pct|floatformat:1 }} %</span>
+              <span class="sub">{{ row.tile_note }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+        {% if summary.identical_signal_groups %}
+          <p class="alert warning"><strong>{% translate "Identical signals detected" %}:</strong>
+            {% for group in summary.identical_signal_groups %}{{ group|join:" = " }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>
+        {% endif %}
+      </section>
+
+      <section class="card" aria-labelledby="clean-title">
+        {% translate "Signal after artifact removal (outliers, jumps), linear interpolation, Butterworth low-pass filter, and optional median filter. X-axis is relative time (minutes) from synchronization. Grey: raw signal, ×: rejected samples." as clean_help %}
+        <div class="section-head"><h2 id="clean-title">{% translate "Cleaned vs raw" %}</h2>{% include "gsr/partials/tip.html" with text=clean_help tip_id="tip-clean" %}
+          <span class="subtitle">{% translate "minutes from synchronization" %}</span></div>
         <div class="chart-grid">
           {% for item in charts.per_signal %}
             <div class="chart-card">
@@ -87,16 +107,16 @@
           {% endfor %}
         </div>
         {% if charts.per_signal|length > 1 %}
-          <div class="chart-card" style="margin-top: 0.7rem">
+          <div class="chart-card section-gap">
             <h3>{% translate "Signal overlay" %}</h3>
             {% include "gsr/partials/chart.html" with label=_("Signal overlay") kind="overlay" data=charts.overlay chart_id="clean-overlay" name="clean_overlay" height=320 %}
           </div>
         {% endif %}
       </section>
 
-      <section class="card">
-        <h2>{% translate "Cleaning summary" %}</h2>
-        <p class="hint">{% translate "This summary shows how cleaning affects point counts: rejected artifacts, time-window exclusions, and downsampling impact for analysis charts." %}</p>
+      <section class="card" aria-labelledby="summary-title">
+        {% translate "This summary shows how cleaning affects point counts: rejected artifacts, time-window exclusions, and downsampling impact for analysis charts." as summary_help %}
+        <div class="section-head"><h2 id="summary-title">{% translate "Cleaning summary" %}</h2>{% include "gsr/partials/tip.html" with text=summary_help tip_id="tip-summary" %}</div>
         <div class="table-wrap">
           <table class="data">
             <thead>
@@ -130,12 +150,7 @@
             </tfoot>
           </table>
         </div>
-        <p class="hint">{% translate "The rating is informational and does not exclude a signal: good <10% rejected samples, warning ≥10% and <30%, poor ≥30%." %}</p>
-        {% if summary.identical_signal_groups %}
-          <p class="alert warning"><strong>{% translate "Identical signals detected" %}:</strong>
-            {% for group in summary.identical_signal_groups %}{{ group|join:" = " }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>
-        {% endif %}
-        <p>
+        <p class="small muted">
           <strong>{% translate "Shared absolute time" %}:</strong>
           {{ alignment.start|slice:"11:19" }}–{{ alignment.end|slice:"11:19" }} · {{ preview_range.from|floatformat:1 }}–{{ preview_range.to|floatformat:1 }} min
           · <strong>{% translate "Downsampling (shared)" %}:</strong> {{ summary.totals.merged_points_before_downsampling }} → {{ summary.totals.merged_points_after_downsampling }}

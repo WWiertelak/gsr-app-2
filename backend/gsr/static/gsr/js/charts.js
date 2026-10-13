@@ -32,6 +32,7 @@
   var LOW = "#2166ac";
   var NEUTRAL_STATE = "#f7f7f7";
   var THRESHOLD = "#9f1239";
+  var COMOVE = "#3f4b57";
   var FONT = '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
   var THEME = "gsr";
   var LABEL_ROW_HEIGHT = 14;
@@ -100,6 +101,13 @@
     return function (value) {
       return formatNumber(value, digits);
     };
+  }
+
+  // Relative minutes as m:ss, like the episode tables (templatetags mmss).
+  function mmss(minutes) {
+    var total = Math.max(0, Math.round(minutes * 60));
+    var seconds = total % 60;
+    return Math.floor(total / 60) + ":" + (seconds < 10 ? "0" : "") + seconds;
   }
 
   function escapeHtml(value) {
@@ -396,7 +404,7 @@
     if (!episodes || !episodes.length) {
       return undefined;
     }
-    // About the width of a "#12" label on a typical chart.
+    // About the width of an "E12" label on a typical chart.
     var rows = span === undefined ? null : episodeRows(episodes, span * 0.04);
     return {
       silent: true,
@@ -410,7 +418,7 @@
           ? [
               {
                 xAxis: episode.start,
-                name: "#" + (index + 1),
+                name: "E" + (index + 1),
                 label: { offset: [0, rows[index] * LABEL_ROW_HEIGHT] }
               },
               { xAxis: episode.end }
@@ -420,9 +428,13 @@
     };
   }
 
+  // Two panels on one time axis (G1): the group mean, the threshold and the labelled episodes above, the number of
+  // participants in sync below. The pair curves are hidden unless `opts.pairs` (the "Pair curves" switch).
   function syncTimeline(data, labels, opts) {
     var centers = data.centers || [];
-    var pairSeries = (data.pairs || []).map(function (pair, index) {
+    var span = data.span || [centers[0], centers[centers.length - 1]];
+    var showPairs = Boolean(opts && opts.pairs);
+    var pairSeries = (showPairs ? data.pairs || [] : []).map(function (pair, index) {
       return {
         name: pair.name,
         type: "line",
@@ -447,6 +459,7 @@
       data: centers.map(function (center, i) {
         return [center, data.groupMean[i]];
       }),
+      markArea: episodeMarkArea(data.episodes, span[1] - span[0]),
       // The label sits inside the plot, above the line's right end, so it is never cut off.
       markLine: {
         silent: true,
@@ -467,31 +480,50 @@
       type: "line",
       step: "middle",
       showSymbol: false,
+      xAxisIndex: 1,
       yAxisIndex: 1,
-      lineStyle: { width: 1.5, color: T.activeCount },
+      lineStyle: { width: 1, color: T.activeCount },
       itemStyle: { color: T.activeCount },
+      areaStyle: { color: T.activeCount, opacity: 0.18 },
       data: centers.map(function (center, i) {
         return [center, activeCounts[i] || 0];
-      }),
-      markArea: episodeMarkArea(data.episodes)
+      })
     };
+    var timeAxis = { min: span[0], max: span[1] };
     return {
       animation: false,
       toolbox: toolbox(labels, opts),
       tooltip: { trigger: "axis", valueFormatter: fixed(3) },
-      legend: { type: "scroll", top: 6, left: 10, right: 60 },
-      grid: { left: 52, right: 46, top: 44, bottom: 48 },
-      xAxis: valueAxis({ name: labels.minutes || "min", nameLocation: "middle", nameGap: 28 }),
+      axisPointer: { link: [{ xAxisIndex: "all" }] },
+      legend: {
+        type: "scroll",
+        top: 6,
+        left: 10,
+        right: 72,
+        data: [labels.groupMean, labels.activeCount].concat(pairSeries.map(function (series) {
+          return series.name;
+        }))
+      },
+      grid: [
+        { left: 52, right: 22, top: 40, height: "58%" },
+        { left: 52, right: 22, top: "76%", bottom: 44 }
+      ],
+      xAxis: [
+        valueAxis(Object.assign({ gridIndex: 0, axisLabel: { show: false } }, timeAxis)),
+        valueAxis(Object.assign({ gridIndex: 1, name: labels.minutes || "min", nameLocation: "middle", nameGap: 28 }, timeAxis))
+      ],
       yAxis: [
-        valueAxis({ min: -1, max: 1 }),
-        {
-          type: "value",
+        valueAxis({ gridIndex: 0, min: -1, max: 1, interval: 0.5 }),
+        valueAxis({
+          gridIndex: 1,
           min: 0,
           max: Math.max(data.aliasCount || 0, 2),
-          interval: 1,
-          axisLabel: { color: T.activeCount },
-          splitLine: { show: false }
-        }
+          minInterval: 1,
+          splitNumber: 2,
+          name: labels.inSync || "",
+          nameLocation: "middle",
+          nameGap: 30
+        })
       ],
       series: pairSeries.concat([groupSeries, activeCountSeries])
     };
@@ -620,6 +652,58 @@
     };
   }
 
+  var TRACK_LANE_HEIGHT = 22;
+
+  function isWhole(value) {
+    return Math.abs(value - Math.round(value)) < 1e-6;
+  }
+
+  function episodeColor(direction) {
+    return direction === "High" ? HIGH : direction === "Low" ? LOW : COMOVE;
+  }
+
+  function episodeLabel(direction, labels) {
+    return direction === "High" ? labels.high : direction === "Low" ? labels.low : labels.comove;
+  }
+
+  // One co-arousal episode on the track: a bar in the reserved state colour, labelled when it is wide enough.
+  function renderEpisode(episodes, labels) {
+    return function (params, api) {
+      var episode = episodes[params.dataIndex];
+      var start = api.coord([api.value(0), api.value(2)]);
+      var end = api.coord([api.value(1), api.value(2)]);
+      var height = api.size([0, 1])[1] * 0.78;
+      var width = Math.max(end[0] - start[0], 2);
+      var text = episodeLabel(episode.direction, labels) || "";
+      var children = [
+        {
+          type: "rect",
+          shape: { x: start[0], y: start[1] - height / 2, width: width, height: height, r: 3 },
+          style: { fill: episodeColor(episode.direction) }
+        }
+      ];
+      // About 6.5 px per character at 11 px.
+      if (text && width > text.length * 6.5 + 10) {
+        children.push({
+          type: "text",
+          style: {
+            text: text,
+            x: start[0] + 6,
+            y: start[1],
+            verticalAlign: "middle",
+            fill: "#ffffff",
+            fontSize: 11,
+            fontWeight: 600,
+            fontFamily: FONT
+          }
+        });
+      }
+      return { type: "group", children: children };
+    };
+  }
+
+  // The state map (1-minute bins per participant) with the co-arousal episodes on a track above it (G5). The heatmap
+  // needs category axes, so both panels also get a value axis in minutes spanning the same bins.
   function coarousalStates(data, labels, opts) {
     var rows = data.rows || [];
     var times = data.times || [];
@@ -635,7 +719,17 @@
         cells.push([colIndex, rowIndex, Number(value.toFixed(3))]);
       });
     });
-    return {
+    var episodes = data.episodes || [];
+    var lanes = data.lanes || 0;
+    var binWidth = times.length > 1 ? (times[times.length - 1] - times[0]) / (times.length - 1) : 1;
+    var minutes = { min: times[0], max: times[0] + binWidth * times.length };
+    var trackHeight = lanes * TRACK_LANE_HEIGHT;
+    var mapTop = 36 + (lanes ? trackHeight + 12 : 0);
+    var laneNames = [];
+    for (var lane = 0; lane < lanes; lane++) {
+      laneNames.push(String(lane));
+    }
+    var option = {
       animation: false,
       toolbox: toolbox(labels, opts),
       tooltip: {
@@ -652,23 +746,39 @@
           );
         }
       },
-      grid: { left: 92, right: 20, top: 36, bottom: 104 },
-      xAxis: {
+      grid: [{ left: 92, right: 20, top: mapTop, bottom: 116 }],
+      xAxis: [
+        { type: "category", gridIndex: 0, data: times.map(String), show: false },
+        valueAxis(Object.assign({
+          gridIndex: 0,
+          position: "bottom",
+          name: labels.timeMin,
+          nameLocation: "middle",
+          nameGap: 30,
+          splitLine: { show: false },
+          axisLine: { show: true, lineStyle: { color: T.line } },
+          // The bins rarely start on a whole minute: label only the whole-minute ticks.
+          axisLabel: {
+            formatter: fixed(),
+            showMinLabel: isWhole(minutes.min),
+            showMaxLabel: isWhole(minutes.max)
+          }
+        }, minutes))
+      ],
+      // First participant on top, as in the tables.
+      yAxis: [{
         type: "category",
-        data: times.map(function (value) {
-          return formatNumber(value, 0);
-        }),
-        name: labels.timeMin,
-        nameLocation: "middle",
-        nameGap: 30,
-        axisLabel: { interval: Math.max(0, Math.floor(times.length / 20)) },
+        gridIndex: 0,
+        inverse: true,
+        data: aliases,
+        axisLabel: { color: T.ink2, fontSize: 12 },
         splitLine: { show: false }
-      },
-      yAxis: { type: "category", data: aliases, axisLabel: { color: T.ink2, fontSize: 12 }, splitLine: { show: false } },
+      }],
       visualMap: {
         min: -1,
         max: 1,
         calculable: true,
+        seriesIndex: 0,
         formatter: fixed(2),
         orient: "horizontal",
         left: "center",
@@ -676,8 +786,48 @@
         text: [labels.high, labels.low],
         inRange: { color: [LOW, NEUTRAL_STATE, HIGH] }
       },
-      series: [{ type: "heatmap", data: cells }]
+      series: [{ type: "heatmap", xAxisIndex: 0, yAxisIndex: 0, data: cells }]
     };
+    if (lanes) {
+      option.grid.push({ left: 92, right: 20, top: 36, height: trackHeight });
+      option.xAxis.push(valueAxis(Object.assign({ gridIndex: 1, show: false }, minutes)));
+      option.yAxis.push({
+        type: "category",
+        gridIndex: 1,
+        inverse: true,
+        data: laneNames,
+        axisLine: { show: false },
+        splitLine: { show: false },
+        axisLabel: {
+          color: T.ink2,
+          fontSize: 12,
+          formatter: function (value, index) {
+            return index === 0 ? labels.episodes || "" : "";
+          }
+        }
+      });
+      option.series.push({
+        type: "custom",
+        xAxisIndex: 2,
+        yAxisIndex: 1,
+        encode: { x: [0, 1], y: 2 },
+        renderItem: renderEpisode(episodes, labels),
+        tooltip: {
+          formatter: function (params) {
+            var episode = episodes[params.dataIndex];
+            return (
+              escapeHtml(episodeLabel(episode.direction, labels) || "") + " · " +
+              mmss(episode.start) + "–" + mmss(episode.end) +
+              (episode.contributors.length ? "<br/>" + escapeHtml(episode.contributors.join(", ")) : "")
+            );
+          }
+        },
+        data: episodes.map(function (episode) {
+          return [episode.start, episode.end, String(episode.lane)];
+        })
+      });
+    }
+    return option;
   }
 
   var BUILDERS = {
