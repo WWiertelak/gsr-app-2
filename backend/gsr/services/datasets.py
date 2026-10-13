@@ -41,20 +41,13 @@ def propose_alias(project: Project, filename: str) -> str:
     """Default alias for an upload: the leading word or number of the file name stem.
 
     "12_anna_session.csv" -> "12", "anna-2024.csv" -> "anna". When that token is empty or
-    already taken in the project, fall back to the full stem, then to numbered stems.
+    already taken in the project, fall back to the full stem.
     """
     stem = Path(filename).stem.strip() or "dataset"
-    match = _LEADING_TOKEN.match(unicodedata.normalize("NFC", stem))
-    candidates = [match.group()] if match else []
-    candidates.append(stem)
-    taken = set(project.datasets.values_list("alias", flat=True))
-    for candidate in candidates:
-        if candidate not in taken:
-            return candidate
-    suffix = 2
-    while f"{stem}-{suffix}" in taken:
-        suffix += 1
-    return f"{stem}-{suffix}"
+    match = _LEADING_TOKEN.search(unicodedata.normalize("NFC", stem))
+    if match and not project.datasets.filter(alias=match.group()).exists():
+        return match.group()
+    return stem
 
 
 def normalize_original_filename(value: str) -> str:

@@ -68,7 +68,8 @@ def test_add_dataset_proposes_leading_token_then_falls_back_to_stem(recordings) 
         ("P07 run.csv", "P07"),
         ("zażółć.v2.csv", "zażółć"),
         ("plain.csv", "plain"),
-        ("_lead.csv", "_lead"),
+        ("_lead.csv", "lead"),
+        ("-07_anna.csv", "07"),
         ("--.csv", "--"),
     ],
 )
@@ -80,10 +81,20 @@ def test_propose_alias_takes_leading_token(filename, expected) -> None:
 @pytest.mark.django_db
 def test_propose_alias_falls_back_on_collision(recordings) -> None:
     project = Project.objects.create(name="Session")
-    for alias in ("12", "12_a", "12_a-2"):
+    for alias in ("12", "12_a"):
         add_dataset(project, _upload(recordings["A"]), alias=alias)
     assert propose_alias(project, "12_b.csv") == "12_b"
-    assert propose_alias(project, "12_a.csv") == "12_a-3"
+    assert propose_alias(project, "12_a.csv") == "12_a"
+
+
+@pytest.mark.django_db
+def test_add_dataset_rejects_reupload_when_token_and_stem_are_taken(recordings) -> None:
+    project = Project.objects.create(name="Session")
+    add_dataset(project, _upload(recordings["A"]))
+    add_dataset(project, _upload(recordings["A"]))
+    with pytest.raises(ValidationError, match="Alias already exists in project: session_A"):
+        add_dataset(project, _upload(recordings["A"]))
+    assert list(project.datasets.values_list("alias", flat=True)) == ["session", "session_A"]
 
 
 @pytest.mark.django_db
