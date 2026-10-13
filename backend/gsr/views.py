@@ -316,8 +316,7 @@ def cleaning(request: HttpRequest, pk: Any) -> HttpResponse:
             if error:
                 messages.error(request, error.message)
             return redirect("gsr:cleaning", project.pk)
-    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html",
-                 _cleaning_context(project, error))
+    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html", _cleaning_context(project, error))
 
 
 def _save_cleaning(request: HttpRequest, project: Project) -> UserError | None:
@@ -350,8 +349,7 @@ def cleaning_reset(request: HttpRequest, pk: Any) -> HttpResponse:
         if error:
             messages.error(request, error.message)
         return redirect("gsr:cleaning", project.pk)
-    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html",
-                 _cleaning_context(project, error))
+    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html", _cleaning_context(project, error))
 
 
 @require_POST
@@ -363,8 +361,7 @@ def cleaning_refresh(request: HttpRequest, pk: Any) -> HttpResponse:
         if error:
             messages.error(request, error.message)
         return redirect("gsr:cleaning", project.pk)
-    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html",
-                 _cleaning_context(project, error))
+    return _page(request, project, "cleaning", "gsr/partials/cleaning_main.html", _cleaning_context(project, error))
 
 
 def cleaning_csv(request: HttpRequest, pk: Any) -> HttpResponse:
@@ -454,8 +451,9 @@ def analysis(request: HttpRequest, pk: Any) -> HttpResponse:
             if error:
                 messages.error(request, error.message)
             return redirect(f"{reverse('gsr:analysis', args=[project.pk])}?tab={tab}")
-    return _page(request, project, "analysis", "gsr/partials/analysis_main.html",
-                 _analysis_context(project, tab, error))
+    return _page(
+        request, project, "analysis", "gsr/partials/analysis_main.html", _analysis_context(project, tab, error)
+    )
 
 
 @require_POST

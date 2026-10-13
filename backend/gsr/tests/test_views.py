@@ -527,7 +527,9 @@ def test_analysis_errors_are_shown_and_nothing_is_stored(client, project) -> Non
     fragment = response.content.decode()
     assert "Analiza grupowa wymaga co najmniej dwóch sygnałów." in fragment
     assert "at least two distinct datasets" not in fragment
-    assert reverse("gsr:cleaning", args=[project.pk]) in fragment and reverse("gsr:upload", args=[project.pk]) in fragment
+    assert (
+        reverse("gsr:cleaning", args=[project.pk]) in fragment and reverse("gsr:upload", args=[project.pk]) in fragment
+    )
 
 
 @pytest.mark.django_db

@@ -409,7 +409,9 @@ def run_pipeline(dataset_files: dict[str, Path], config: PipelineConfig) -> Pipe
             drop=True
         )
         if synced.empty:
-            raise PipelineError(f"Dataset {alias} is empty after time synchronization", code="empty_after_sync", alias=alias)
+            raise PipelineError(
+                f"Dataset {alias} is empty after time synchronization", code="empty_after_sync", alias=alias
+            )
 
         synced["relative_time"] = (synced["time"] - synced["time"].iloc[0]).dt.total_seconds() / 60.0
 
@@ -426,7 +428,9 @@ def run_pipeline(dataset_files: dict[str, Path], config: PipelineConfig) -> Pipe
             ranged = ranged[ranged["relative_time"] <= float(config.time_range_to)]
         ranged = ranged.reset_index(drop=True)
         if ranged.empty:
-            raise PipelineError(f"Dataset {alias} is empty after applying time range", code="empty_time_range", alias=alias)
+            raise PipelineError(
+                f"Dataset {alias} is empty after applying time range", code="empty_time_range", alias=alias
+            )
 
         in_time_window_points = int(len(ranged))
         outside_time_window_points = max(0, synced_points - in_time_window_points)

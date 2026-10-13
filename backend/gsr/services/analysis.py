@@ -57,7 +57,9 @@ def check_analysis_request(dataset_files: dict[str, Path], config: PipelineConfi
         if not config.scaling_enabled:
             raise AnalysisError("Enable scaling before running synchrony or co-arousal analysis")
         if len(dataset_files) < 2:
-            raise AnalysisError("Synchrony and co-arousal require at least two distinct datasets", code="too_few_signals")
+            raise AnalysisError(
+                "Synchrony and co-arousal require at least two distinct datasets", code="too_few_signals"
+            )
         if "synchrony" in analyses and config.synchrony_episode_min_size > len(dataset_files):
             raise AnalysisError("synchrony_episode_min_size cannot exceed the selected dataset count")
         if "coarousal" in analyses and config.contagion_min_participants > len(dataset_files):
