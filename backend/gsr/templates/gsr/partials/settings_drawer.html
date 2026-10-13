@@ -4,7 +4,7 @@ the form posts to form_action and swaps #main. data-autoopen opens it when the l
 <aside class="drawer" id="settings-drawer" aria-labelledby="settings-drawer-title"{% if error %} data-autoopen{% endif %}>
   <form class="drawer-form" id="{{ form_id }}" method="post" action="{{ form_action }}"
         hx-post="{{ form_action }}" hx-target="#main" hx-swap="innerHTML"
-        hx-indicator="#busy" hx-disabled-elt="find button, #run-bar button{% block disabled_extra %}{% endblock %}">
+        hx-indicator="#busy" hx-disabled-elt="#settings-drawer button, #run-bar button{% block disabled_extra %}{% endblock %}">
     {% csrf_token %}
     {% block hidden %}{% endblock %}
     <header class="drawer-head">
