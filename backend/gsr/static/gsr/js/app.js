@@ -230,20 +230,23 @@
   function captureCharts(chartLabels) {
     var images = {};
     window.GSRCharts.locale = chartLabels.locale || null;
-    document.querySelectorAll("[data-capture-chart]").forEach(function (element) {
-      var option = window.GSRCharts.build(element.dataset.captureChart, readData(element.dataset.source), chartLabels, {
-        capture: true,
-        pairs: true
+    try {
+      document.querySelectorAll("[data-capture-chart]").forEach(function (element) {
+        var option = window.GSRCharts.build(element.dataset.captureChart, readData(element.dataset.source), chartLabels, {
+          capture: true,
+          pairs: true
+        });
+        if (!option) {
+          return;
+        }
+        var chart = window.echarts.init(element, window.GSRCharts.theme, { renderer: "canvas" });
+        chart.setOption(option);
+        images[element.dataset.key] = chart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#ffffff" });
+        chart.dispose();
       });
-      if (!option) {
-        return;
-      }
-      var chart = window.echarts.init(element, window.GSRCharts.theme, { renderer: "canvas" });
-      chart.setOption(option);
-      images[element.dataset.key] = chart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#ffffff" });
-      chart.dispose();
-    });
-    window.GSRCharts.locale = null;
+    } finally {
+      window.GSRCharts.locale = null;
+    }
     return images;
   }
 
