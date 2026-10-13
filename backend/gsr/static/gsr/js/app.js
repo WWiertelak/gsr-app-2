@@ -101,7 +101,7 @@
   // Roving focus within the tab list: Left/Right wrap around, Home/End jump to the ends.
   document.addEventListener("keydown", function (event) {
     var link = event.target.closest && event.target.closest('[role="tab"][data-tab]');
-    if (!link) {
+    if (!link || event.altKey || event.ctrlKey || event.metaKey) {
       return;
     }
     var tabs = Array.prototype.slice.call(link.closest('[role="tablist"]').querySelectorAll('[role="tab"][data-tab]'));
