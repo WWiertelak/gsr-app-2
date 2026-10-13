@@ -7,29 +7,34 @@
     <input type="hidden" name="tab" value="{{ tab }}" data-tab-input>
     <h2>{% translate "Analysis controls" %}</h2>
 
-    <fieldset>
-      <legend>{% translate "Synchronization settings" %}</legend>
-      {% for row in sync_essential %}{% include "gsr/partials/param_field.html" %}{% endfor %}
-      <details class="advanced">
-        <summary>{% translate "Advanced settings" %}</summary>
-        {% for row in sync_advanced %}{% include "gsr/partials/param_field.html" %}{% endfor %}
-      </details>
-    </fieldset>
+    <details class="settings-panel"{% if error %} open{% endif %}>
+      {% include "gsr/partials/settings_summary.html" %}
 
-    <fieldset>
-      <legend>{% translate "Co-arousal settings" %}</legend>
-      {% for row in coarousal_essential %}{% include "gsr/partials/param_field.html" %}{% endfor %}
-      <details class="advanced">
-        <summary>{% translate "Advanced settings" %}</summary>
-        {% for row in coarousal_advanced %}{% include "gsr/partials/param_field.html" %}{% endfor %}
-      </details>
-    </fieldset>
+      <fieldset>
+        <legend>{% translate "Synchronization settings" %}</legend>
+        {% for row in sync_essential %}{% include "gsr/partials/param_field.html" %}{% endfor %}
+        <details class="advanced">
+          <summary>{% translate "Advanced settings" %}</summary>
+          {% for row in sync_advanced %}{% include "gsr/partials/param_field.html" %}{% endfor %}
+        </details>
+      </fieldset>
 
-    <div class="actions">
-      <button type="submit"{% if included_count < 2 %} disabled{% endif %}>{% translate "Run analysis" %}</button>
-      <button type="submit" class="secondary" formaction="{% url 'gsr:analysis_reset' project.pk %}" hx-post="{% url 'gsr:analysis_reset' project.pk %}" formnovalidate>{% translate "Reset defaults" %}</button>
-    </div>
-    <p class="hint">{% translate "One run computes both synchronization and co-arousal with the cleaning settings from step 2." %}</p>
+      <fieldset>
+        <legend>{% translate "Co-arousal settings" %}</legend>
+        {% for row in coarousal_essential %}{% include "gsr/partials/param_field.html" %}{% endfor %}
+        <details class="advanced">
+          <summary>{% translate "Advanced settings" %}</summary>
+          {% for row in coarousal_advanced %}{% include "gsr/partials/param_field.html" %}{% endfor %}
+        </details>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit"{% if included_count < 2 %} disabled{% endif %}>{% translate "Apply settings" %}</button>
+        <button type="submit" class="secondary" formaction="{% url 'gsr:analysis_reset' project.pk %}" hx-post="{% url 'gsr:analysis_reset' project.pk %}" formnovalidate>{% translate "Reset defaults" %}</button>
+        {% translate "Applying settings runs the analysis again: one run computes both synchronization and co-arousal with the cleaning settings from step 2." as apply_help %}
+        {% include "gsr/partials/tip.html" with text=apply_help tip_id="tip-apply" %}
+      </div>
+    </details>
   </form>
 
   <div class="stack">
@@ -45,11 +50,13 @@
           {% if stale %}
             <span class="badge stale">{% translate "Outdated result" %}</span>
             <span class="muted small">{% translate "Settings or signals changed since this run. Run the analysis again." %}</span>
+            <button type="submit" class="small" form="analysis-settings"{% if included_count < 2 %} disabled{% endif %}>{% translate "Recompute" %}</button>
           {% else %}
             <span class="badge fresh">{% translate "settings unchanged" %}</span>
           {% endif %}
         {% else %}
           <span class="muted">{% translate "No results for this step yet. Set the parameters and run the analysis." %}</span>
+          <button type="submit" class="small" form="analysis-settings"{% if included_count < 2 %} disabled{% endif %}>{% translate "Run analysis" %}</button>
         {% endif %}
       </div>
 

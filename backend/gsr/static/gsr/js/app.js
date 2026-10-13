@@ -1,6 +1,6 @@
 /*
  * Page behaviour: hydrate [data-chart] elements with ECharts (also after HTMX
- * swaps), analysis tabs, confirm dialogs, the busy overlay for plain form posts,
+ * swaps), analysis tabs, info tooltips, confirm dialogs, the busy overlay for plain form posts,
  * and the Export screen's chart capture for the PDF report and the ZIP.
  */
 (function () {
@@ -95,6 +95,23 @@
       event.preventDefault();
       activateTab(link.dataset.tab);
     }
+  });
+
+  // ── Info tooltips: Escape hides the open one until the pointer/focus leaves it ──
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      document.querySelectorAll(".tip:hover, .tip:focus-within").forEach(function (tip) {
+        tip.classList.add("dismissed");
+      });
+    }
+  });
+  ["mouseout", "focusout"].forEach(function (type) {
+    document.addEventListener(type, function (event) {
+      var tip = event.target.closest && event.target.closest(".tip.dismissed");
+      if (tip && !tip.contains(event.relatedTarget)) {
+        tip.classList.remove("dismissed");
+      }
+    });
   });
 
   // ── Chart capture for the PDF report / ZIP (same builders, fixed size, white background) ──

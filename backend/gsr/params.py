@@ -11,9 +11,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from django.http import QueryDict
+from django.utils.translation import gettext, ngettext
 from django.utils.translation import gettext_lazy as _
 
 from .pipeline.config import PipelineConfig
+from .templatetags.gsr_tags import input_value
 
 DEFAULTS = PipelineConfig().model_dump()
 
@@ -277,4 +279,44 @@ def field_rows(params: tuple[Param, ...], values: dict[str, Any]) -> list[dict[s
             "modified": values.get(param.name) != param.default,
         }
         for param in params
+    ]
+
+
+def _changed_note(params: tuple[Param, ...], values: dict[str, Any]) -> list[str]:
+    changed = sum(1 for param in params if values.get(param.name) != param.default)
+    if not changed:
+        return [gettext("defaults")]
+    return [ngettext("%(count)d changed", "%(count)d changed", changed) % {"count": changed}]
+
+
+def cleaning_summary(values: dict[str, Any], included: int, total: int) -> list[str]:
+    """One-line description of the Cleaning settings for the collapsed settings panel."""
+    start, end = values.get("time_range_from"), values.get("time_range_to")
+    if start is None and end is None:
+        window = gettext("full range")
+    else:
+        window = f"{input_value(start) or '…'}–{input_value(end) or '…'} min"
+    enabled = sum(1 for group in CLEANING_FILTERS if group.toggle and values.get(group.toggle.name))
+    kernel = values.get("median_kernel")
+    return [
+        gettext("Signals: %(included)d/%(total)d") % {"included": included, "total": total},
+        gettext("Window: %(window)s") % {"window": window},
+        gettext("Filters: %(enabled)d/%(total)d") % {"enabled": enabled, "total": len(CLEANING_FILTERS)},
+        gettext("Median: %(value)s") % {"value": input_value(kernel) if kernel else gettext("off")},
+        *_changed_note(cleaning_params(), values),
+    ]
+
+
+def analysis_summary(values: dict[str, Any]) -> list[str]:
+    """One-line description of the Analysis settings: the essential values plus how many differ from defaults."""
+    value = {name: input_value(values.get(name)) for name in (
+        "synchrony_threshold", "synchrony_window_seconds", "contagion_high_z", "contagion_low_z",
+        "contagion_min_participants",
+    )}
+    return [
+        gettext("Threshold: %(value)s") % {"value": value["synchrony_threshold"]},
+        gettext("Window: %(value)s s") % {"value": value["synchrony_window_seconds"]},
+        gettext("High/Low z: %(high)s/%(low)s") % {"high": value["contagion_high_z"], "low": value["contagion_low_z"]},
+        gettext("Min. participants: %(value)s") % {"value": value["contagion_min_participants"]},
+        *_changed_note(ANALYSIS_PARAMS, values),
     ]
