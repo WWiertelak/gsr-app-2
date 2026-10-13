@@ -224,7 +224,8 @@
     var images = {};
     document.querySelectorAll("[data-capture-chart]").forEach(function (element) {
       var option = window.GSRCharts.build(element.dataset.captureChart, readData(element.dataset.source), labels(), {
-        capture: true
+        capture: true,
+        pairs: true
       });
       if (!option) {
         return;
