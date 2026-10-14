@@ -17,10 +17,10 @@ from django.utils.translation import gettext
 from ..models import AnalysisResult, Project
 from ..pipeline.common import PipelineError
 from ..pipeline.preprocessing import _signal_quality_level
-from ..pipeline.vsr import compute_vsr
+from ..pipeline.vsr import compute_vsr, interview_signals
 from .analysis import AnalysisError
 from .interview import InterviewRoles, compute_vsr_signature, load_interview_config
-from .results import get_result, stored_pipeline_result
+from .results import FALLBACK_SIGNAL_COLOR, get_result, is_stale, signal_colors, stored_pipeline_result
 
 SECONDS_PER_DAY = 24 * 3600
 
@@ -134,3 +134,69 @@ def compute_interviews(project: Project) -> AnalysisResult:
         },
     )
     return stored
+
+
+def moments_for_report(interview: dict[str, Any]) -> list[dict[str, Any]]:
+    """The moments the report and the CSV list for one interview: the protocol's proposals, in their order.
+
+    The one place that decides which moments an interview presents, so changes the researcher makes to the
+    proposals reach the report and the export together.
+    """
+    return [{**moment, "note": moment.get("note", "")} for moment in interview["moments"]]
+
+
+def _interview_traces(project: Project, vsr: AnalysisResult, analysis: AnalysisResult) -> dict[str, dict[str, Any]]:
+    """Per interview key the two z-scored signals the proposals compare, for the report's mini-charts.
+
+    Empty when the proposals were computed from another analysis run than the stored one (the signals would not
+    match the moments) or when the run's recordings are gone.
+    """
+    if vsr.payload.get("analysis_computed_at") != analysis.computed_at.isoformat():
+        return {}
+    try:
+        result, _config = stored_pipeline_result(project, analysis)
+    except AnalysisError:
+        return {}
+    frame = result.merged_decimated
+    seconds = frame["time"].to_numpy(dtype=float) * 60.0
+    traces = {}
+    for interview in vsr.payload.get("interviews", []):
+        a, b = interview_signals(frame, interview["kind"], interview["participants"])
+        traces[interview["key"]] = {"seconds": seconds, "a": a, "b": b}
+    return traces
+
+
+def report_data(project: Project, with_traces: bool = True) -> dict[str, Any] | None:
+    """What the PDF report and the exports need of the stored VSR proposals, or None when none were proposed.
+
+    ``with_traces`` adds the signals for the report's mini-charts, which re-runs the analysis run's pipeline;
+    the CSV does not need them.
+    """
+    vsr = get_result(project, AnalysisResult.KIND_VSR)
+    analysis = get_result(project, AnalysisResult.KIND_ANALYSIS)
+    if vsr is None or analysis is None or not vsr.payload.get("interviews"):
+        return None
+    payload = vsr.payload
+    colors = signal_colors(project)
+    traces = _interview_traces(project, vsr, analysis) if with_traces else {}
+    interviews = []
+    for interview in payload["interviews"]:
+        participants = interview["participants"]
+        trace = traces.get(interview["key"])
+        interviews.append({
+            **interview,
+            "moments": moments_for_report(interview),
+            "trace": trace,
+            "colors": [colors.get(participants[0], FALLBACK_SIGNAL_COLOR),
+                       colors.get(participants[1], FALLBACK_SIGNAL_COLOR) if interview["kind"] == "dyad" else None],
+        })
+    return {
+        "config": payload["config"],
+        "criteria": payload["criteria"],
+        "roles": payload["roles"],
+        "lesson": payload["lesson"],
+        "quality": payload["quality"],
+        "stats": payload["stats"],
+        "stale": is_stale(project, vsr),
+        "interviews": interviews,
+    }

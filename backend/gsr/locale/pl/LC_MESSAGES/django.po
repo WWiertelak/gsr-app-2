@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-14 13:26+0000\n"
+"POT-Creation-Date: 2026-10-14 14:51+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -514,7 +514,7 @@ msgstr ""
 msgid "A fixed seed makes the co-arousal surrogate test reproducible."
 msgstr "Stały seed zapewnia odtwarzalność testu surogatowego ko-pobudzenia."
 
-#: gsr/params.py:259 gsr/views.py:359
+#: gsr/params.py:259 gsr/views.py:360
 msgid ""
 "The analysed period must lie inside the common window and end after it "
 "starts."
@@ -592,12 +592,12 @@ msgid "Min. participants: %(value)s"
 msgstr "Min. uczestników: %(value)s"
 
 #: gsr/params.py:414 gsr/templates/gsr/partials/analysis_main.html:13
-#: gsr/views.py:1034 gsr/views.py:1057
+#: gsr/views.py:1023 gsr/views.py:1047
 msgid "Synchronization"
 msgstr "Synchronizacja"
 
 #: gsr/params.py:415 gsr/templates/gsr/partials/analysis_main.html:17
-#: gsr/views.py:1039 gsr/views.py:1059
+#: gsr/views.py:1028 gsr/views.py:1049
 msgid "Co-arousal"
 msgstr "Ko-pobudzenie"
 
@@ -635,7 +635,7 @@ msgstr "Nagranie nauczyciela nie może należeć do pary uczniów"
 msgid "Video start must be a clock time HH:MM:SS"
 msgstr "Początek nagrania wideo musi być godziną w formacie HH:MM:SS"
 
-#: gsr/services/interview.py:164 gsr/views.py:799
+#: gsr/services/interview.py:167 gsr/views.py:799
 #, python-format
 msgid "Pair %(left)s + %(right)s"
 msgstr "Para %(left)s + %(right)s"
@@ -1977,56 +1977,56 @@ msgstr "Czy na pewno usunąć projekt?"
 msgid "No saved projects yet. Create one to get started."
 msgstr "Brak zapisanych projektów. Utwórz pierwszy projekt, aby zacząć."
 
-#: gsr/views.py:109 gsr/views.py:1055
+#: gsr/views.py:110 gsr/views.py:1045
 msgid "Import"
 msgstr "Import"
 
-#: gsr/views.py:109 gsr/views.py:1055
+#: gsr/views.py:110 gsr/views.py:1045
 msgid "Cleaning"
 msgstr "Czyszczenie"
 
-#: gsr/views.py:109
+#: gsr/views.py:110
 msgid "Analysis"
 msgstr "Analiza"
 
-#: gsr/views.py:110 gsr/vsr_params.py:78
+#: gsr/views.py:111 gsr/vsr_params.py:78
 msgid "Interviews"
 msgstr "Wywiady"
 
-#: gsr/views.py:110
+#: gsr/views.py:111
 msgid "Export"
 msgstr "Eksport"
 
-#: gsr/views.py:126
+#: gsr/views.py:127
 msgid "no recordings"
 msgstr "brak nagrań"
 
-#: gsr/views.py:128
+#: gsr/views.py:129
 #, python-format
 msgid "computed %(time)s"
 msgstr "obliczono %(time)s"
 
-#: gsr/views.py:128 gsr/views.py:150
+#: gsr/views.py:129 gsr/views.py:151
 msgid "not run"
 msgstr "nie uruchomiono"
 
-#: gsr/views.py:130
+#: gsr/views.py:131
 msgid "not proposed"
 msgstr "nie wyznaczono"
 
-#: gsr/views.py:130 gsr/views.py:131
+#: gsr/views.py:131 gsr/views.py:132
 msgid "needs analysis"
 msgstr "wymaga analizy"
 
-#: gsr/views.py:131
+#: gsr/views.py:132
 msgid "ready"
 msgstr "gotowy"
 
-#: gsr/views.py:142
+#: gsr/views.py:143
 msgid "outdated"
 msgstr "nieaktualne"
 
-#: gsr/views.py:156
+#: gsr/views.py:157
 #, python-format
 msgid "%(count)s interview"
 msgid_plural "%(count)s interviews"
@@ -2034,7 +2034,7 @@ msgstr[0] "%(count)s wywiad"
 msgstr[1] "%(count)s wywiady"
 msgstr[2] "%(count)s wywiadów"
 
-#: gsr/views.py:160
+#: gsr/views.py:161
 #, python-format
 msgid "%(count)s recording"
 msgid_plural "%(count)s recordings"
@@ -2042,7 +2042,7 @@ msgstr[0] "%(count)s nagranie"
 msgstr[1] "%(count)s nagrania"
 msgstr[2] "%(count)s nagrań"
 
-#: gsr/views.py:165
+#: gsr/views.py:166
 #, python-format
 msgid "%(count)s rejected sample"
 msgid_plural "%(count)s rejected samples"
@@ -2050,78 +2050,78 @@ msgstr[0] "%(count)s odrzucona próbka"
 msgstr[1] "%(count)s odrzucone próbki"
 msgstr[2] "%(count)s odrzuconych próbek"
 
-#: gsr/views.py:195
+#: gsr/views.py:196
 msgid "Project name is required."
 msgstr "Nazwa projektu jest wymagana."
 
-#: gsr/views.py:197
+#: gsr/views.py:198
 msgid "Project name cannot exceed 200 characters."
 msgstr "Nazwa projektu nie może przekraczać 200 znaków."
 
-#: gsr/views.py:215
+#: gsr/views.py:216
 msgid "Project name is required (up to 200 characters)."
 msgstr "Nazwa projektu jest wymagana (do 200 znaków)."
 
-#: gsr/views.py:220
+#: gsr/views.py:221
 msgid "Project details saved."
 msgstr "Zapisano dane projektu."
 
-#: gsr/views.py:228
+#: gsr/views.py:229
 msgid "Project deleted."
 msgstr "Projekt usunięty."
 
-#: gsr/views.py:240
+#: gsr/views.py:241
 msgid "Choose at least one CSV file."
 msgstr "Wybierz co najmniej jeden plik CSV."
 
-#: gsr/views.py:247
+#: gsr/views.py:248
 #, python-format
 msgid "Uploaded %(file)s as %(alias)s."
 msgstr "Wgrano %(file)s jako %(alias)s."
 
-#: gsr/views.py:263
+#: gsr/views.py:264
 #, python-format
 msgid "%(recordings)s · common window %(minutes)s min"
 msgstr "%(recordings)s · wspólne okno %(minutes)s min"
 
-#: gsr/views.py:367
+#: gsr/views.py:368
 msgid "Include at least one recording."
 msgstr "Zaznacz co najmniej jedno nagranie."
 
-#: gsr/views.py:393
+#: gsr/views.py:394
 msgid "Analysed period saved."
 msgstr "Zapisano analizowany okres."
 
-#: gsr/views.py:408
+#: gsr/views.py:409
 msgid "Alias cannot be empty"
 msgstr "Alias nie może być pusty"
 
-#: gsr/views.py:411
+#: gsr/views.py:412
 #, python-format
 msgid "Alias already exists in project: %(alias)s"
 msgstr "Alias już istnieje w projekcie: %(alias)s"
 
-#: gsr/views.py:439
+#: gsr/views.py:440
 #, python-format
 msgid "Signal renamed to %(alias)s."
 msgstr "Zmieniono nazwę sygnału na %(alias)s."
 
-#: gsr/views.py:452
+#: gsr/views.py:453
 #, python-format
 msgid "Signal %(alias)s excluded from cleaning and analysis."
 msgstr "Sygnał %(alias)s wykluczono z czyszczenia i analizy."
 
-#: gsr/views.py:483
+#: gsr/views.py:484
 #, python-format
 msgid "Signal %(alias)s deleted."
 msgstr "Usunięto sygnał %(alias)s."
 
-#: gsr/views.py:534
+#: gsr/views.py:535
 #, python-format
 msgid "rejected %(rejected)s of %(total)s samples"
 msgstr "odrzucono %(rejected)s z %(total)s próbek"
 
-#: gsr/views.py:694
+#: gsr/views.py:695
 #, python-format
 msgid "subgroups of ≥ %(size)s people above %(threshold)s"
 msgstr "podgrupy ≥ %(size)s osób powyżej %(threshold)s"
@@ -2131,78 +2131,90 @@ msgstr "podgrupy ≥ %(size)s osób powyżej %(threshold)s"
 msgid "Teacher %(alias)s"
 msgstr "Nauczyciel %(alias)s"
 
-#: gsr/views.py:1011
+#: gsr/views.py:997
 #, python-format
 msgid "Signals added: %(aliases)s"
 msgstr "Dodane sygnały: %(aliases)s"
 
-#: gsr/views.py:1013
+#: gsr/views.py:999
 #, python-format
 msgid "Signals removed: %(aliases)s"
 msgstr "Usunięte sygnały: %(aliases)s"
 
-#: gsr/views.py:1014
+#: gsr/views.py:1000
 #, python-format
 msgid "Signal renamed: %(old)s → %(new)s"
 msgstr "Zmieniona nazwa sygnału: %(old)s → %(new)s"
 
-#: gsr/views.py:1030
+#: gsr/views.py:1015 gsr/views.py:1051
+msgid "VSR interview moments"
+msgstr "Momenty do wywiadów VSR"
+
+#: gsr/views.py:1016
+msgid ""
+"per interview: step, lesson, sensor clock and video times, correlation, "
+"justification"
+msgstr ""
+"dla każdego wywiadu: krok, czas lekcji, zegar czujnika i kod wideo, "
+"korelacja, uzasadnienie"
+
+#: gsr/views.py:1019
 msgid "Cleaned signals"
 msgstr "Sygnały po czyszczeniu"
 
-#: gsr/views.py:1030
+#: gsr/views.py:1019
 msgid "per participant, relative time, full resolution"
 msgstr "per uczestnik, czas względny, pełna rozdzielczość"
 
-#: gsr/views.py:1032
+#: gsr/views.py:1021
 msgid "Analysis-ready merged file"
 msgstr "Połączony plik do analizy"
 
-#: gsr/views.py:1032
+#: gsr/views.py:1021
 msgid "scaled, downsampled, shared time axis"
 msgstr "skalowany, po downsamplingu, wspólna oś czasu"
 
-#: gsr/views.py:1034
+#: gsr/views.py:1023
 msgid "episodes, pairs, windows"
 msgstr "epizody, pary, okna"
 
-#: gsr/views.py:1035 gsr/views.py:1040
+#: gsr/views.py:1024 gsr/views.py:1029
 msgid "episodes"
 msgstr "epizody"
 
-#: gsr/views.py:1036
+#: gsr/views.py:1025
 msgid "pairs"
 msgstr "pary"
 
-#: gsr/views.py:1037
+#: gsr/views.py:1026
 msgid "windows"
 msgstr "okna"
 
-#: gsr/views.py:1039
+#: gsr/views.py:1028
 msgid "episodes, state timeline, time in states"
 msgstr "epizody, stany w czasie, udział czasu w stanach"
 
-#: gsr/views.py:1041
+#: gsr/views.py:1030
 msgid "state timeline"
 msgstr "oś stanów"
 
-#: gsr/views.py:1042
+#: gsr/views.py:1031
 msgid "time in states"
 msgstr "udział czasu w stanach"
 
-#: gsr/views.py:1044
+#: gsr/views.py:1034
 msgid "Run settings and results"
 msgstr "Ustawienia i wyniki obliczenia"
 
-#: gsr/views.py:1044
+#: gsr/views.py:1034
 msgid "for reproducibility: settings, library versions, file SHA-256"
 msgstr "dla odtwarzalności: ustawienia, wersje bibliotek, SHA-256 plików"
 
-#: gsr/views.py:1046
+#: gsr/views.py:1036
 msgid "Charts"
 msgstr "Wykresy"
 
-#: gsr/views.py:1046
+#: gsr/views.py:1036
 #, python-format
 msgid "%(count)d report chart, 2× resolution, white background, in the ZIP"
 msgid_plural ""
@@ -2214,19 +2226,19 @@ msgstr[1] ""
 msgstr[2] ""
 "%(count)d wykresów raportu, rozdzielczość 2×, białe tło, w archiwum ZIP"
 
-#: gsr/views.py:1055
+#: gsr/views.py:1045
 msgid "Summary page"
 msgstr "Strona podsumowania"
 
-#: gsr/views.py:1060
+#: gsr/views.py:1052
 msgid "Methodology"
 msgstr "Metodologia"
 
-#: gsr/views.py:1060
+#: gsr/views.py:1052
 msgid "Reproducibility"
 msgstr "Odtwarzalność"
 
-#: gsr/views.py:1061
+#: gsr/views.py:1053
 #, python-format
 msgid "%(count)d chart"
 msgid_plural "%(count)d charts"
