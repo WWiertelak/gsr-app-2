@@ -155,6 +155,91 @@ def test_upload_screen_stores_files_and_shows_overlap(client, recordings) -> Non
 
 
 @pytest.mark.django_db
+def test_upload_screen_empty_state_offers_a_translated_drop_zone(client) -> None:
+    project = Project.objects.create(name="P")
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    # Polish by default: our own picker label, not the browser's ("Choose files" in the EN UI was the bug).
+    assert "Upuść tutaj pliki CSV" in page and "Wybierz pliki…" in page and "Nie ma jeszcze nagrań." in page
+    assert "data-dropzone" in page and 'for="upload-files"' in page
+    assert "upload-overview" not in page and "action-bar" not in page
+
+
+@pytest.mark.django_db
+def test_upload_screen_lists_recordings_in_one_table_with_inline_alias(client, project) -> None:
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    assert page.count('<table class="data recordings">') == 1 and page.count("<table") == 1
+    # Clock times as HH:MM:SS (not the CSV's 12:00:02:000), duration and grouped sample count.
+    assert "<td>12:00:02</td>" in page and ":000<" not in page
+    assert "4.0 min" in page and "<td>1,200</td>" in page
+    # No Save button per row: the alias saves on Enter or blur.
+    dataset = project.datasets.get(alias="B")
+    rename = reverse("gsr:dataset_rename", args=[project.pk, dataset.pk])
+    assert f'hx-post="{rename}" hx-trigger="submit, change"' in page and ">Save</button>" not in page.split("<details")[0]
+
+    overview = client.get(reverse("gsr:upload_overview", args=[project.pk])).content.decode()
+    # The timeline has a clock axis and the shaded shared window; no second start/end table.
+    assert ">12:02</span>" in overview and "11:59:58–12:03:57" in overview
+    assert 'class="tl-window"' in overview and "<table" not in overview
+    assert 'data-view="overlay"' in overview and 'data-view-panel="overlay" hidden' in overview
+
+
+@pytest.mark.django_db
+def test_inline_alias_save_returns_the_row(client, project) -> None:
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    dataset = project.datasets.get(alias="A")
+    rename = reverse("gsr:dataset_rename", args=[project.pk, dataset.pk])
+    response = client.post(rename, {"alias": " Anna "}, **HTMX)
+    row = response.content.decode()
+    assert response.status_code == 200 and row.lstrip().startswith("<tr") and "<html" not in row
+    assert 'value="Anna"' in row and "✓ Saved" in row
+    assert response["HX-Trigger"] == "gsr:datasets-changed"  # the timeline and charts reload with the new alias
+    # htmx restores focus across the outerHTML swap by id, so the row's controls keep the ids the page rendered.
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    for control_id in (f'id="alias-{dataset.pk}"', f'id="delete-{dataset.pk}"'):
+        assert page.count(control_id) == 1 and control_id in row
+    dataset.refresh_from_db()
+    assert dataset.alias == "Anna"
+
+    response = client.post(rename, {"alias": "B"}, **HTMX)
+    row = response.content.decode()
+    assert 'value="B"' in row and 'aria-invalid="true"' in row and "Alias already exists in project: B" in row
+    assert "HX-Trigger" not in response
+    dataset.refresh_from_db()
+    assert dataset.alias == "Anna"
+
+
+@pytest.mark.django_db
+def test_clearing_an_alias_restores_it_with_an_inline_error(client, project) -> None:
+    dataset = project.datasets.get(alias="A")
+    rename = reverse("gsr:dataset_rename", args=[project.pk, dataset.pk])
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    # No browser-side `required`: leaving a cleared field must reach the server instead of silently doing nothing.
+    alias_input = page.split(f'id="alias-{dataset.pk}"')[1].split(">")[0]
+    assert "required" not in alias_input
+
+    for language, message in (("en", "Alias cannot be empty"), ("pl", "Alias nie może być pusty")):
+        client.post(reverse("set_language"), {"language": language, "next": "/"})
+        response = client.post(rename, {"alias": "  "}, **HTMX)
+        row = response.content.decode()
+        assert 'value="A"' in row and 'aria-invalid="true"' in row and message in row
+        assert "HX-Trigger" not in response
+    dataset.refresh_from_db()
+    assert dataset.alias == "A"
+
+
+def test_clock_ticks_use_round_clock_times() -> None:
+    from gsr.services.results import clock_ticks
+
+    ticks = clock_ticks(pd.Timestamp("1900-01-01T10:00:00"), pd.Timestamp("1900-01-01T10:12:24"))
+    assert [tick["label"] for tick in ticks] == ["10:00", "10:02", "10:04", "10:06", "10:08", "10:10", "10:12"]
+    assert ticks[0]["pct"] == 0.0 and ticks[-1]["pct"] == round(100 * 720 / 744, 2)
+    short = clock_ticks(pd.Timestamp("1900-01-01T12:00:00.5"), pd.Timestamp("1900-01-01T12:00:59"))
+    assert short[0]["label"] == "12:00:10" and all(0 <= tick["pct"] <= 100 for tick in short)
+    assert clock_ticks(pd.Timestamp("1900-01-01"), pd.Timestamp("1900-01-01")) == []
+
+
+@pytest.mark.django_db
 def test_upload_rejects_unreadable_file_and_keeps_others(client, recordings) -> None:
     project = Project.objects.create(name="P")
     bad = SimpleUploadedFile("broken.csv", b"not;an;esense;file\n1;2;3;4\n", content_type="text/csv")
@@ -210,6 +295,24 @@ def test_upload_overview_flags_recordings_without_shared_window(client, late_pro
     assert 'aria-disabled="true"' not in page and next_link in page
     overview = client.get(reverse("gsr:upload_overview", args=[project.pk])).content.decode()
     assert "alert success" in overview and "excluded" in overview
+
+
+@pytest.mark.django_db
+def test_inline_alias_save_refreshes_the_action_bar(client, late_project) -> None:
+    project = late_project
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    assert 'id="upload-action-bar"' in page and "C does not overlap" in page
+    rename = reverse("gsr:dataset_rename", args=[project.pk, project.datasets.get(alias="C").pk])
+    fragment = client.post(rename, {"alias": "Carl"}, **HTMX).content.decode()
+    bar = fragment[fragment.index('<div class="action-bar" id="upload-action-bar" hx-swap-oob="true">'):]
+    assert "Carl does not overlap" in bar and 'aria-disabled="true"' in bar and "C does not overlap" not in bar
+
+    # Without the outlier the bar offers the next step with the common window.
+    client.post(reverse("gsr:dataset_exclude", args=[project.pk, project.datasets.get(alias="Carl").pk]), {"next": "upload"})
+    fragment = client.post(rename, {"alias": "Cleo"}, **HTMX).content.decode()
+    bar = fragment[fragment.index('id="upload-action-bar"'):]
+    assert "3 recordings · common window" in bar and reverse("gsr:cleaning", args=[project.pk]) in bar
 
 
 @pytest.mark.django_db
@@ -292,7 +395,7 @@ def test_action_bar_counts_match_the_rail_status(client, project) -> None:
 
     page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
     assert '<small class="step-status">3 recordings</small>' in page
-    assert '<span class="muted">3 recordings</span>' in page
+    assert '<span class="muted">3 recordings · common window 3.9 min</span>' in page
 
 
 @pytest.mark.django_db

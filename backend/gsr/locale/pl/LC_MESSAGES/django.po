@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-14 05:42+0000\n"
+"POT-Creation-Date: 2026-10-14 05:57+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -685,7 +685,7 @@ msgstr "Wyniki analizy"
 msgid "No results for this step yet. Set the parameters and run the analysis."
 msgstr "Brak wyników dla tego kroku. Ustaw parametry i uruchom analizę."
 
-#: gsr/templates/gsr/partials/analysis_main.html:52 gsr/tests/test_views.py:896
+#: gsr/templates/gsr/partials/analysis_main.html:52 gsr/tests/test_views.py:999
 msgid "Run analysis"
 msgstr "Uruchom analizę"
 
@@ -695,13 +695,13 @@ msgstr ""
 "Ustawienia lub sygnały zmieniły się od tego obliczenia. Uruchom analizę "
 "ponownie."
 
-#: gsr/templates/gsr/partials/analysis_main.html:59 gsr/views.py:628
-#: gsr/views.py:651
+#: gsr/templates/gsr/partials/analysis_main.html:59 gsr/views.py:680
+#: gsr/views.py:703
 msgid "Synchronization"
 msgstr "Synchronizacja"
 
-#: gsr/templates/gsr/partials/analysis_main.html:60 gsr/views.py:633
-#: gsr/views.py:653
+#: gsr/templates/gsr/partials/analysis_main.html:60 gsr/views.py:685
+#: gsr/views.py:705
 msgid "Co-arousal"
 msgstr "Ko-pobudzenie"
 
@@ -798,7 +798,7 @@ msgstr "Epizody synchronizacji podgrup"
 #: gsr/templates/gsr/partials/analysis_main.html:112
 #: gsr/templates/gsr/partials/analysis_main.html:239
 #: gsr/templates/gsr/partials/analysis_main.html:256
-#: gsr/templates/gsr/partials/upload_overview.html:36
+#: gsr/templates/gsr/partials/upload_main.html:32
 msgid "Duration"
 msgstr "Czas trwania"
 
@@ -1060,7 +1060,6 @@ msgid "Signals"
 msgstr "Sygnały"
 
 #: gsr/templates/gsr/partials/cleaning_main.html:23
-#: gsr/templates/gsr/partials/upload_main.html:63
 msgid "No signals uploaded yet."
 msgstr "Nie wgrano jeszcze sygnałów."
 
@@ -1139,8 +1138,7 @@ msgstr "minuty od synchronizacji"
 
 #: gsr/templates/gsr/partials/cleaning_main.html:111
 #: gsr/templates/gsr/partials/cleaning_main.html:112
-#: gsr/templates/gsr/partials/upload_overview.html:66
-#: gsr/templates/gsr/partials/upload_overview.html:67
+#: gsr/templates/gsr/partials/upload_overview.html:74
 msgid "Signal overlay"
 msgstr "Nałożenie sygnałów"
 
@@ -1201,7 +1199,7 @@ msgid "Error"
 msgstr "Błąd"
 
 #: gsr/templates/gsr/partials/error.html:13
-#: gsr/templates/gsr/partials/upload_overview.html:26
+#: gsr/templates/gsr/partials/upload_overview.html:40
 #, python-format
 msgid "Exclude %(alias)s"
 msgstr "Wyklucz %(alias)s"
@@ -1359,64 +1357,188 @@ msgstr "nie powyżej przypadku"
 msgid "More information"
 msgstr "Więcej informacji"
 
-#: gsr/templates/gsr/partials/upload_main.html:4
+#: gsr/templates/gsr/partials/upload_action_bar.html:5
+msgid "Exclude or delete the recording that does not overlap."
+msgstr "Wyklucz lub usuń nagranie, które się nie nakłada."
+
+#: gsr/templates/gsr/partials/upload_action_bar.html:7
+#: gsr/templates/gsr/partials/upload_action_bar.html:11
+msgid "Next: Cleaning"
+msgstr "Dalej: Czyszczenie"
+
+#: gsr/templates/gsr/partials/upload_main.html:5
 msgid "Recordings"
 msgstr "Nagrania"
 
-#: gsr/templates/gsr/partials/upload_main.html:5
+#: gsr/templates/gsr/partials/upload_main.html:6
+msgid "one eSense CSV export per participant"
+msgstr "jeden eksport CSV z eSense na uczestnika"
+
+#: gsr/templates/gsr/partials/upload_main.html:13
+msgid "Drop CSV files here"
+msgstr "Upuść tutaj pliki CSV"
+
+#: gsr/templates/gsr/partials/upload_main.html:14
+#, python-format
 msgid ""
-"Upload one eSense CSV export per participant. The alias defaults to the "
-"first word or number of the file name; rename it below."
+"eSense export (.csv), several at once, up to %(mb)s MB each. The alias is "
+"the first word or number of the file name; rename it in the table."
 msgstr ""
-"Wgraj jeden eksport CSV z eSense na uczestnika. Alias to domyślnie pierwsze "
-"słowo lub liczba z nazwy pliku; zmienisz go poniżej."
+"Eksport z eSense (.csv), kilka naraz, do %(mb)s MB każdy. Alias to pierwsze "
+"słowo lub liczba z nazwy pliku; zmienisz go w tabeli."
 
-#: gsr/templates/gsr/partials/upload_main.html:9
-msgid "CSV files"
-msgstr "Pliki CSV"
+#: gsr/templates/gsr/partials/upload_main.html:18
+msgid "Choose files…"
+msgstr "Wybierz pliki…"
 
-#: gsr/templates/gsr/partials/upload_main.html:10
+#: gsr/templates/gsr/partials/upload_main.html:19
 msgid "Upload to project"
 msgstr "Wgraj do projektu"
 
-#: gsr/templates/gsr/partials/upload_main.html:14
-msgid "Datasets in project"
-msgstr "Sygnały w projekcie"
+#: gsr/templates/gsr/partials/upload_main.html:28
+msgid "Participant"
+msgstr "Uczestnik"
 
-#: gsr/templates/gsr/partials/upload_main.html:20
-#: gsr/templates/gsr/partials/upload_main.html:36
-#: gsr/templates/gsr/partials/upload_overview.html:36
-msgid "Alias"
-msgstr "Alias"
-
-#: gsr/templates/gsr/partials/upload_main.html:21
+#: gsr/templates/gsr/partials/upload_main.html:29
 msgid "File"
 msgstr "Plik"
 
-#: gsr/templates/gsr/partials/upload_main.html:22
-#: gsr/templates/gsr/partials/upload_overview.html:36
+#: gsr/templates/gsr/partials/upload_main.html:30
 msgid "Start"
 msgstr "Start"
 
-#: gsr/templates/gsr/partials/upload_main.html:23
-#: gsr/templates/gsr/partials/upload_overview.html:36
+#: gsr/templates/gsr/partials/upload_main.html:31
 msgid "End"
 msgstr "Koniec"
 
-#: gsr/templates/gsr/partials/upload_main.html:24
-msgid "Rows"
-msgstr "Wiersze"
+#: gsr/templates/gsr/partials/upload_main.html:33
+msgid "Samples"
+msgstr "Próbki"
 
-#: gsr/templates/gsr/partials/upload_main.html:25
+#: gsr/templates/gsr/partials/upload_main.html:34
 msgid "Status"
 msgstr "Status"
 
-#: gsr/templates/gsr/partials/upload_main.html:37
-#: gsr/templates/gsr/partials/upload_main.html:72
+#: gsr/templates/gsr/partials/upload_main.html:35
+#: gsr/templates/gsr/partials/upload_row.html:32
+#: gsr/templates/gsr/projects.html:55
+msgid "Delete"
+msgstr "Usuń"
+
+#: gsr/templates/gsr/partials/upload_main.html:43
+msgid ""
+"Edit an alias in place: it is saved when you press Enter or leave the field."
+msgstr ""
+"Alias edytujesz w tabeli: zapisuje się po naciśnięciu Enter lub wyjściu z "
+"pola."
+
+#: gsr/templates/gsr/partials/upload_main.html:46
+msgid "No recordings yet."
+msgstr "Nie ma jeszcze nagrań."
+
+#: gsr/templates/gsr/partials/upload_main.html:47
+msgid ""
+"Add one eSense CSV export per participant; synchrony needs at least two "
+"recordings. Once uploaded, each recording's clock range, the window they "
+"share and the raw signals appear here."
+msgstr ""
+"Dodaj jeden eksport CSV z eSense na uczestnika; synchronizacja wymaga co "
+"najmniej dwóch nagrań. Po wgraniu zobaczysz tu czas każdego nagrania, ich "
+"wspólne okno i surowe sygnały."
+
+#: gsr/templates/gsr/partials/upload_main.html:52
+msgid "Project details"
+msgstr "Dane projektu"
+
+#: gsr/templates/gsr/partials/upload_main.html:55
+#: gsr/templates/gsr/projects.html:14 gsr/templates/gsr/projects.html:34
+msgid "Project name"
+msgstr "Nazwa projektu"
+
+#: gsr/templates/gsr/partials/upload_main.html:56
+#: gsr/templates/gsr/projects.html:18 gsr/templates/gsr/projects.html:35
+msgid "Project description"
+msgstr "Opis projektu"
+
+#: gsr/templates/gsr/partials/upload_main.html:57
 msgid "Save"
 msgstr "Zapisz"
 
-#: gsr/templates/gsr/partials/upload_main.html:47 gsr/tests/test_views.py:897
+#: gsr/templates/gsr/partials/upload_main.html:64
+msgid "Reading recordings…"
+msgstr "Odczytywanie nagrań…"
+
+#: gsr/templates/gsr/partials/upload_main.html:65
+msgid "Show recording ranges"
+msgstr "Pokaż zakresy nagrań"
+
+#: gsr/templates/gsr/partials/upload_overview.html:4
+msgid "Recording overlap"
+msgstr "Wspólny czas nagrań"
+
+#: gsr/templates/gsr/partials/upload_overview.html:5
+msgid ""
+"Group analysis uses only the shared absolute-time window of all recordings."
+msgstr ""
+"Analiza grupowa używa tylko wspólnego okna czasu absolutnego wszystkich "
+"nagrań."
+
+#: gsr/templates/gsr/partials/upload_overview.html:18
+msgid "excluded"
+msgstr "wykluczony"
+
+#: gsr/templates/gsr/partials/upload_overview.html:31
+#, python-format
+msgid "Common window %(start)s–%(end)s · %(duration)s min"
+msgstr "Wspólne okno %(start)s–%(end)s · %(duration)s min"
+
+#: gsr/templates/gsr/partials/upload_overview.html:32
+msgid "Data outside the shaded window is not analysed."
+msgstr "Dane poza zacienionym oknem nie są analizowane."
+
+#: gsr/templates/gsr/partials/upload_overview.html:54
+#: gsr/templates/gsr/partials/upload_overview.html:68
+msgid "RAW signals (import)"
+msgstr "Sygnały RAW (import)"
+
+#: gsr/templates/gsr/partials/upload_overview.html:55
+msgid "skin conductance (µS), clock time"
+msgstr "przewodność skóry (µS), czas zegarowy"
+
+#: gsr/templates/gsr/partials/upload_overview.html:57
+msgid "Raw signal view"
+msgstr "Widok surowych sygnałów"
+
+#: gsr/templates/gsr/partials/upload_overview.html:58
+msgid "Separate"
+msgstr "Osobno"
+
+#: gsr/templates/gsr/partials/upload_overview.html:59
+msgid "Overlay"
+msgstr "Nałożone"
+
+#: gsr/templates/gsr/partials/upload_overview.html:63
+msgid ""
+"Raw data as read from the CSV files. Cleaning synchronizes the signals, "
+"removes artifacts and applies filtering."
+msgstr ""
+"Surowe dane odczytane z plików CSV. Czyszczenie synchronizuje sygnały, usuwa "
+"artefakty i stosuje filtrację."
+
+#: gsr/templates/gsr/partials/upload_row.html:12
+#, python-format
+msgid "Alias of %(file)s"
+msgstr "Alias pliku %(file)s"
+
+#: gsr/templates/gsr/partials/upload_row.html:15
+msgid "Saved"
+msgstr "Zapisano"
+
+#: gsr/templates/gsr/partials/upload_row.html:23
+msgid "Loaded"
+msgstr "Wczytany"
+
+#: gsr/templates/gsr/partials/upload_row.html:25 gsr/tests/test_views.py:1000
 #, python-format
 msgid "%(counter)s Excel fix"
 msgid_plural "%(counter)s Excel fixes"
@@ -1424,88 +1546,18 @@ msgstr[0] "%(counter)s poprawka Excela"
 msgstr[1] "%(counter)s poprawki Excela"
 msgstr[2] "%(counter)s poprawek Excela"
 
-#: gsr/templates/gsr/partials/upload_main.html:49
+#: gsr/templates/gsr/partials/upload_row.html:27
 msgid "excluded on Cleaning"
 msgstr "wykluczony w czyszczeniu"
 
-#: gsr/templates/gsr/partials/upload_main.html:52
+#: gsr/templates/gsr/partials/upload_row.html:30
 msgid "Are you sure you want to delete this signal?"
 msgstr "Czy na pewno usunąć sygnał?"
 
-#: gsr/templates/gsr/partials/upload_main.html:54
-#: gsr/templates/gsr/projects.html:55
-msgid "Delete"
-msgstr "Usuń"
-
-#: gsr/templates/gsr/partials/upload_main.html:67
-msgid "Project details"
-msgstr "Dane projektu"
-
-#: gsr/templates/gsr/partials/upload_main.html:70
-#: gsr/templates/gsr/projects.html:14 gsr/templates/gsr/projects.html:34
-msgid "Project name"
-msgstr "Nazwa projektu"
-
-#: gsr/templates/gsr/partials/upload_main.html:71
-#: gsr/templates/gsr/projects.html:18 gsr/templates/gsr/projects.html:35
-msgid "Project description"
-msgstr "Opis projektu"
-
-#: gsr/templates/gsr/partials/upload_main.html:79
-msgid "Reading recordings…"
-msgstr "Odczytywanie nagrań…"
-
-#: gsr/templates/gsr/partials/upload_main.html:80
-msgid "Show recording ranges"
-msgstr "Pokaż zakresy nagrań"
-
-#: gsr/templates/gsr/partials/upload_main.html:87
-msgid "Exclude or delete the recording that does not overlap."
-msgstr "Wyklucz lub usuń nagranie, które się nie nakłada."
-
-#: gsr/templates/gsr/partials/upload_main.html:89
-#: gsr/templates/gsr/partials/upload_main.html:93
-msgid "Next: Cleaning"
-msgstr "Dalej: Czyszczenie"
-
-#: gsr/templates/gsr/partials/upload_overview.html:2
-msgid "Recording overlap"
-msgstr "Wspólny czas nagrań"
-
-#: gsr/templates/gsr/partials/upload_overview.html:3
-msgid ""
-"Group analysis uses only the shared absolute-time window of all recordings."
-msgstr ""
-"Analiza grupowa używa tylko wspólnego okna czasu absolutnego wszystkich "
-"nagrań."
-
-#: gsr/templates/gsr/partials/upload_overview.html:7
-msgid "Common window"
-msgstr "Wspólne okno"
-
-#: gsr/templates/gsr/partials/upload_overview.html:12
-msgid "excluded"
-msgstr "wykluczony"
-
-#: gsr/templates/gsr/partials/upload_overview.html:19
+#: gsr/templates/gsr/partials/upload_row.html:32
 #, python-format
-msgid "Common window %(start)s–%(end)s · %(duration)s min"
-msgstr "Wspólne okno %(start)s–%(end)s · %(duration)s min"
-
-#: gsr/templates/gsr/partials/upload_overview.html:54
-#: gsr/templates/gsr/partials/upload_overview.html:60
-msgid "RAW signals (import)"
-msgstr "Sygnały RAW (import)"
-
-#: gsr/templates/gsr/partials/upload_overview.html:55
-msgid ""
-"Raw GSR data (skin conductance in µS) read directly from CSV files. X-axis "
-"shows the original recording time. Proceed to Cleaning to synchronize "
-"signals, remove artifacts, and apply filtering."
-msgstr ""
-"Surowe dane GSR (przewodność skórna w µS) odczytane z plików CSV. Oś X to "
-"oryginalny czas nagrania. Przejdź do Czyszczenia, aby zsynchronizować "
-"sygnały, usunąć artefakty i zastosować filtrację."
+msgid "Delete %(alias)s"
+msgstr "Usuń %(alias)s"
 
 #: gsr/templates/gsr/project_page.html:6
 msgid "Switch project"
@@ -1567,48 +1619,48 @@ msgstr "Czy na pewno usunąć projekt?"
 msgid "No saved projects yet. Create one to get started."
 msgstr "Brak zapisanych projektów. Utwórz pierwszy projekt, aby zacząć."
 
-#: gsr/views.py:75 gsr/views.py:649
+#: gsr/views.py:76 gsr/views.py:701
 msgid "Import"
 msgstr "Import"
 
-#: gsr/views.py:75 gsr/views.py:649
+#: gsr/views.py:76 gsr/views.py:701
 msgid "Cleaning"
 msgstr "Czyszczenie"
 
-#: gsr/views.py:75
+#: gsr/views.py:76
 msgid "Analysis"
 msgstr "Analiza"
 
-#: gsr/views.py:75
+#: gsr/views.py:76
 msgid "Export"
 msgstr "Eksport"
 
-#: gsr/views.py:88
+#: gsr/views.py:89
 msgid "no recordings"
 msgstr "brak nagrań"
 
-#: gsr/views.py:90
+#: gsr/views.py:91
 #, python-format
 msgid "computed %(time)s"
 msgstr "obliczono %(time)s"
 
-#: gsr/views.py:90 gsr/views.py:110
+#: gsr/views.py:91 gsr/views.py:111
 msgid "not run"
 msgstr "nie uruchomiono"
 
-#: gsr/views.py:91
+#: gsr/views.py:92
 msgid "ready"
 msgstr "gotowy"
 
-#: gsr/views.py:91
+#: gsr/views.py:92
 msgid "needs analysis"
 msgstr "wymaga analizy"
 
-#: gsr/views.py:102
+#: gsr/views.py:103
 msgid "outdated"
 msgstr "nieaktualne"
 
-#: gsr/views.py:115
+#: gsr/views.py:116
 #, python-format
 msgid "%(count)s recording"
 msgid_plural "%(count)s recordings"
@@ -1616,7 +1668,7 @@ msgstr[0] "%(count)s nagranie"
 msgstr[1] "%(count)s nagrania"
 msgstr[2] "%(count)s nagrań"
 
-#: gsr/views.py:120
+#: gsr/views.py:121
 #, python-format
 msgid "%(count)s rejected sample"
 msgid_plural "%(count)s rejected samples"
@@ -1624,137 +1676,146 @@ msgstr[0] "%(count)s odrzucona próbka"
 msgstr[1] "%(count)s odrzucone próbki"
 msgstr[2] "%(count)s odrzuconych próbek"
 
-#: gsr/views.py:150
+#: gsr/views.py:151
 msgid "Project name is required."
 msgstr "Nazwa projektu jest wymagana."
 
-#: gsr/views.py:152
+#: gsr/views.py:153
 msgid "Project name cannot exceed 200 characters."
 msgstr "Nazwa projektu nie może przekraczać 200 znaków."
 
-#: gsr/views.py:170
+#: gsr/views.py:171
 msgid "Project name is required (up to 200 characters)."
 msgstr "Nazwa projektu jest wymagana (do 200 znaków)."
 
-#: gsr/views.py:175
+#: gsr/views.py:176
 msgid "Project details saved."
 msgstr "Zapisano dane projektu."
 
-#: gsr/views.py:183
+#: gsr/views.py:184
 msgid "Project deleted."
 msgstr "Projekt usunięty."
 
-#: gsr/views.py:195
+#: gsr/views.py:196
 msgid "Choose at least one CSV file."
 msgstr "Wybierz co najmniej jeden plik CSV."
 
-#: gsr/views.py:202
+#: gsr/views.py:203
 #, python-format
 msgid "Uploaded %(file)s as %(alias)s."
 msgstr "Wgrano %(file)s jako %(alias)s."
 
-#: gsr/views.py:261
+#: gsr/views.py:219
+#, python-format
+msgid "%(recordings)s · common window %(minutes)s min"
+msgstr "%(recordings)s · wspólne okno %(minutes)s min"
+
+#: gsr/views.py:290
+msgid "Alias cannot be empty"
+msgstr "Alias nie może być pusty"
+
+#: gsr/views.py:293
 #, python-format
 msgid "Alias already exists in project: %(alias)s"
 msgstr "Alias już istnieje w projekcie: %(alias)s"
 
-#: gsr/views.py:267
+#: gsr/views.py:319
 #, python-format
 msgid "Signal renamed to %(alias)s."
 msgstr "Zmieniono nazwę sygnału na %(alias)s."
 
-#: gsr/views.py:280
+#: gsr/views.py:332
 #, python-format
 msgid "Signal %(alias)s excluded from cleaning and analysis."
 msgstr "Sygnał %(alias)s wykluczono z czyszczenia i analizy."
 
-#: gsr/views.py:306
+#: gsr/views.py:358
 #, python-format
 msgid "Signal %(alias)s deleted."
 msgstr "Usunięto sygnał %(alias)s."
 
-#: gsr/views.py:348
+#: gsr/views.py:400
 #, python-format
 msgid "rejected %(rejected)s of %(total)s samples"
 msgstr "odrzucono %(rejected)s z %(total)s próbek"
 
-#: gsr/views.py:498
+#: gsr/views.py:550
 #, python-format
 msgid "subgroups of ≥ %(size)s people above %(threshold)s"
 msgstr "podgrupy ≥ %(size)s osób powyżej %(threshold)s"
 
-#: gsr/views.py:605
+#: gsr/views.py:657
 #, python-format
 msgid "Signals added: %(aliases)s"
 msgstr "Dodane sygnały: %(aliases)s"
 
-#: gsr/views.py:607
+#: gsr/views.py:659
 #, python-format
 msgid "Signals removed: %(aliases)s"
 msgstr "Usunięte sygnały: %(aliases)s"
 
-#: gsr/views.py:608
+#: gsr/views.py:660
 #, python-format
 msgid "Signal renamed: %(old)s → %(new)s"
 msgstr "Zmieniona nazwa sygnału: %(old)s → %(new)s"
 
-#: gsr/views.py:624
+#: gsr/views.py:676
 msgid "Cleaned signals"
 msgstr "Sygnały po czyszczeniu"
 
-#: gsr/views.py:624
+#: gsr/views.py:676
 msgid "per participant, relative time, full resolution"
 msgstr "per uczestnik, czas względny, pełna rozdzielczość"
 
-#: gsr/views.py:626
+#: gsr/views.py:678
 msgid "Analysis-ready merged file"
 msgstr "Połączony plik do analizy"
 
-#: gsr/views.py:626
+#: gsr/views.py:678
 msgid "scaled, downsampled, shared time axis"
 msgstr "skalowany, po downsamplingu, wspólna oś czasu"
 
-#: gsr/views.py:628
+#: gsr/views.py:680
 msgid "episodes, pairs, windows"
 msgstr "epizody, pary, okna"
 
-#: gsr/views.py:629 gsr/views.py:634
+#: gsr/views.py:681 gsr/views.py:686
 msgid "episodes"
 msgstr "epizody"
 
-#: gsr/views.py:630
+#: gsr/views.py:682
 msgid "pairs"
 msgstr "pary"
 
-#: gsr/views.py:631
+#: gsr/views.py:683
 msgid "windows"
 msgstr "okna"
 
-#: gsr/views.py:633
+#: gsr/views.py:685
 msgid "episodes, state timeline, time in states"
 msgstr "epizody, stany w czasie, udział czasu w stanach"
 
-#: gsr/views.py:635
+#: gsr/views.py:687
 msgid "state timeline"
 msgstr "oś stanów"
 
-#: gsr/views.py:636
+#: gsr/views.py:688
 msgid "time in states"
 msgstr "udział czasu w stanach"
 
-#: gsr/views.py:638
+#: gsr/views.py:690
 msgid "Run settings and results"
 msgstr "Ustawienia i wyniki obliczenia"
 
-#: gsr/views.py:638
+#: gsr/views.py:690
 msgid "for reproducibility: settings, library versions, file SHA-256"
 msgstr "dla odtwarzalności: ustawienia, wersje bibliotek, SHA-256 plików"
 
-#: gsr/views.py:640
+#: gsr/views.py:692
 msgid "Charts"
 msgstr "Wykresy"
 
-#: gsr/views.py:640
+#: gsr/views.py:692
 #, python-format
 msgid "%(count)d report chart, 2× resolution, white background, in the ZIP"
 msgid_plural ""
@@ -1766,22 +1827,122 @@ msgstr[1] ""
 msgstr[2] ""
 "%(count)d wykresów raportu, rozdzielczość 2×, białe tło, w archiwum ZIP"
 
-#: gsr/views.py:649
+#: gsr/views.py:701
 msgid "Summary page"
 msgstr "Strona podsumowania"
 
-#: gsr/views.py:654
+#: gsr/views.py:706
 msgid "Methodology"
 msgstr "Metodologia"
 
-#: gsr/views.py:654
+#: gsr/views.py:706
 msgid "Reproducibility"
 msgstr "Odtwarzalność"
 
-#: gsr/views.py:655
+#: gsr/views.py:707
 #, python-format
 msgid "%(count)d chart"
 msgid_plural "%(count)d charts"
 msgstr[0] "%(count)d wykres"
 msgstr[1] "%(count)d wykresy"
 msgstr[2] "%(count)d wykresów"
+
+#~ msgid ""
+#~ "Upload one eSense CSV export per participant. The alias defaults to the "
+#~ "first word or number of the file name; rename it below."
+#~ msgstr ""
+#~ "Wgraj jeden eksport CSV z eSense na uczestnika. Alias to domyślnie "
+#~ "pierwsze słowo lub liczba z nazwy pliku; zmienisz go poniżej."
+
+#~ msgid "CSV files"
+#~ msgstr "Pliki CSV"
+
+#~ msgid "Datasets in project"
+#~ msgstr "Sygnały w projekcie"
+
+#~ msgid "Alias"
+#~ msgstr "Alias"
+
+#~ msgid "Rows"
+#~ msgstr "Wiersze"
+
+#~ msgid "Common window"
+#~ msgstr "Wspólne okno"
+
+#~ msgid ""
+#~ "Raw GSR data (skin conductance in µS) read directly from CSV files. X-"
+#~ "axis shows the original recording time. Proceed to Cleaning to "
+#~ "synchronize signals, remove artifacts, and apply filtering."
+#~ msgstr ""
+#~ "Surowe dane GSR (przewodność skórna w µS) odczytane z plików CSV. Oś X to "
+#~ "oryginalny czas nagrania. Przejdź do Czyszczenia, aby zsynchronizować "
+#~ "sygnały, usunąć artefakty i zastosować filtrację."
+
+#~ msgid "People"
+#~ msgstr "Osób"
+
+#~ msgid "Null mean ± SD"
+#~ msgstr "Średnia zerowa ± SD"
+
+#~ msgid "Above chance (p<0.05)"
+#~ msgstr "Istotne ponad przypadek (p<0.05)"
+
+#~ msgid "Not significant (p≥0.05)"
+#~ msgstr "Nieistotne (p≥0.05)"
+
+#~ msgid "Not in sync"
+#~ msgstr "Poza synchronizacją"
+
+#~ msgid "Timeline (non-overlapping)"
+#~ msgstr "Oś czasu (bez nakładania)"
+
+#~ msgid ""
+#~ "Settings or signals changed after the last run. The exports describe the "
+#~ "last run; run the analysis again to include the changes."
+#~ msgstr ""
+#~ "Ustawienia lub sygnały zmieniły się po ostatnim obliczeniu. Eksport "
+#~ "opisuje ostatnie obliczenie; uruchom analizę ponownie, aby uwzględnić "
+#~ "zmiany."
+
+#~ msgid ""
+#~ "The report for other researchers: project description, results summary, "
+#~ "import, cleaning, synchronization and co-arousal results with charts, "
+#~ "methodology, and the data needed to reproduce the run. Its language "
+#~ "follows the UI language (PL/EN)."
+#~ msgstr ""
+#~ "Raport dla innych badaczy: opis projektu, podsumowanie wyników, import, "
+#~ "czyszczenie, wyniki synchronizacji i ko-pobudzenia z wykresami, "
+#~ "metodologia oraz dane potrzebne do odtworzenia obliczeń. Język raportu "
+#~ "odpowiada językowi interfejsu (PL/EN)."
+
+#, python-format
+#~ msgid "Results of the run from %(time)s"
+#~ msgstr "Wyniki obliczenia z %(time)s"
+
+#~ msgid "Data"
+#~ msgstr "Dane"
+
+#~ msgid ""
+#~ "A ZIP with every file below plus the report charts as PNG. Every chart on "
+#~ "the screens also has its own “Save PNG” button."
+#~ msgstr ""
+#~ "Archiwum ZIP ze wszystkimi plikami poniżej oraz wykresami raportu w PNG. "
+#~ "Każdy wykres na ekranach ma też własny przycisk „Zapisz PNG”."
+
+#~ msgid "Download ZIP"
+#~ msgstr "Pobierz ZIP"
+
+#~ msgid "Cleaned signals CSV"
+#~ msgstr "CSV sygnałów po czyszczeniu"
+
+#~ msgid "Analysis-ready merged CSV"
+#~ msgstr "Połączony CSV do analizy"
+
+#~ msgid "states"
+#~ msgstr "stany"
+
+#~ msgid "Run settings + results JSON"
+#~ msgstr "JSON z ustawieniami i wynikami"
+
+#~ msgid "reproducibility: settings, library versions, file SHA-256"
+#~ msgstr "odtwarzalność: ustawienia, wersje bibliotek, SHA-256 plików"

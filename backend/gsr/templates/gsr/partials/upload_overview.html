@@ -1,69 +1,78 @@
 {% load i18n %}
-<h3>{% translate "Recording overlap" %}</h3>
-<p class="hint">{% translate "Group analysis uses only the shared absolute-time window of all recordings." %}</p>
-{% with overlap=overview.overlap %}
-  {% if overlap %}
-    <div class="overlap">
-      <div class="name"><strong>{% translate "Common window" %}</strong></div>
-      <div class="track">
-        {% if overlap.ok %}<div class="bar common" style="left: {{ overlap.bar_left_pct|stringformat:'s' }}%; width: {{ overlap.bar_width_pct|stringformat:'s' }}%"></div>{% endif %}
+<section class="card" aria-labelledby="overlap-title">
+  <div class="card-head">
+    <h2 id="overlap-title">{% translate "Recording overlap" %}</h2>
+    <span class="muted">{% translate "Group analysis uses only the shared absolute-time window of all recordings." %}</span>
+  </div>
+  {% with overlap=overview.overlap %}
+    {% if overlap %}
+      <div class="timeline" style="--rows: {{ overview.rows|length }}">
+        <div class="tl-axis" aria-hidden="true">
+          {% for tick in overview.ticks %}<span style="left: {{ tick.pct|stringformat:'s' }}%">{{ tick.label }}</span>{% endfor %}
+        </div>
+        <div class="tl-plot" aria-hidden="true">
+          {% for tick in overview.ticks %}<span class="tl-grid" style="left: {{ tick.pct|stringformat:'s' }}%"></span>{% endfor %}
+          {% if overlap.ok %}<span class="tl-window" style="left: {{ overlap.bar_left_pct|stringformat:'s' }}%; width: {{ overlap.bar_width_pct|stringformat:'s' }}%"></span>{% endif %}
+        </div>
+        {% for row in overview.rows %}{% with line=forloop.counter|add:1|stringformat:"s" %}
+          <div class="tl-name" style="grid-row: {{ line }}"><span class="dot" style="background: {{ row.color }}" aria-hidden="true"></span>{{ row.dataset.alias }}{% if not row.dataset.included %} <span class="muted small">{% translate "excluded" %}</span>{% endif %}</div>
+          {% if row.error %}
+            <div class="tl-error alert error" style="grid-row: {{ line }}">{{ row.error }}</div>
+          {% else %}
+            <div class="tl-track" style="grid-row: {{ line }}" aria-hidden="true">
+              <span class="tl-bar{% if not row.dataset.included %} excluded{% endif %}" style="left: {{ row.bar_left_pct|stringformat:'s' }}%; width: {{ row.bar_width_pct|stringformat:'s' }}%; --color: {{ row.color }}"></span>
+            </div>
+            <div class="tl-range" style="grid-row: {{ line }}">{{ row.start|date:"H:i:s" }}–{{ row.end|date:"H:i:s" }}</div>
+          {% endif %}
+        {% endwith %}{% endfor %}
       </div>
-      {% for row in overview.rows %}
-        <div class="name"><span class="dot" style="background: {{ row.color }}"></span>{{ row.dataset.alias }}{% if not row.dataset.included %} <span class="muted small">{% translate "excluded" %}</span>{% endif %}</div>
-        <div class="track">
-          {% if not row.error %}<div class="bar" style="left: {{ row.bar_left_pct|stringformat:'s' }}%; width: {{ row.bar_width_pct|stringformat:'s' }}%; background: {{ row.color }}" title="{{ row.start|date:'H:i:s' }}–{{ row.end|date:'H:i:s' }}"></div>{% endif %}
+      {% if overlap.ok %}
+        <div class="alert success window-summary">
+          <strong>{% blocktranslate with start=overlap.start|date:"H:i:s" end=overlap.end|date:"H:i:s" duration=overlap.duration_minutes|floatformat:1 %}Common window {{ start }}–{{ end }} · {{ duration }} min{% endblocktranslate %}</strong>
+          <span>{% translate "Data outside the shaded window is not analysed." %}</span>
+        </div>
+      {% else %}
+        <div class="alert error" role="alert">
+          {{ overlap.message }}
+          {% for row in overview.rows %}{% if row.dataset.alias in overlap.outliers %}
+            <form class="row-form" method="post" action="{% url 'gsr:dataset_exclude' project.pk row.dataset.pk %}">
+              {% csrf_token %}<input type="hidden" name="next" value="upload">
+              <button type="submit" class="small">{% blocktranslate with alias=row.dataset.alias %}Exclude {{ alias }}{% endblocktranslate %}</button>
+            </form>
+          {% endif %}{% endfor %}
+        </div>
+      {% endif %}
+    {% else %}
+      {% for row in overview.rows %}{% if row.error %}<p class="alert error">{{ row.dataset.alias }}: {{ row.error }}</p>{% endif %}{% endfor %}
+    {% endif %}
+  {% endwith %}
+</section>
+
+{% if raw_series %}
+  <section class="card" aria-labelledby="raw-title" data-views>
+    <div class="card-head">
+      <h2 id="raw-title">{% translate "RAW signals (import)" %}</h2>
+      <span class="muted">{% translate "skin conductance (µS), clock time" %}</span>
+      {% if raw_overlay %}
+        <div class="segmented" role="group" aria-label="{% translate 'Raw signal view' %}">
+          <button type="button" data-view="separate" aria-pressed="true">{% translate "Separate" %}</button>
+          <button type="button" data-view="overlay" aria-pressed="false">{% translate "Overlay" %}</button>
+        </div>
+      {% endif %}
+    </div>
+    <p class="hint">{% translate "Raw data as read from the CSV files. Cleaning synchronizes the signals, removes artifacts and applies filtering." %}</p>
+    <div class="chart-grid" data-view-panel="separate">
+      {% for series in raw_series %}
+        <div class="chart-card">
+          <h3 class="chart-title"><span class="dot" style="background: {{ series.color }}" aria-hidden="true"></span>{{ series.alias }}</h3>
+          {% with index=forloop.counter0|stringformat:"s" %}{% include "gsr/partials/chart.html" with label=_("RAW signals (import)") sub=series.alias kind="rawSignal" data=series chart_id="raw-"|add:index name="raw_"|add:series.alias height=220 %}{% endwith %}
         </div>
       {% endfor %}
     </div>
-    {% if overlap.ok %}
-      <p class="alert success">{% blocktranslate with start=overlap.start|date:"H:i:s" end=overlap.end|date:"H:i:s" duration=overlap.duration_minutes|floatformat:1 %}Common window {{ start }}–{{ end }} · {{ duration }} min{% endblocktranslate %}</p>
-    {% else %}
-      <div class="alert error" role="alert">
-        {{ overlap.message }}
-        {% for row in overview.rows %}{% if row.dataset.alias in overlap.outliers %}
-          <form class="row-form" method="post" action="{% url 'gsr:dataset_exclude' project.pk row.dataset.pk %}">
-            {% csrf_token %}<input type="hidden" name="next" value="upload">
-            <button type="submit" class="small">{% blocktranslate with alias=row.dataset.alias %}Exclude {{ alias }}{% endblocktranslate %}</button>
-          </form>
-        {% endif %}{% endfor %}
+    {% if raw_overlay %}
+      <div class="chart-card" data-view-panel="overlay" hidden>
+        {% include "gsr/partials/chart.html" with label=_("Signal overlay") kind="overlay" data=raw_overlay chart_id="raw-overlay" name="raw_overlay" height=360 %}
       </div>
     {% endif %}
-  {% endif %}
-{% endwith %}
-
-<div class="table-wrap">
-  <table class="data">
-    <thead><tr><th>{% translate "Alias" %}</th><th>{% translate "Start" %}</th><th>{% translate "End" %}</th><th>{% translate "Duration" %}</th></tr></thead>
-    <tbody>
-      {% for row in overview.rows %}
-        <tr>
-          <td><span class="chip"><span class="dot" style="background: {{ row.color }}"></span>{{ row.dataset.alias }}</span></td>
-          {% if row.error %}
-            <td colspan="3" class="left alert error">{{ row.error }}</td>
-          {% else %}
-            <td>{{ row.start|date:"H:i:s" }}</td>
-            <td>{{ row.end|date:"H:i:s" }}</td>
-            <td>{{ row.duration_minutes|floatformat:1 }} min</td>
-          {% endif %}
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<h3>{% translate "RAW signals (import)" %}</h3>
-<p class="hint">{% translate "Raw GSR data (skin conductance in µS) read directly from CSV files. X-axis shows the original recording time. Proceed to Cleaning to synchronize signals, remove artifacts, and apply filtering." %}</p>
-<div class="chart-grid">
-  {% for series in raw_series %}
-    <div class="chart-card">
-      <h4><span class="dot" style="background: {{ series.color }}"></span>{{ series.alias }}</h4>
-      {% with index=forloop.counter0|stringformat:"s" %}{% include "gsr/partials/chart.html" with label=_("RAW signals (import)") sub=series.alias kind="rawSignal" data=series chart_id="raw-"|add:index name="raw_"|add:series.alias height=240 %}{% endwith %}
-    </div>
-  {% endfor %}
-</div>
-{% if raw_overlay %}
-  <div class="chart-card" style="margin-top: 0.7rem">
-    <h4>{% translate "Signal overlay" %}</h4>
-    {% include "gsr/partials/chart.html" with label=_("Signal overlay") kind="overlay" data=raw_overlay chart_id="raw-overlay" name="raw_overlay" height=320 %}
-  </div>
+  </section>
 {% endif %}
