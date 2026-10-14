@@ -279,13 +279,87 @@ def upload_overview(request: HttpRequest, pk: Any) -> HttpResponse:
         row["color"] = colors[row["dataset"].alias]
         if row["points"]:
             raw_series.append(charts.raw_signal(row["dataset"].alias, row["color"], row["points"]))
+    overlap = overview["overlap"]
+    window = None
+    if overlap and overlap["ok"]:
+        window = _window_context(overlap["start"], overlap["end"], _current_values(project))
+        if window:
+            # The analysed period's band on the timeline, inside the shaded common window.
+            window["band_left_pct"] = round(overlap["bar_left_pct"] + overlap["bar_width_pct"] * window["from_pct"] / 100, 2)
+            window["band_width_pct"] = round(overlap["bar_width_pct"] * (window["to_pct"] - window["from_pct"]) / 100, 2)
     context = {
         "project": project,
         "overview": overview,
+        "window": window,
         "raw_series": raw_series,
         "raw_overlay": charts.overlay(raw_series, axis="time") if len(raw_series) > 1 else None,
     }
     return render(request, "gsr/partials/upload_overview.html", context)
+
+
+def _window_context(start: pd.Timestamp, end: pd.Timestamp, values: dict[str, Any]) -> dict[str, Any] | None:
+    """The analysed period picked on the overlap timeline (seconds from the common start, clock times, % of the common
+    window), or None when the common window is too short for two handles."""
+    window = params.analysis_window(values, (end - start).total_seconds())
+    if window["max"] < 2:
+        return None
+    window.update(
+        start=start,
+        end=end,
+        duration_minutes=(end - start).total_seconds() / 60.0,
+        from_clock=(start + pd.Timedelta(seconds=window["from"])).strftime("%H:%M:%S"),
+        to_clock=(start + pd.Timedelta(seconds=window["to"])).strftime("%H:%M:%S"),
+        minutes=(window["to"] - window["from"]) / 60.0,
+        from_pct=round(100.0 * window["from"] / window["max"], 4),
+        to_pct=round(100.0 * window["to"] / window["max"], 4),
+        # Seconds after midnight of the common start, so the page can show the handles' clock times while dragging.
+        clock_offset=start.hour * 3600 + start.minute * 60 + start.second,
+    )
+    return window
+
+
+def _posted_seconds(request: HttpRequest, name: str) -> int:
+    try:
+        return int(request.POST.get(name, ""))
+    except ValueError:
+        raise ValueError(_("The analysed period must lie inside the common window and end after it starts.")) from None
+
+
+@require_POST
+def upload_window(request: HttpRequest, pk: Any) -> HttpResponse:
+    """Save the analysed period picked with the overlap timeline's handles as the Cleaning time range."""
+    project = _project(pk)
+    ranges = _recorded_ranges(list(project.datasets.all()))
+    error = _overlap_error(ranges) or (None if ranges else _("Include at least one recording."))
+    window = None
+    if error is None:
+        start = max(start for start, _end in ranges.values())
+        end = min(end for _start, end in ranges.values())
+        try:
+            if request.POST.get("reset"):
+                updates: dict[str, Any] = {"time_range_from": None, "time_range_to": None}
+            else:
+                updates = params.window_settings(
+                    _posted_seconds(request, "window_from"), _posted_seconds(request, "window_to"),
+                    (end - start).total_seconds(),
+                )
+            settings = params.apply_settings(project.pipeline_config, updates)
+        except ValueError as exc:
+            error = str(exc)
+        else:
+            # No bound is the default: drop it rather than store None, as Reset defaults does.
+            project.pipeline_config = {key: value for key, value in settings.items()
+                                       if not (key in updates and value is None)}
+            project.save(update_fields=["pipeline_config", "updated_at"])
+        window = _window_context(start, end, _current_values(project))
+    if not _is_htmx(request):
+        if error:
+            messages.error(request, error)
+        else:
+            messages.success(request, _("Analysed period saved."))
+        return redirect("gsr:upload", project.pk)
+    return render(request, "gsr/partials/upload_window.html", {"project": project, "window": window,
+                                                                "window_error": error})
 
 
 @require_POST

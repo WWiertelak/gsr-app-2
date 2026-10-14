@@ -401,6 +401,32 @@ table.data tr.nsig td { color: var(--ink-3); }
 .tl-range { grid-column: 3; color: var(--ink-2); font-size: var(--fs-xs); white-space: nowrap; }
 .tl-error { grid-column: 2 / span 2; padding: var(--s1) var(--s3); }
 .window-summary { display: grid; gap: 2px; }
+/* Analysed-period handles: two stacked range inputs over the shaded window; only their thumbs take the pointer. The
+   inputs reach half a thumb past the window on each side, so a thumb's centre sits exactly on the period's edge. */
+.tl-window.narrowed { border-inline-style: dashed; }
+.tl-select { position: absolute; top: -4px; bottom: -4px; background: color-mix(in srgb, var(--accent) 16%, transparent); border-inline: 2px solid var(--accent); }
+.tl-handles { grid-column: 2; grid-row: 2 / span var(--rows); position: relative; z-index: 1; pointer-events: none; }
+.tl-handles input[type="range"] {
+  position: absolute; top: 50%; left: calc(var(--left) - 7px); width: calc(var(--width) + 14px); height: 28px;
+  margin: 0; padding: 0; transform: translateY(-50%); border: 0; background: transparent; pointer-events: none;
+  -webkit-appearance: none; appearance: none;
+}
+.tl-handles input[type="range"].raised { z-index: 1; }
+.tl-handles input[type="range"]:focus-visible { outline: none; }
+.tl-handles input[type="range"]::-webkit-slider-runnable-track { height: 28px; background: transparent; border: 0; }
+.tl-handles input[type="range"]::-moz-range-track { height: 28px; background: transparent; border: 0; }
+.tl-handles input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; pointer-events: auto; cursor: ew-resize;
+  width: 14px; height: 28px; border: 2px solid var(--accent); border-radius: 4px; background: var(--surface);
+}
+.tl-handles input[type="range"]::-moz-range-thumb {
+  pointer-events: auto; cursor: ew-resize; box-sizing: border-box;
+  width: 14px; height: 28px; border: 2px solid var(--accent); border-radius: 4px; background: var(--surface);
+}
+.tl-handles input[type="range"]:focus-visible::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); }
+.tl-handles input[type="range"]:focus-visible::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); }
+.window-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.js .window-apply { display: none; }
 
 /* Upload: drop zone, recordings table, raw signal views */
 .card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); margin-bottom: var(--s3); }

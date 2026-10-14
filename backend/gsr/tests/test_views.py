@@ -306,6 +306,81 @@ def test_upload_overview_flags_recordings_without_shared_window(client, late_pro
     assert "alert success" in overview and "excluded" in overview
 
 
+def test_analysis_window_clips_the_time_range_to_the_common_window() -> None:
+    assert params.analysis_window({}, 236.6) == {"from": 0, "to": 236, "max": 236, "full": True}
+    window = params.analysis_window({"time_range_from": 0.5, "time_range_to": 9.0}, 236.6)
+    assert window == {"from": 30, "to": 236, "max": 236, "full": False}
+    assert params.analysis_window({"time_range_from": -1.0, "time_range_to": 2.5}, 236.6)["from"] == 0
+
+
+def test_window_settings_store_the_window_edges_as_no_bound() -> None:
+    # The full common window keeps the default settings (no bound), so the pipeline runs exactly as before.
+    assert params.window_settings(0, 236, 236.6) == {"time_range_from": None, "time_range_to": None}
+    assert params.window_settings(30, 150, 236.6) == {"time_range_from": 0.5, "time_range_to": 2.5}
+    assert params.window_settings(20, 236, 236.6) == {"time_range_from": 0.3333, "time_range_to": None}
+    for start, end in ((-1, 100), (10, 237), (100, 100), (150, 30)):
+        with pytest.raises(ValueError):
+            params.window_settings(start, end, 236.6)
+
+
+@pytest.mark.django_db
+def test_upload_window_handles_set_the_cleaning_time_range(client, project) -> None:
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    overview_url = reverse("gsr:upload_overview", args=[project.pk])
+    window_url = reverse("gsr:upload_window", args=[project.pk])
+    overview = client.get(overview_url).content.decode()
+    # By default the handles sit on the edges of the common window (12:00:02, when B started, to the first stop).
+    assert 'id="window-form"' in overview and window_url in overview
+    max_seconds = int(re.search(r'id="window-to" name="window_to" min="0" max="(\d+)"', overview).group(1))
+    assert 'value="0"' in overview and f'value="{max_seconds}"' in overview and 'aria-valuetext="12:00:02"' in overview
+    assert "Analysed period: the whole common window." in overview and "data-window-reset" not in overview
+
+    fragment = client.post(window_url, {"window_from": "30", "window_to": "150"}, **HTMX).content.decode()
+    assert 'id="window-summary"' in fragment and "Analysed period 12:00:32–12:02:32 · 2.0 min" in fragment
+    assert "data-window-reset" in fragment
+    project.refresh_from_db()
+    assert project.pipeline_config["time_range_from"] == 0.5 and project.pipeline_config["time_range_to"] == 2.5
+    overview = client.get(overview_url).content.decode()
+    assert 'value="30"' in overview and 'value="150"' in overview and "tl-window narrowed" in overview
+
+    # Cleaning analyses only the picked period.
+    client.post(reverse("gsr:cleaning_refresh", args=[project.pk]), **HTMX)
+    stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_CLEANING)
+    per_alias = stored.payload["preview"]["cleaning_summary"]["per_alias"]
+    assert all(0 < row["in_time_window_points"] < row["synced_points"] for row in per_alias)
+
+    # A period outside the common window is refused and the saved one is kept.
+    fragment = client.post(window_url, {"window_from": "100", "window_to": str(max_seconds + 5)}, **HTMX).content.decode()
+    assert "alert error" in fragment and "must lie inside the common window" in fragment
+    assert client.post(window_url, {"window_from": "x", "window_to": "10"}, **HTMX).status_code == 200
+    project.refresh_from_db()
+    assert project.pipeline_config["time_range_from"] == 0.5
+
+    # Reset (or dragging back to the edges) drops the range: the defaults, exactly as before any change.
+    response = client.post(window_url, {"window_from": "30", "window_to": "150", "reset": "1"})
+    assert response.status_code == 302 and response["Location"] == reverse("gsr:upload", args=[project.pk])
+    project.refresh_from_db()
+    assert "time_range_from" not in project.pipeline_config and "time_range_to" not in project.pipeline_config
+    client.post(window_url, {"window_from": "0", "window_to": str(max_seconds)}, **HTMX)
+    project.refresh_from_db()
+    assert project.pipeline_config == FAST
+
+
+@pytest.mark.django_db
+def test_upload_window_start_handle_stays_grabbable_on_the_end_handle(client, project) -> None:
+    overview_url = reverse("gsr:upload_overview", args=[project.pk])
+    window_url = reverse("gsr:upload_window", args=[project.pk])
+    overview = client.get(overview_url).content.decode()
+    max_seconds = int(re.search(r'id="window-to" name="window_to" min="0" max="(\d+)"', overview).group(1))
+    start_handle = re.compile(r'<input type="range" id="window-from"[^>]*>')
+    assert "raised" not in start_handle.search(overview).group(0)
+
+    # Dragged onto the end handle at the right edge, the start handle paints above it so the pointer can move it back.
+    client.post(window_url, {"window_from": str(max_seconds - 1), "window_to": str(max_seconds)}, **HTMX)
+    overview = client.get(overview_url).content.decode()
+    assert 'class="raised"' in start_handle.search(overview).group(0)
+
+
 @pytest.mark.django_db
 def test_inline_alias_save_refreshes_the_action_bar(client, late_project) -> None:
     project = late_project

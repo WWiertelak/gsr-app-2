@@ -12,8 +12,26 @@
         </div>
         <div class="tl-plot" aria-hidden="true">
           {% for tick in overview.ticks %}<span class="tl-grid" style="left: {{ tick.pct|stringformat:'s' }}%"></span>{% endfor %}
-          {% if overlap.ok %}<span class="tl-window" style="left: {{ overlap.bar_left_pct|stringformat:'s' }}%; width: {{ overlap.bar_width_pct|stringformat:'s' }}%"></span>{% endif %}
+          {% if overlap.ok %}<span class="tl-window{% if window and not window.full %} narrowed{% endif %}" style="left: {{ overlap.bar_left_pct|stringformat:'s' }}%; width: {{ overlap.bar_width_pct|stringformat:'s' }}%"></span>{% endif %}
+          {% if window %}<span class="tl-select" data-window-band style="left: {{ window.band_left_pct|stringformat:'s' }}%; width: {{ window.band_width_pct|stringformat:'s' }}%"></span>{% endif %}
         </div>
+        {% if window %}
+          {# Two handles on the shaded window's edges pick the analysed period (whole seconds from the common start). #}
+          <form id="window-form" class="tl-handles" method="post" action="{% url 'gsr:upload_window' project.pk %}"
+                hx-post="{% url 'gsr:upload_window' project.pk %}" hx-trigger="change delay:400ms, submit"
+                hx-target="#window-summary" hx-swap="outerHTML"
+                style="--left: {{ overlap.bar_left_pct|stringformat:'s' }}%; --width: {{ overlap.bar_width_pct|stringformat:'s' }}%"
+                data-window data-clock-offset="{{ window.clock_offset }}"
+                data-window-left="{{ overlap.bar_left_pct|stringformat:'s' }}" data-window-width="{{ overlap.bar_width_pct|stringformat:'s' }}"
+                data-label-full="{% translate 'Analysed period: the whole common window.' %}"
+                data-label-part="{% blocktranslate with start='{start}' end='{end}' duration='{duration}' %}Analysed period {{ start }}–{{ end }} · {{ duration }} min{% endblocktranslate %}">
+            {% csrf_token %}
+            <input type="range" id="window-from" name="window_from" min="0" max="{{ window.max }}" step="1" value="{{ window.from }}"{% if window.from_pct > 50 %} class="raised"{% endif %}
+                   aria-label="{% translate 'Start of the analysed period' %}" aria-valuetext="{{ window.from_clock }}">
+            <input type="range" id="window-to" name="window_to" min="0" max="{{ window.max }}" step="1" value="{{ window.to }}"
+                   aria-label="{% translate 'End of the analysed period' %}" aria-valuetext="{{ window.to_clock }}">
+          </form>
+        {% endif %}
         {% for row in overview.rows %}{% with line=forloop.counter|add:1|stringformat:"s" %}
           <div class="tl-name" style="grid-row: {{ line }}"><span class="dot" style="background: {{ row.color }}" aria-hidden="true"></span>{{ row.dataset.alias }}{% if not row.dataset.included %} <span class="muted small">{% translate "excluded" %}</span>{% endif %}</div>
           {% if row.error %}
@@ -26,7 +44,9 @@
           {% endif %}
         {% endwith %}{% endfor %}
       </div>
-      {% if overlap.ok %}
+      {% if window %}
+        {% include "gsr/partials/upload_window.html" %}
+      {% elif overlap.ok %}
         <div class="alert success window-summary">
           <strong>{% blocktranslate with start=overlap.start|date:"H:i:s" end=overlap.end|date:"H:i:s" duration=overlap.duration_minutes|floatformat:1 %}Common window {{ start }}–{{ end }} · {{ duration }} min{% endblocktranslate %}</strong>
           <span>{% translate "Data outside the shaded window is not analysed." %}</span>
