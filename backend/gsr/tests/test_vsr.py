@@ -254,7 +254,9 @@ def test_empty_step_is_recorded_with_the_documents_go_to_step_quote() -> None:
     assert first_pass["step_6"]["answer"] == "NO"
     assert first_pass["step_6"]["selected_count"] == 1
     assert len(selection.passes) == 2
-    assert all(record["reason"] == CANDIDATES_EXHAUSTED for record in selection.passes[1]["steps"] if record["step"] == 5)
+    assert all(
+        record["reason"] == CANDIDATES_EXHAUSTED for record in selection.passes[1]["steps"] if record["step"] == 5
+    )
 
 
 def test_step_6_repeats_the_steps_until_five_moments_are_selected() -> None:

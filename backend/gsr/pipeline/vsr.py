@@ -85,8 +85,7 @@ class Quote:
 
 QUOTE_FIVE_MOMENTS = Quote("A total of 5 moments discussed per interview (ideally)", CRITERIA_PAGE)
 QUOTE_RESERVE = Quote(
-    "Aim to identify more (e.g. 8) just in case the participant has nothing to say "
-    "about one of the selected moments",
+    "Aim to identify more (e.g. 8) just in case the participant has nothing to say about one of the selected moments",
     CRITERIA_PAGE,
 )
 QUOTE_DYAD_DATA = Quote("Points for discussion are selected based on the dyad\u2019s GSR data", CRITERIA_PAGE)
@@ -312,9 +311,7 @@ def _windows(a: np.ndarray, b: np.ndarray, relative_minutes: np.ndarray, config:
 
 
 def _moment_from_run(step: int, state: str | None, run: list[Window]) -> Moment:
-    fractions = [
-        window.shared_high_fraction if state == HIGH else window.shared_low_fraction for window in run
-    ]
+    fractions = [window.shared_high_fraction if state == HIGH else window.shared_low_fraction for window in run]
     return Moment(
         step=step,
         start_seconds=run[0].start_seconds,
@@ -375,8 +372,7 @@ def _select(moments: dict[int, list[Moment]], config: VsrConfig) -> tuple[list[P
                 (
                     (rank, moment)
                     for rank, moment in enumerate(moments[number], start=1)
-                    if (number, rank) not in used
-                    and not any(moment.overlaps(other) for other in taken)
+                    if (number, rank) not in used and not any(moment.overlaps(other) for other in taken)
                 ),
                 None,
             )
@@ -550,7 +546,7 @@ _CHOICE_RULE_PHRASES = {
 
 def _quote(fragment: dict[str, Any], key: str = "quote") -> str:
     quote = fragment[key]
-    return f'(p. {quote["page"]}) \u201c{quote["text"]}\u201d'
+    return f"(p. {quote['page']}) \u201c{quote['text']}\u201d"
 
 
 def _project_value(fragment: dict[str, Any], key: str) -> str:
@@ -597,8 +593,7 @@ def justification_text(fragments: Sequence[dict[str, Any]]) -> str:
             sentences.append(
                 f"{criterion}: {measured}."
                 if fragment["meets_threshold"]
-                else f"{criterion} is not met ({measured}), which is what separates this type"
-                " from co-movement."
+                else f"{criterion} is not met ({measured}), which is what separates this type from co-movement."
             )
         elif kind == "shared_state":
             sentences.append(
@@ -719,13 +714,9 @@ def _interview_payload(
         "data_basis": data_basis.as_dict(),
         "basis_notes": [quote.as_dict() for quote in basis_notes],
         "window_count": selection.window_count,
-        "candidate_counts": {
-            str(step): len(candidates) for step, candidates in selection.moments_by_step.items()
-        },
+        "candidate_counts": {str(step): len(candidates) for step, candidates in selection.moments_by_step.items()},
         "passes": selection.passes,
-        "moments": [
-            _proposal_payload(proposal, data_basis, clock_start, config) for proposal in selection.proposals
-        ],
+        "moments": [_proposal_payload(proposal, data_basis, clock_start, config) for proposal in selection.proposals],
         "stats": {
             "primary_count": len(primary),
             "reserve_count": len(selection.proposals) - len(primary),
