@@ -145,12 +145,15 @@ VSR_MOMENT_COLUMNS = (
     "interview", "interview_type", "participants", "number", "status", "step", "synchrony_type", "pass",
     "lesson_start_s", "lesson_end_s", "clock_start", "clock_end", "video_start", "video_end", "correlation",
     "shared_state", "shared_state_fraction", "asynchrony_subtype", "candidate_rank", "candidate_count",
-    "justification", "note",
+    "justification", "note", "stale",
 )
 
 
 def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
-    """The VSR interview moments of every interview, one row each, with the justification in English."""
+    """The VSR interview moments of every interview, one row each, with the justification in English.
+
+    ``stale`` is True on every row when the participants, the parameters or the analysis changed after the proposals.
+    """
     rows = [
         {
             "interview": interview["key"],
@@ -175,6 +178,7 @@ def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
             "candidate_count": moment["candidate_count"],
             "justification": moment["justification_text"],
             "note": moment["note"],
+            "stale": vsr["stale"],
         }
         for interview in vsr["interviews"]
         for moment in interview["moments"]
