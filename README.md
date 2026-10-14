@@ -39,8 +39,8 @@ authentication before hosting the app for more than one person.
 
 - `backend/gsr/pipeline/` - Django-free pipeline: `parser` (eSense CSV), `preprocessing`
   (synchronization, cleaning, scaling, merge, downsampling), `synchrony` (joint
-  synchronization), `coarousal` (co-arousal), `config` (`PipelineConfig`), `vsr_config`
-  (`VsrConfig`, VSR interview parameters).
+  synchronization), `coarousal` (co-arousal), `vsr` (VSR interview moment selection; no UI yet),
+  `config` (`PipelineConfig`), `vsr_config` (`VsrConfig`, VSR interview parameters).
 - `backend/gsr/models.py`, `backend/gsr/services/` - projects, dataset upload, analysis service,
   stored last results per screen (`results`), exports (`exports`), interview roles and VSR
   parameters kept outside the analysis signature (`interview`).
