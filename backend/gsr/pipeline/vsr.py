@@ -7,7 +7,9 @@ order, and the STEP 6 loop that repeats those questions until five moments are
 selected (pages 3-4).
 
 What the document leaves open is decided here once, and every decision is
-recorded in the justification of the moment it produced:
+recorded in the justification of the moment it produced (the numbers below are
+the ``VsrConfig`` defaults; a project may edit them, and the justification then
+states the applied value next to the document quote):
   * a "moment" is a run of consecutive 30 s correlation windows (5 s step) that
     answer the same step - the same windowing the Synchrony analysis uses;
   * an arousal state is the Co-arousal analysis' state (z-scored within the
