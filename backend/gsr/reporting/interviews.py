@@ -1,6 +1,7 @@
 """The PDF report's section of VSR interview moments ("Momenty do wywiadów VSR").
 
-Lays out the stored proposals of the Interviews step (``services/vsr.report_data``): per
+Lays out the moments of the Interviews step (``services/vsr.report_data``: the researcher's
+list without rejected moments, or the stored proposals while nothing is decided): per
 interview a table of the moments with lesson, sensor-clock and video times, and for every
 moment its justification built from document quotes (``vsr_text``) beside a mini-chart of
 the two signals. Report strings live here in Polish and English like the rest of the
