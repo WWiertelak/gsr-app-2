@@ -28,6 +28,7 @@ from gsr.pipeline.vsr import (
     QUOTE_DYAD_DATA,
     QUOTE_FIVE_MOMENTS,
     QUOTE_RESERVE,
+    QUOTE_STEP_6_QUESTION,
     QUOTE_SYNCHRONOUS,
     QUOTE_TEACHER_AGGREGATION,
     QUOTE_TEACHER_DATA,
@@ -35,6 +36,7 @@ from gsr.pipeline.vsr import (
     STEP_PAGES,
     STEPS,
     Moment,
+    Quote,
     Window,
     _moments_by_step,
     _select,
@@ -405,6 +407,63 @@ def test_justification_of_a_later_pass_quotes_the_step_6_instruction() -> None:
     assert "Select additional moments by going through STEPS 1 through 5 again" in text
     assert "Selected in pass 2" in text
     assert "Ranked 2 of 2 moments answering STEP 1" in text
+
+
+@pytest.mark.parametrize(
+    ("step", "correlation", "overrides", "quote", "threshold", "label"),
+    [
+        (2, 0.75, {"vsr_sync_threshold": 0.7}, QUOTE_SYNCHRONOUS, 0.7, " (project threshold 0.7): r = 0.75."),
+        (5, 0.15, {"vsr_async_threshold": 0.2}, QUOTE_ASYNCHRONOUS, 0.2, " (project threshold 0.2): r = 0.15."),
+        (2, 0.95, {}, QUOTE_SYNCHRONOUS, 0.8, ": r = 0.95."),
+    ],
+)
+def test_justification_names_the_applied_threshold_next_to_the_document_criterion(
+    step: int, correlation: float, overrides: dict, quote: Quote, threshold: float, label: str
+) -> None:
+    config = VsrConfig(**overrides)
+    moments = {number: [] for number in STEPS}
+    moments[step] = [_moment(step, 0.0, 30.0, correlation)]
+
+    proposals, _passes = _select(moments, config)
+    fragments = justification_fragments(proposals[0], QUOTE_DYAD_DATA, config)
+    criterion = next(fragment for fragment in fragments if fragment["kind"] == "criterion")
+
+    assert criterion["quote"] == quote.as_dict()
+    assert criterion["threshold"] == threshold
+    assert f"\u201c{quote.text}\u201d{label}" in justification_text(fragments)
+
+
+def test_justification_names_the_project_targets_next_to_the_step_6_and_reserve_quotes() -> None:
+    config = VsrConfig(vsr_primary_moment_count=2, vsr_reserve_moment_count=1)
+    moments = {number: [] for number in STEPS}
+    moments[1] = [_moment(1, index * 100.0, index * 100.0 + 30.0, 0.99 - index * 0.01, 1.0) for index in range(3)]
+
+    proposals, passes = _select(moments, config)
+    texts = [justification_text(justification_fragments(proposal, QUOTE_DYAD_DATA, config)) for proposal in proposals]
+
+    assert [proposal.status for proposal in proposals] == [PRIMARY, PRIMARY, RESERVE]
+    assert [(record["step_6"]["answer"], record["step_6"]["target"]) for record in passes] == [
+        ("NO", 2),
+        ("YES", 2),
+        ("YES", 2),
+    ]
+    assert all(record["step_6"]["document_target"] == 5 for record in passes)
+    assert f"\u201c{QUOTE_STEP_6_QUESTION.text}\u201d (project target 2 moments) - NO" in texts[1]
+    assert f"\u201c{QUOTE_RESERVE.text}\u201d (project target 3 moments)." in texts[2]
+    assert "project target" not in texts[0]
+
+
+def test_justification_with_the_document_targets_names_no_project_value() -> None:
+    config = VsrConfig()
+    moments = {number: [] for number in STEPS}
+    moments[5] = [_moment(5, index * 100.0, index * 100.0 + 30.0, -0.9 + index * 0.1) for index in range(8)]
+
+    proposals, _passes = _select(moments, config)
+    texts = [justification_text(justification_fragments(proposal, QUOTE_DYAD_DATA, config)) for proposal in proposals]
+
+    assert "Selected in pass 2" in texts[1]
+    assert QUOTE_RESERVE.text in texts[7]
+    assert not any("(project" in text for text in texts)
 
 
 def test_asynchronous_moment_states_the_signals_moved_in_opposite_directions() -> None:

@@ -62,6 +62,14 @@ LOWEST_CORRELATION = "lowest_correlation"
 LARGEST_SHARED_STATE = "largest_shared_state_share"
 
 
+# The numbers the quotes below state; a project may apply other values, and a
+# justification then names the applied value next to the unchanged quote.
+DOCUMENT_SYNC_THRESHOLD = 0.8
+DOCUMENT_ASYNC_THRESHOLD = 0.1
+DOCUMENT_PRIMARY_COUNT = 5
+DOCUMENT_TOTAL_COUNT = 8
+
+
 @dataclass(frozen=True)
 class Quote:
     """One verbatim quote from the document, with the page it was read from."""
@@ -412,6 +420,8 @@ def _select(moments: dict[int, list[Moment]], config: VsrConfig) -> tuple[list[P
                     "answer": "YES" if reached_target else "NO",
                     "instruction": (QUOTE_STEP_6_YES if reached_target else QUOTE_STEP_6_NO).as_dict(),
                     "selected_count": primary_count,
+                    "target": config.vsr_primary_moment_count,
+                    "document_target": DOCUMENT_PRIMARY_COUNT,
                 },
             }
         )
@@ -473,6 +483,8 @@ def justification_fragments(proposal: Proposal, data_basis: Quote, config: VsrCo
             "quote": step.criterion.as_dict(),
             "correlation": moment.correlation,
             "meets_threshold": step.meets_criterion,
+            "threshold": config.vsr_async_threshold if step.number == 5 else config.vsr_sync_threshold,
+            "document_threshold": DOCUMENT_ASYNC_THRESHOLD if step.number == 5 else DOCUMENT_SYNC_THRESHOLD,
         },
     ]
     if moment.shared_state is not None:
@@ -511,10 +523,19 @@ def justification_fragments(proposal: Proposal, data_basis: Quote, config: VsrCo
                 "quote": QUOTE_STEP_6_QUESTION.as_dict(),
                 "answer": "NO",
                 "instruction": QUOTE_STEP_6_NO.as_dict(),
+                "target": config.vsr_primary_moment_count,
+                "document_target": DOCUMENT_PRIMARY_COUNT,
             }
         )
     if proposal.status == RESERVE:
-        fragments.append({"kind": "reserve", "quote": QUOTE_RESERVE.as_dict()})
+        fragments.append(
+            {
+                "kind": "reserve",
+                "quote": QUOTE_RESERVE.as_dict(),
+                "target": config.vsr_primary_moment_count + config.vsr_reserve_moment_count,
+                "document_target": DOCUMENT_TOTAL_COUNT,
+            }
+        )
     return fragments
 
 
@@ -528,6 +549,14 @@ _CHOICE_RULE_PHRASES = {
 def _quote(fragment: dict[str, Any], key: str = "quote") -> str:
     quote = fragment[key]
     return f'(p. {quote["page"]}) \u201c{quote["text"]}\u201d'
+
+
+def _project_value(fragment: dict[str, Any], key: str) -> str:
+    """The applied value next to a quote, when the project changed the document's number."""
+    value = fragment[key]
+    if value == fragment[f"document_{key}"]:
+        return ""
+    return f" (project threshold {value:g})" if key == "threshold" else f" (project target {_moments_counted(value)})"
 
 
 def _moments_counted(count: int) -> str:
@@ -562,10 +591,11 @@ def justification_text(fragments: Sequence[dict[str, Any]]) -> str:
             sentences.append(f"Synchrony type {_quote(fragment)}.")
         elif kind == "criterion":
             measured = f"r = {fragment['correlation']:.2f}"
+            criterion = f"Criterion {_quote(fragment)}{_project_value(fragment, 'threshold')}"
             sentences.append(
-                f"Criterion {_quote(fragment)}: {measured}."
+                f"{criterion}: {measured}."
                 if fragment["meets_threshold"]
-                else f"Criterion {_quote(fragment)} is not met ({measured}), which is what separates this type"
+                else f"{criterion} is not met ({measured}), which is what separates this type"
                 " from co-movement."
             )
         elif kind == "shared_state":
@@ -593,11 +623,11 @@ def justification_text(fragments: Sequence[dict[str, Any]]) -> str:
                 )
         elif kind == "repeat_pass":
             sentences.append(
-                f"STEP 6 {_quote(fragment)} - NO, so {_quote(fragment, 'instruction')}"
+                f"STEP 6 {_quote(fragment)}{_project_value(fragment, 'target')} - NO, so {_quote(fragment, 'instruction')}"
                 f" Selected in pass {fragment['pass_number']}."
             )
         elif kind == "reserve":
-            sentences.append(f"Additional moment {_quote(fragment)}.")
+            sentences.append(f"Additional moment {_quote(fragment)}{_project_value(fragment, 'target')}.")
         else:  # pragma: no cover - fragment kinds are a closed set
             raise ValueError(f"Unknown justification fragment: {kind}")
     return " ".join(sentences)
