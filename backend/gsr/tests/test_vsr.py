@@ -10,17 +10,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from django.utils import translation
-
 import numpy as np
 import pytest
+from django.utils import translation
 
+from gsr import vsr_text
 from gsr.pipeline.coarousal import compute_coarousal
 from gsr.pipeline.common import PipelineError
 from gsr.pipeline.config import PipelineConfig
 from gsr.pipeline.preprocessing import run_pipeline
 from gsr.pipeline.synchrony import compute_synchrony
-from gsr import vsr_text
 from gsr.pipeline.vsr import (
     COAROUSAL,
     HIGH,
