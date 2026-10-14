@@ -8,8 +8,11 @@ file SHA-256) replaces the segment CSV appendix.
 
 ``build_report`` turns the run payload into sections of blocks (headings,
 paragraphs, tables, charts) that ``templates/gsr/report/report.html`` lays out;
-WeasyPrint converts that page to PDF. Charts are the PNGs the Export screen
-captures from the screens' ECharts charts (``chart_images``).
+WeasyPrint converts that page to PDF. Page 1 is the cover and a one-page
+summary (key figures, the synchronization timeline and matrix, contents); the
+other sections follow on without page breaks. Charts are the PNGs the Export
+screen captures from the screens' ECharts charts (``chart_images``). The page
+shares the app's design tokens (``static/gsr/css/tokens.css``) and IBM Plex fonts.
 """
 
 from __future__ import annotations
@@ -25,6 +28,10 @@ from ..pipeline.preprocessing import analysed_range
 from .methodology import METHODOLOGY, METHODS_COMPARISON
 
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
+# The app's design tokens and its vendored IBM Plex fonts, shared with the report.
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static" / "gsr"
+TOKENS_CSS = STATIC_DIR / "css" / "tokens.css"
+PLEX_DIR = STATIC_DIR / "vendor" / "fonts"
 
 _TR: dict[str, dict[str, str]] = {
     "pl": {
@@ -52,6 +59,7 @@ _TR: dict[str, dict[str, str]] = {
         "summary_comovement": "ko-ruch",
         "summary_mean": "średnia",
         "summary_index": "indeks",
+        "contents": "Spis treści",
         "interpretation_note": "Uwaga interpretacyjna",
         "summary_interpretation_note": "GSR opisuje poziom i dynamikę pobudzenia fizjologicznego. Nie rozpoznaje konkretnej emocji, nie określa jej znaku i sam nie dowodzi związku przyczynowego między osobami.",
         "stale_warning": "UWAGA: ustawienia lub sygnały projektu zmieniły się po tym obliczeniu. Raport opisuje ostatnie obliczenie.",
@@ -236,6 +244,7 @@ _TR: dict[str, dict[str, str]] = {
         "summary_comovement": "co-movement",
         "summary_mean": "mean",
         "summary_index": "index",
+        "contents": "Contents",
         "interpretation_note": "Interpretation note",
         "summary_interpretation_note": "GSR describes physiological arousal level and dynamics. It does not identify a specific emotion or valence and cannot by itself establish causation between people.",
         "stale_warning": "NOTE: the project settings or signals changed after this run. The report describes the last run.",
@@ -397,10 +406,12 @@ _TR: dict[str, dict[str, str]] = {
     },
 }
 
+# The synchronization timeline (with its pair curves) and matrix are the summary page's charts.
 CHART_SECTIONS = {
+    "summary": ("sync_timeline", "sync_matrix"),
     "import": ("raw_overlay",),
     "cleaning": ("clean_overlay",),
-    "synchrony": ("sync_timeline", "sync_signals", "sync_matrix"),
+    "synchrony": ("sync_signals",),
     "coarousal": ("coarousal_states",),
 }
 
@@ -492,8 +503,15 @@ def _table(header: list[str], rows: list[list[Any]], *, numeric: tuple[int, ...]
     }
 
 
-def _kv_table(lang: str, rows: list[list[Any]], first: str = "field") -> dict[str, Any]:
-    return _table([_tr(lang, first), _tr(lang, "value")], rows, kind="kv")
+def _kv_table(lang: str, rows: list[list[Any]], first: str = "field", *, split: bool = False,
+              kind: str = "kv") -> dict[str, Any]:
+    """Label/value rows; ``split`` sets them in two column pairs (the first half on the left) to save height."""
+    header = [_tr(lang, first), _tr(lang, "value")]
+    if not split or len(rows) < 2:
+        return _table(header, rows, kind=kind)
+    half = (len(rows) + 1) // 2
+    left, right = rows[:half], rows[half:] + [["", ""]] * (half * 2 - len(rows))
+    return _table(header * 2, [a + b for a, b in zip(left, right)], kind=f"{kind} split")
 
 
 def _h2(text: str) -> dict[str, Any]:
@@ -556,6 +574,10 @@ def _title_page(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     }
 
 
+def _kpi(label: str, value: Any, unit: str, details: list[str]) -> dict[str, Any]:
+    return {"label": label, "value": _cell(value), "unit": unit, "details": [d for d in details if d]}
+
+
 def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     preview = payload.get("preview") or {}
     totals = (preview.get("cleaning_summary") or {}).get("totals") or {}
@@ -566,50 +588,47 @@ def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, 
     coarousal = payload.get("coarousal") or {}
     coarousal_stats = coarousal.get("stats") or {}
 
-    rows = [
-        [
-            _tr(lang, "summary_scope"),
-            f"{len(aliases)} {_tr(lang, 'summary_participants')}; "
-            f"{_fmt(preview_range.get('from'))}–{_fmt(preview_range.get('to'))} min",
-        ],
-        [
-            _tr(lang, "summary_quality"),
-            f"{_fmt(totals.get('in_time_window_points'))} {_tr(lang, 'summary_in_window')}; "
-            f"{_fmt(totals.get('artifact_rejected_points'))} {_tr(lang, 'summary_artifacts')}",
-        ],
-        [
-            _tr(lang, "summary_synchrony"),
-            (
-                f"{_tr(lang, 'summary_mean')}={_fmt(sync_stats.get('mean_synchrony'))}; "
-                f"{_fmt(sync_stats.get('episode_count'))} {_tr(lang, 'summary_episodes')}; "
-                f"{_tr(lang, 'summary_max_group')}={_fmt(sync_stats.get('max_episode_size'))}; "
-                f"p={_fmt(sync_stats.get('mean_synchrony_p_value'))}"
-                if synchrony
-                else "—"
-            ),
-        ],
-        [
-            _tr(lang, "summary_contagion"),
-            (
-                f"{_tr(lang, 'summary_index')}={_fmt(coarousal.get('coarousal_index'))}; "
-                f"{_fmt(coarousal_stats.get('episode_count'))} {_tr(lang, 'summary_episodes')}; "
-                f"{_tr(lang, 'summary_high')}={_fmt(coarousal_stats.get('high_episode_count'))}; "
-                f"{_tr(lang, 'summary_low')}={_fmt(coarousal_stats.get('low_episode_count'))}; "
-                f"{_tr(lang, 'summary_comovement')}={_fmt(coarousal_stats.get('comovement_episode_count'))}; "
-                f"p={_fmt(coarousal.get('coarousal_p_value'))}; {_significance(lang, coarousal)}"
-                if coarousal
-                else "—"
-            ),
-        ],
+    episodes = _tr(lang, "summary_episodes")
+    kpis = [
+        _kpi(_tr(lang, "summary_scope"), len(aliases), _tr(lang, "summary_participants"),
+             [f"{_fmt(preview_range.get('from'))}–{_fmt(preview_range.get('to'))} min"]),
+        _kpi(_tr(lang, "summary_quality"), totals.get("in_time_window_points"), _tr(lang, "summary_in_window"),
+             [f"{_fmt(totals.get('artifact_rejected_points'))} {_tr(lang, 'summary_artifacts')}"]),
+        _kpi(_tr(lang, "summary_synchrony"), sync_stats.get("mean_synchrony") if synchrony else "—",
+             _tr(lang, "summary_mean"),
+             [
+                 f"p={_fmt(sync_stats.get('mean_synchrony_p_value'))}",
+                 f"{_fmt(sync_stats.get('episode_count'))} {episodes}; "
+                 f"{_tr(lang, 'summary_max_group')}={_fmt(sync_stats.get('max_episode_size'))}",
+             ] if synchrony else []),
+        _kpi(_tr(lang, "summary_contagion"), coarousal.get("coarousal_index") if coarousal else "—",
+             _tr(lang, "summary_index"),
+             [
+                 f"p={_fmt(coarousal.get('coarousal_p_value'))}; {_significance(lang, coarousal)}",
+                 f"{_fmt(coarousal_stats.get('episode_count'))} {episodes}: "
+                 f"{_tr(lang, 'summary_high')}={_fmt(coarousal_stats.get('high_episode_count'))}, "
+                 f"{_tr(lang, 'summary_low')}={_fmt(coarousal_stats.get('low_episode_count'))}, "
+                 f"{_tr(lang, 'summary_comovement')}={_fmt(coarousal_stats.get('comovement_episode_count'))}",
+             ] if coarousal else []),
     ]
-    return _section("summary", _tr(lang, "executive_summary"), [
-        _kv_table(lang, rows, first="metric"),
-        _note(_tr(lang, "interpretation_note"), _tr(lang, "summary_interpretation_note"), style="callout"),
-    ])
+    charts = {chart["key"]: chart for chart in _charts(payload, "summary", lang)}
+    blocks: list[dict[str, Any]] = [{"type": "kpis", "items": kpis}]
+    if "sync_timeline" in charts:
+        blocks.append(charts["sync_timeline"])
+    blocks.append({
+        "type": "aside",
+        "chart": charts.get("sync_matrix"),
+        "contents_heading": _tr(lang, "contents"),
+        "note": _note(_tr(lang, "interpretation_note"), _tr(lang, "summary_interpretation_note"), style="callout"),
+    })
+    return _section("summary", _tr(lang, "executive_summary"), blocks)
 
 
 def _section_import(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     blocks: list[dict[str, Any]] = []
+    description = str(payload.get("project_description") or "").strip()
+    if description:
+        blocks += [_h2(_tr(lang, "description")), _p(description, style="project-description")]
     datasets = payload.get("datasets") or []
     if datasets:
         blocks.append(_table(
@@ -667,7 +686,7 @@ def _section_cleaning(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     ]
     blocks: list[dict[str, Any]] = [
         _h2(_tr(lang, "cleaning_params")),
-        _kv_table(lang, [[label, _setting(lang, value)] for label, value in mapping]),
+        _kv_table(lang, [[label, _setting(lang, value)] for label, value in mapping], split=True),
         _h2(_tr(lang, "sync_heading")),
         _table(
             [_tr(lang, key) for key in ("alias", "start_raw", "end_raw", "raw_points", "clean_points")],
@@ -717,7 +736,7 @@ def _section_cleaning(payload: dict[str, Any], lang: str) -> dict[str, Any]:
                 [_tr(lang, "before_downsample"), _fmt(totals.get("merged_points_before_downsampling"))],
                 [_tr(lang, "after_downsample"), _fmt(totals.get("merged_points_after_downsampling"))],
                 [_tr(lang, "dropped_downsample"), _fmt(totals.get("downsampled_points"))],
-            ], first="metric"))
+            ], first="metric", split=True))
     blocks += _charts(payload, "cleaning", lang)
     return _section("cleaning", _tr(lang, "cleaning_heading"), blocks)
 
@@ -740,7 +759,7 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
          _fmt(stats.get("surrogate_count") or config.get("synchrony_surrogate_count"))],
         [_tr(lang, "sync_surrogate_seed"), _fmt(config.get("synchrony_surrogate_seed"))],
         [_tr(lang, "sync_group_p"), _fmt(stats.get("mean_synchrony_p_value"))],
-    ], first="metric")]
+    ], first="metric", split=True)]
 
     blocks.append(_h2(_tr(lang, "sync_episodes_heading")))
     episodes = synchrony.get("episodes") or []
@@ -828,7 +847,7 @@ def _section_coarousal(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
         [_tr(lang, "contagion_p"), _fmt(p_value) if p_value is not None else "—"],
         [_tr(lang, "sync_episode_count"), _fmt(stats.get("episode_count"))],
         [_tr(lang, "contagion_significance"), _significance(lang, coarousal)],
-    ], first="metric")]
+    ], first="metric", split=True)]
 
     blocks.append(_h2(_tr(lang, "contagion_episodes_heading")))
     episodes = coarousal.get("episodes") or []
@@ -981,8 +1000,8 @@ def _section_appendix(payload: dict[str, Any], lang: str) -> dict[str, Any]:
                [[package, version] for package, version in (payload.get("versions") or {}).items()]),
         _h2(_tr(lang, "appendix_settings")),
         # Raw values here (not _fmt) so the table can be copied back into the settings exactly.
-        _table([_tr(lang, "field"), _tr(lang, "value")],
-               [[name, "-" if value is None else str(value)] for name, value in config.items()], kind="kv settings"),
+        _kv_table(lang, [[name, "-" if value is None else str(value)] for name, value in config.items()],
+                  split=True, kind="kv settings"),
     ]
     return _section("appendix", _tr(lang, "appendix_heading"), blocks)
 
@@ -1008,9 +1027,12 @@ def build_report(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def render_report_html(payload: dict[str, Any]) -> str:
-    """The report page, with the bundled DejaVu fonts (WeasyPrint has no system fonts to fall back on)."""
+    """The report page: the app's tokens and IBM Plex fonts, with the bundled DejaVu fonts as the fallback for
+    glyphs Plex's Latin subsets lack (WeasyPrint has no system fonts to fall back on)."""
     context = build_report(payload)
     context["font_dir"] = FONT_DIR.as_uri()
+    context["plex_dir"] = PLEX_DIR.as_uri()
+    context["tokens_css"] = TOKENS_CSS.read_text(encoding="utf-8")
     return render_to_string("gsr/report/report.html", context)
 
 

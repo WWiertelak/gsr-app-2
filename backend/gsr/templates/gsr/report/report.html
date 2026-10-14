@@ -5,6 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ document_title }}</title>
+  <style>{{ tokens_css|safe }}</style>
   <style>{% include "gsr/report/report.css" %}</style>
 </head>
 <body>
@@ -12,10 +13,9 @@
     <p class="eyebrow">GSR_APP 2.0</p>
     <h1 class="report-title">{{ title_page.title }}</h1>
     <p class="cover-project">{{ title_page.project }}</p>
-    {% include "gsr/report/table.html" with table=title_page.meta %}
+    <dl class="cover-meta">{% for label, value in title_page.meta.rows %}<div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl>
     {% if title_page.stale_warning %}<p class="callout warning"><strong>{{ title_page.stale_warning }}</strong></p>{% endif %}
-    <h2>{{ title_page.description_heading }}</h2>
-    <p class="description">{{ title_page.description|linebreaksbr }}</p>
+    <p class="description"><strong>{{ title_page.description_heading }}:</strong> {{ title_page.description|linebreaksbr }}</p>
   </header>
 
   {% for section in sections %}
@@ -35,10 +35,29 @@
         {% elif block.type == "table" %}
           {% include "gsr/report/table.html" with table=block %}
         {% elif block.type == "chart" %}
-          <figure class="chart chart-{{ block.key }}">
-            <figcaption>{{ block.title }}</figcaption>
-            <img src="{{ block.src }}" alt="{{ block.title }}">
-          </figure>
+          {% include "gsr/report/chart.html" with chart=block %}
+        {% elif block.type == "kpis" %}
+          <div class="kpis">
+            {% for kpi in block.items %}
+              <div class="kpi">
+                <p class="kpi-label">{{ kpi.label }}</p>
+                <p class="kpi-value">{{ kpi.value }} <span class="kpi-unit">{{ kpi.unit }}</span></p>
+                {% for detail in kpi.details %}<p class="kpi-detail">{{ detail }}</p>{% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+        {% elif block.type == "aside" %}
+          {# The summary page's last row: the synchronization matrix beside the contents and the interpretation note. #}
+          <div class="summary-row{% if not block.chart %} no-chart{% endif %}">
+            {% if block.chart %}{% include "gsr/report/chart.html" with chart=block.chart %}{% endif %}
+            <div class="summary-aside">
+              <nav class="contents" aria-labelledby="contents-title">
+                <h2 id="contents-title">{{ block.contents_heading }}</h2>
+                <ol>{% for item in sections %}{% if item.id != section.id %}<li><a href="#{{ item.id }}">{{ item.title }}</a></li>{% endif %}{% endfor %}</ol>
+              </nav>
+              <p class="note {{ block.note.style }}"><strong>{{ block.note.label }}:</strong> {{ block.note.text }}</p>
+            </div>
+          </div>
         {% endif %}
       {% endfor %}
     </section>

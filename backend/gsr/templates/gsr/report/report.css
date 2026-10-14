@@ -1,26 +1,30 @@
-/* Report layout: A4 pages for the PDF (WeasyPrint). Colours still use the legacy GSRv2 palette until the PDF phase (3.1) restyles it. */
+/* Report layout: A4 pages for the PDF (WeasyPrint). Colours, fonts and spacing come from the app's tokens
+   (static/gsr/css/tokens.css, inlined before this sheet); DejaVu covers the glyphs Plex's Latin subsets lack. */
+/* IBM Plex: the app's vendored Latin and Latin Extended files, one family name per subset. WeasyPrint mixes up
+   glyphs when one family is split across files by unicode-range, as the app's @font-face rules do. */
+@font-face { font-family: "Plex Sans Latin"; font-weight: 400; src: url("{{ plex_dir }}/ibm-plex-sans-latin-400-normal.woff2"); }
+@font-face { font-family: "Plex Sans Ext"; font-weight: 400; src: url("{{ plex_dir }}/ibm-plex-sans-latin-ext-400-normal.woff2"); }
+@font-face { font-family: "Plex Sans Latin"; font-weight: 500; src: url("{{ plex_dir }}/ibm-plex-sans-latin-500-normal.woff2"); }
+@font-face { font-family: "Plex Sans Ext"; font-weight: 500; src: url("{{ plex_dir }}/ibm-plex-sans-latin-ext-500-normal.woff2"); }
+@font-face { font-family: "Plex Sans Latin"; font-weight: 600; src: url("{{ plex_dir }}/ibm-plex-sans-latin-600-normal.woff2"); }
+@font-face { font-family: "Plex Sans Ext"; font-weight: 600; src: url("{{ plex_dir }}/ibm-plex-sans-latin-ext-600-normal.woff2"); }
+@font-face { font-family: "Plex Mono Latin"; font-weight: 400; src: url("{{ plex_dir }}/ibm-plex-mono-latin-400-normal.woff2"); }
+@font-face { font-family: "Plex Mono Ext"; font-weight: 400; src: url("{{ plex_dir }}/ibm-plex-mono-latin-ext-400-normal.woff2"); }
 @font-face { font-family: "DejaVu Sans"; font-weight: normal; src: url("{{ font_dir }}/DejaVuSans.ttf"); }
 @font-face { font-family: "DejaVu Sans"; font-weight: bold; src: url("{{ font_dir }}/DejaVuSans-Bold.ttf"); }
 :root {
-  --ink: #102a43;
-  --ink-soft: #486581;
-  --accent: #0a9396;
-  --accent-dark: #005f73;
-  --accent-soft: #e6f4f3;
-  --warning: #bb3e03;
-  --warning-soft: #fff4e5;
-  --line: #d9e2ec;
-  --stripe: #f5f9fb;
+  --report-sans: "Plex Sans Latin", "Plex Sans Ext", "DejaVu Sans", sans-serif;
+  --report-mono: "Plex Mono Latin", "Plex Mono Ext", "DejaVu Sans", monospace;
 }
 
 @page {
   size: A4;
-  margin: 20mm 15mm 18mm 15mm;
-  font-family: "DejaVu Sans", sans-serif;  /* margin boxes do not inherit the body font */
-  @top-left { content: string(section); font-size: 7.5pt; color: #486581; }
-  @top-right { content: string(project); font-size: 7.5pt; color: #486581; }
-  @bottom-left { content: string(report-title); font-size: 7.5pt; color: #486581; }
-  @bottom-right { content: counter(page) " / " counter(pages); font-size: 7.5pt; color: #486581; }
+  margin: 16mm 15mm 15mm 15mm;
+  font-family: "Plex Sans Latin", "Plex Sans Ext", "DejaVu Sans", sans-serif;  /* margin boxes do not inherit the body font */
+  @top-left { content: string(section, start); font-size: 7pt; color: #617080; }
+  @top-right { content: string(project); font-size: 7pt; color: #617080; }
+  @bottom-left { content: string(report-title); font-size: 7pt; color: #617080; }
+  @bottom-right { content: counter(page) " / " counter(pages); font-size: 7pt; color: #617080; }
 }
 @page :first {
   @top-left { content: none; }
@@ -28,133 +32,181 @@
 }
 
 * { box-sizing: border-box; }
-html { background: #ffffff; }
+html { background: var(--surface); }
 body {
   margin: 0;
-  font-family: "DejaVu Sans", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  font-size: 9pt;
+  font-family: var(--report-sans);
+  font-size: 8.5pt;
   line-height: 1.45;
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
-  background: #ffffff;
+  background: var(--surface);
 }
 
-/* Cover */
-.cover { padding-top: 20mm; }
+/* Cover: the top of page 1; the summary section follows on the same page. */
+.cover { padding-bottom: var(--s3); }
 .eyebrow {
-  margin: 0 0 4mm;
-  font-size: 8pt;
-  font-weight: bold;
+  margin: 0 0 var(--s1);
+  font-size: 7pt;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--ink-3);
 }
 .report-title {
   margin: 0;
-  font-size: 26pt;
+  font-size: 20pt;
+  font-weight: 600;
   line-height: 1.15;
-  color: var(--accent-dark);
+  color: var(--ink);
   string-set: report-title content();
 }
 .cover-project {
-  margin: 2mm 0 10mm;
-  padding-bottom: 6mm;
-  border-bottom: 2px solid var(--accent);
-  font-size: 15pt;
-  color: var(--ink-soft);
+  margin: var(--s1) 0 var(--s3);
+  font-size: 12pt;
+  color: var(--ink-2);
   string-set: project content();
 }
-.description { margin: 0; }
-
-/* Sections */
-.report-section { break-before: page; }
-.section-title {
-  margin: 0 0 5mm;
-  padding-bottom: 2mm;
-  border-bottom: 2px solid var(--accent);
-  font-size: 17pt;
-  line-height: 1.2;
-  color: var(--accent-dark);
-  string-set: section content();
+.cover-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s5);
+  margin: 0 0 var(--s3);
+  padding: var(--s2) 0;
+  border-top: 2px solid var(--accent);
+  border-bottom: 1px solid var(--line);
 }
-h2 {
-  margin: 6mm 0 2.5mm;
-  font-size: 11.5pt;
-  line-height: 1.3;
-  color: var(--accent-dark);
+.cover-meta dt { font-size: 7pt; color: var(--ink-3); }
+.cover-meta dd { margin: 0; font-weight: 600; }
+.description { margin: 0; color: var(--ink-2); line-clamp: 3; }
+.description strong { color: var(--ink); font-weight: 600; }
+
+/* Sections flow on; a summary longer than page 1 continues on page 2 and the next section follows it. */
+.report-section { margin-top: var(--s6); }
+#summary { margin-top: var(--s3); }
+.section-title {
+  margin: 0 0 var(--s3);
+  padding-bottom: var(--s1);
+  border-bottom: 2px solid var(--accent);
+  font-size: 14pt;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  string-set: section content();
   break-after: avoid;
 }
-p { margin: 0 0 2.5mm; orphans: 3; widows: 3; }
-p.lead { font-size: 10pt; color: var(--ink-soft); }
-p.muted { color: var(--ink-soft); font-style: italic; }
-p.formula {
-  padding: 2mm 3mm;
-  border-left: 3px solid var(--line);
-  background: var(--stripe);
-  color: var(--ink-soft);
+#summary .section-title { font-size: 11pt; }
+h2 {
+  margin: var(--s4) 0 var(--s2);
+  font-size: 10pt;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+  break-after: avoid;
 }
+p { margin: 0 0 var(--s2); orphans: 3; widows: 3; }
+p.lead { font-size: 9.5pt; color: var(--ink-2); }
+p.muted { color: var(--ink-2); font-style: italic; }
+p.project-description { white-space: pre-line; }
+p.formula {
+  padding: var(--s1) var(--s3);
+  border-left: 3px solid var(--line-2);
+  background: var(--sunken);
+  color: var(--ink-2);
+  font-family: var(--report-mono);
+  font-size: 8pt;
+}
+strong { font-weight: 600; }
 .callout, .note.callout {
-  margin: 4mm 0;
-  padding: 3mm 4mm;
-  border-left: 4px solid var(--accent);
-  border-radius: 0 4px 4px 0;
-  background: var(--accent-soft);
+  margin: var(--s3) 0;
+  padding: var(--s2) var(--s3);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--accent-weak);
 }
 .callout.warning, .note.warning {
-  padding: 3mm 4mm;
-  border-left: 4px solid var(--warning);
-  border-radius: 0 4px 4px 0;
-  background: var(--warning-soft);
-  color: var(--warning);
+  padding: var(--s2) var(--s3);
+  border-left: 3px solid var(--warn);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--warn-weak);
+  color: var(--warn);
 }
-ul { margin: 0 0 3mm; padding-left: 5mm; }
-li { margin-bottom: 1mm; }
-dl.params { margin: 0 0 3mm; }
-dl.params dt { font-weight: bold; color: var(--accent-dark); break-after: avoid; }
-dl.params dd { margin: 0 0 2mm 5mm; }
+ul { margin: 0 0 var(--s2); padding-left: var(--s4); }
+li { margin-bottom: 2px; }
+dl.params { margin: 0 0 var(--s2); }
+dl.params dt { font-weight: 600; break-after: avoid; }
+dl.params dd { margin: 0 0 var(--s1) var(--s4); }
+
+/* Summary: key-figure tiles, the timeline, then the matrix beside the contents. */
+.kpis { display: flex; gap: var(--s2); margin: 0 0 var(--s3); }
+.kpi {
+  flex: 1 1 0;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--r-sm);
+}
+.kpi p { margin: 0; }
+.kpi-label { font-size: 7pt; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.kpi-value { margin: 2px 0 !important; font-size: 15pt; font-weight: 600; line-height: 1.2; }
+.kpi-unit { font-size: 7.5pt; font-weight: 400; color: var(--ink-2); }
+.kpi-detail { font-size: 7pt; line-height: 1.35; color: var(--ink-2); }
+.summary-row { display: flex; gap: var(--s4); align-items: flex-start; break-inside: avoid; }
+.summary-row figure.chart { flex: 0 0 56%; margin: 0; }
+.summary-aside { flex: 1 1 0; }
+.summary-row.no-chart .summary-aside { flex-basis: 100%; }
+.contents h2 { margin-top: 0; }
+.contents ol { margin: 0 0 var(--s3); padding: 0; list-style: none; }
+.contents li { margin: 0; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.contents a { color: var(--ink); text-decoration: none; }
+.contents a::after { content: leader(" ") target-counter(attr(href), page); color: var(--ink-3); }
+.summary-aside .note.callout { margin: 0; font-size: 7.5pt; }
 
 /* Tables */
 table {
   width: 100%;
-  margin: 0 0 5mm;
+  margin: 0 0 var(--s3);
   border-collapse: collapse;
-  font-size: 8pt;
+  font-size: 7.5pt;
   line-height: 1.35;
 }
 thead { display: table-header-group; }
 tr { break-inside: avoid; }
 th {
-  padding: 1.8mm 2mm;
-  border-bottom: 1.5px solid var(--accent-dark);
-  background: var(--accent-soft);
-  color: var(--accent-dark);
-  font-weight: bold;
+  padding: 3px 6px;
+  border-bottom: 1.5px solid var(--ink);
+  color: var(--ink-2);
+  font-weight: 600;
   text-align: left;
   vertical-align: bottom;
 }
 td {
-  padding: 1.5mm 2mm;
+  padding: 3px 6px;
   border-bottom: 0.5px solid var(--line);
   vertical-align: top;
   overflow-wrap: break-word;
 }
-tbody tr:nth-child(even) td { background: var(--stripe); }
+tbody tr:nth-child(even) td { background: var(--sunken); }
 .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-/* Label/value tables: the label column reads as a row heading. */
+/* Label/value tables: the label column reads as a row heading; split ones hold two label/value pairs per row. */
 table.kv { width: auto; min-width: 60%; }
-table.kv td:first-child { width: 45%; color: var(--ink-soft); }
-table.kv td:last-child { font-weight: bold; }
-table.settings { width: 100%; }
-table.settings td:last-child { font-weight: normal; }
-table.files td:last-child { overflow-wrap: anywhere; font-size: 7pt; letter-spacing: 0.02em; color: var(--ink-soft); }
+table.kv td:nth-child(odd) { width: 30%; color: var(--ink-2); }
+table.kv td:nth-child(even) { font-weight: 600; }
+table.kv.split { width: 100%; }
+table.kv.split td:nth-child(odd) { width: 32%; }
+table.kv.split td:nth-child(even) { width: 18%; }
+table.kv.split td:nth-child(3), table.kv.split th:nth-child(3) { padding-left: var(--s4); border-left: 1px solid var(--line); }
+table.settings td:nth-child(even) { font-weight: 400; font-family: var(--report-mono); font-size: 7pt; }
+table.settings td:nth-child(odd) { font-family: var(--report-mono); font-size: 7pt; }
+table.files td:last-child { overflow-wrap: anywhere; font-family: var(--report-mono); font-size: 6.5pt; color: var(--ink-2); }
 
 /* Charts */
-figure.chart { margin: 4mm 0 6mm; break-inside: avoid; }
+figure.chart { margin: var(--s2) 0 var(--s4); break-inside: avoid; }
 figure.chart figcaption {
-  margin-bottom: 2mm;
-  font-size: 9.5pt;
-  font-weight: bold;
-  color: var(--accent-dark);
+  margin-bottom: var(--s1);
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: var(--ink);
 }
 figure.chart img { display: block; width: 100%; height: auto; border: 0.5px solid var(--line); }
-figure.chart-sync_matrix img { width: auto; max-width: 100%; max-height: 150mm; margin: 0 auto; }

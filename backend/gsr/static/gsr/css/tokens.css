@@ -1,0 +1,26 @@
+/* GSR_APP 2.0 design tokens, shared by the app (base.html loads this before app.css) and the PDF report (reporting/report.py inlines it). */
+:root {
+  /* Surfaces */
+  --canvas: #f6f7f9; --surface: #ffffff; --sunken: #f1f3f6;
+  /* Text */
+  --ink: #14212b; --ink-2: #4a5a68; --ink-3: #617080;
+  /* Lines */
+  --line: #e3e7ec; --line-2: #cfd6dd;
+  /* Interaction: one accent only */
+  --accent: #0b6e74; --accent-hover: #095a5f; --accent-weak: #e5f1f1;
+  /* Status: UI feedback only */
+  --ok: #2f7d4f; --ok-weak: #e8f4ec; --warn: #a85a07; --warn-weak: #fdf3e6; --error: #b42318; --error-weak: #fdecea;
+  /* Type scale (base 14) */
+  --fs-xs: 12px; --fs-sm: 13px; --fs-base: 14px; --fs-md: 16px; --fs-lg: 20px; --fs-xl: 24px;
+  /* Spacing (4 px grid) */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
+  --r-sm: 6px; --r-md: 10px; --shadow-pop: 0 8px 28px rgba(20, 33, 43, 0.14);
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  /* Science semantics, reserved: never a participant colour (services/results.py RESERVED_SCIENCE_COLORS). */
+  --high: #b2182b; --low: #2166ac; --comove: #3f4b57; --threshold: #9f1239; --episode: rgba(20, 33, 43, 0.07);
+  /* Left rail (direction B chrome): the teal accent appears only on the dark rail */
+  --rail-w: 216px; --drawer-w: 400px;
+  --rail: #0f1b24; --rail-2: #172633; --rail-line: #22323f; --rail-ink: #a9bccb; --rail-ink-strong: #ffffff;
+  --rail-muted: #8197a9; --rail-active: #14b8a6; --rail-done: #1f3b46; --rail-stale: #f0a14a;
+}
