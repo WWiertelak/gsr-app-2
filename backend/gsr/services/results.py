@@ -85,7 +85,11 @@ def compute_signature(datasets: list[Dataset], config: PipelineConfig, fields: t
 
 
 def _fields_for(kind: str) -> tuple[str, ...]:
-    return CLEANING_FIELDS if kind == AnalysisResult.KIND_CLEANING else CONFIG_FIELDS
+    if kind == AnalysisResult.KIND_CLEANING:
+        return CLEANING_FIELDS
+    if kind == AnalysisResult.KIND_ANALYSIS:
+        return CONFIG_FIELDS
+    raise ValueError(f"Unsupported result kind for pipeline signature: {kind}")
 
 
 def current_signature(project: Project, kind: str) -> str | None:

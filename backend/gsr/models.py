@@ -30,6 +30,9 @@ class Project(models.Model):
     description = models.TextField(blank=True, default="")
     # Stored PipelineConfig overrides (gsr.pipeline.config field names).
     pipeline_config = models.JSONField(default=dict, blank=True)
+    # Interview roles (teacher, student dyads, video clock) and VSR parameters.
+    # Outside pipeline_config so role changes do not invalidate analysis results.
+    interview_config = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -74,7 +77,12 @@ class AnalysisResult(models.Model):
 
     KIND_CLEANING = "cleaning"
     KIND_ANALYSIS = "analysis"
-    KIND_CHOICES = [(KIND_CLEANING, "Cleaning preview"), (KIND_ANALYSIS, "Synchronization and co-arousal")]
+    KIND_VSR = "vsr"
+    KIND_CHOICES = [
+        (KIND_CLEANING, "Cleaning preview"),
+        (KIND_ANALYSIS, "Synchronization and co-arousal"),
+        (KIND_VSR, "VSR interview moments"),
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="results")
