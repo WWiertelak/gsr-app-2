@@ -300,15 +300,20 @@ def choice_label(name: str, value: Any) -> Any:
     return value
 
 
-def _changed_note(params: tuple[Param, ...], values: dict[str, Any]) -> list[str]:
+def changed_label(params: tuple[Param, ...], values: dict[str, Any]) -> str | None:
+    """How many of ``params`` differ from their defaults ("2 changed"), or None when none do."""
     changed = sum(1 for param in params if values.get(param.name) != param.default)
     if not changed:
-        return [gettext("defaults")]
-    return [ngettext("%(count)d changed", "%(count)d changed", changed) % {"count": changed}]
+        return None
+    return ngettext("%(count)d changed", "%(count)d changed", changed) % {"count": changed}
+
+
+def _changed_note(params: tuple[Param, ...], values: dict[str, Any]) -> list[str]:
+    return [changed_label(params, values) or gettext("defaults")]
 
 
 def cleaning_summary(values: dict[str, Any], included: int, total: int) -> list[str]:
-    """One-line description of the Cleaning settings for the collapsed settings panel."""
+    """One-line description of the Cleaning settings for the run bar."""
     start, end = values.get("time_range_from"), values.get("time_range_to")
     if start is None and end is None:
         window = gettext("full range")

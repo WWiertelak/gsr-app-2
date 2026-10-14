@@ -1,0 +1,38 @@
+{% extends "gsr/partials/settings_drawer.html" %}
+{% load i18n %}
+{% block title %}{% translate "Cleaning settings" %}{% endblock %}
+{% block groups %}
+<fieldset class="group">
+  <legend class="group-head"><span>{% translate "Signals" %}</span><span class="grow"></span><span class="group-meta">{{ included_count }}/{{ datasets|length }}</span></legend>
+  <div class="signal-list">
+    {% for item in datasets %}
+      <label><input type="checkbox" id="signal-{{ item.dataset.pk }}" name="datasets" value="{{ item.dataset.pk }}"{% if item.dataset.included %} checked{% endif %}>
+        <span class="dot" style="background: {{ item.color }}"></span>{{ item.dataset.alias }}</label>
+    {% empty %}
+      <p class="muted">{% translate "No signals uploaded yet." %}</p>
+    {% endfor %}
+  </div>
+  <p class="group-help">{% translate "Checked signals will be processed and visible in the charts. Unchecking a signal excludes it from cleaning and downstream analysis." %}</p>
+</fieldset>
+
+{% for entry in groups %}
+  <fieldset class="group{% if entry.toggle and not entry.toggle.value %} off{% endif %}">
+    <legend class="group-head">
+      {% if entry.toggle %}
+        <label class="switch-row{% if entry.toggle.modified %} changed{% endif %}" for="f-{{ entry.toggle.param.name }}">
+          <span>{{ entry.group.title }}</span><span class="grow"></span>
+          {% if entry.toggle.modified %}<span class="note">{% translate "changed" %}</span>{% endif %}
+          <input type="checkbox" class="switch" role="switch" id="f-{{ entry.toggle.param.name }}" name="{{ entry.toggle.param.name }}" value="1"{% if entry.toggle.value %} checked{% endif %}>
+        </label>
+      {% else %}
+        <span>{{ entry.group.title }}</span>
+      {% endif %}
+    </legend>
+    {% if entry.help %}<p class="group-help">{{ entry.help }}</p>{% endif %}
+    <div class="fields">
+      {% for row in entry.rows %}{% include "gsr/partials/param_field.html" %}{% endfor %}
+    </div>
+  </fieldset>
+{% endfor %}
+{% endblock %}
+{% block apply_help %}{% translate "Applying settings recomputes the preview; it can take a few seconds." as apply_help %}{% include "gsr/partials/tip.html" with text=apply_help tip_id="tip-apply" %}{% endblock %}

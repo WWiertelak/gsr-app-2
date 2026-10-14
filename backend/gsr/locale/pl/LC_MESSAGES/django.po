@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-14 05:57+0000\n"
+"POT-Creation-Date: 2026-10-14 06:09+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -55,19 +55,19 @@ msgstr "przycięty (poza skalą)"
 msgid "Time window"
 msgstr "Zakres czasu"
 
-#: gsr/charts.py:32 gsr/templates/gsr/partials/analysis_main.html:209
-#: gsr/templates/gsr/partials/analysis_main.html:278
+#: gsr/charts.py:32 gsr/templates/gsr/partials/analysis_main.html:172
+#: gsr/templates/gsr/partials/analysis_main.html:241
 #: gsr/templates/gsr/partials/direction.html:1
 msgid "High ↑"
 msgstr "Wysoki ↑"
 
-#: gsr/charts.py:33 gsr/templates/gsr/partials/analysis_main.html:210
-#: gsr/templates/gsr/partials/analysis_main.html:278
+#: gsr/charts.py:33 gsr/templates/gsr/partials/analysis_main.html:173
+#: gsr/templates/gsr/partials/analysis_main.html:241
 #: gsr/templates/gsr/partials/direction.html:1
 msgid "Low ↓"
 msgstr "Niski ↓"
 
-#: gsr/charts.py:34 gsr/templates/gsr/partials/analysis_main.html:211
+#: gsr/charts.py:34 gsr/templates/gsr/partials/analysis_main.html:174
 #: gsr/templates/gsr/partials/direction.html:1
 msgid "Co-move ↔"
 msgstr "Ko-ruch ↔"
@@ -84,9 +84,9 @@ msgstr "w synchronii"
 msgid "State"
 msgstr "Stan"
 
-#: gsr/charts.py:38 gsr/templates/gsr/partials/analysis_main.html:112
-#: gsr/templates/gsr/partials/analysis_main.html:239
-#: gsr/templates/gsr/partials/analysis_main.html:256
+#: gsr/charts.py:38 gsr/templates/gsr/partials/analysis_main.html:75
+#: gsr/templates/gsr/partials/analysis_main.html:202
+#: gsr/templates/gsr/partials/analysis_main.html:219
 msgid "Time (min)"
 msgstr "Czas (min)"
 
@@ -135,11 +135,11 @@ msgstr "Plik nie zawiera żadnych czytelnych wierszy sygnału."
 msgid "The file could not be read as an eSense CSV export."
 msgstr "Nie udało się odczytać pliku jako eksportu CSV z eSense."
 
-#: gsr/errors.py:80 gsr/templates/gsr/partials/cleaning_main.html:58
+#: gsr/errors.py:80 gsr/templates/gsr/partials/cleaning_main.html:11
 msgid "Go to Import"
 msgstr "Przejdź do importu"
 
-#: gsr/errors.py:84 gsr/templates/gsr/partials/analysis_main.html:44
+#: gsr/errors.py:84 gsr/templates/gsr/partials/analysis_main.html:6
 msgid "Go to Cleaning"
 msgstr "Przejdź do czyszczenia"
 
@@ -532,11 +532,7 @@ msgstr ""
 msgid "A fixed seed makes the co-arousal surrogate test reproducible."
 msgstr "Stały seed zapewnia odtwarzalność testu surogatowego ko-pobudzenia."
 
-#: gsr/params.py:306
-msgid "defaults"
-msgstr "domyślne"
-
-#: gsr/params.py:307
+#: gsr/params.py:308
 #, python-format
 msgid "%(count)d changed"
 msgid_plural "%(count)d changed"
@@ -544,55 +540,59 @@ msgstr[0] "%(count)d zmieniony"
 msgstr[1] "%(count)d zmienione"
 msgstr[2] "%(count)d zmienionych"
 
-#: gsr/params.py:314 gsr/templates/gsr/partials/param_field.html:12
+#: gsr/params.py:312
+msgid "defaults"
+msgstr "domyślne"
+
+#: gsr/params.py:319 gsr/templates/gsr/partials/param_field.html:14
 msgid "full range"
 msgstr "pełny zakres"
 
-#: gsr/params.py:320
+#: gsr/params.py:325
 #, python-format
 msgid "Signals: %(included)d/%(total)d"
 msgstr "Sygnały: %(included)d/%(total)d"
 
-#: gsr/params.py:321
+#: gsr/params.py:326
 #, python-format
 msgid "Window: %(window)s"
 msgstr "Okno: %(window)s"
 
-#: gsr/params.py:322
+#: gsr/params.py:327
 #, python-format
 msgid "Filters: %(enabled)d/%(total)d"
 msgstr "Filtry: %(enabled)d/%(total)d"
 
-#: gsr/params.py:323
+#: gsr/params.py:328
 #, python-format
 msgid "Median: %(value)s"
 msgstr "Mediana: %(value)s"
 
-#: gsr/params.py:323 gsr/params.py:358
+#: gsr/params.py:328 gsr/params.py:363
 msgid "off"
 msgstr "wył."
 
-#: gsr/params.py:335
+#: gsr/params.py:340
 #, python-format
 msgid "Threshold: %(value)s"
 msgstr "Próg: %(value)s"
 
-#: gsr/params.py:336
+#: gsr/params.py:341
 #, python-format
 msgid "Window: %(value)s s"
 msgstr "Okno: %(value)s s"
 
-#: gsr/params.py:337
+#: gsr/params.py:342
 #, python-format
 msgid "High/Low z: %(high)s/%(low)s"
 msgstr "Próg wysoki/niski z: %(high)s/%(low)s"
 
-#: gsr/params.py:338
+#: gsr/params.py:343
 #, python-format
 msgid "Min. participants: %(value)s"
 msgstr "Min. uczestników: %(value)s"
 
-#: gsr/params.py:358
+#: gsr/params.py:363
 msgid "on"
 msgstr "wł."
 
@@ -633,79 +633,46 @@ msgstr "Trwa obliczanie…"
 msgid "This can take up to a minute for long recordings."
 msgstr "Przy długich nagraniach może to potrwać do minuty."
 
-#: gsr/templates/gsr/partials/analysis_main.html:9
-msgid "Analysis controls"
-msgstr "Panel analizy"
-
-#: gsr/templates/gsr/partials/analysis_main.html:12
-#: gsr/templates/gsr/partials/cleaning_main.html:14
-msgid "Settings"
-msgstr "Ustawienia"
-
-#: gsr/templates/gsr/partials/analysis_main.html:15
-msgid "Synchronization settings"
-msgstr "Ustawienia synchronizacji"
-
-#: gsr/templates/gsr/partials/analysis_main.html:18
-#: gsr/templates/gsr/partials/analysis_main.html:27
-msgid "Advanced settings"
-msgstr "Ustawienia zaawansowane"
-
-#: gsr/templates/gsr/partials/analysis_main.html:24
-msgid "Co-arousal settings"
-msgstr "Ustawienia ko-pobudzenia"
-
-#: gsr/templates/gsr/partials/analysis_main.html:33
-#: gsr/templates/gsr/partials/cleaning_main.html:45
-msgid "Apply settings"
-msgstr "Zastosuj ustawienia"
-
-#: gsr/templates/gsr/partials/analysis_main.html:34
-msgid ""
-"Applying settings runs the analysis again: one run computes both "
-"synchronization and co-arousal with the cleaning settings from step 2."
-msgstr ""
-"Zastosowanie ustawień ponownie uruchamia analizę: jedno uruchomienie liczy "
-"synchronizację i ko-pobudzenie z ustawieniami czyszczenia z kroku 2."
-
-#: gsr/templates/gsr/partials/analysis_main.html:36
-#: gsr/templates/gsr/partials/cleaning_main.html:48
-msgid "Reset defaults"
-msgstr "Przywróć domyślne"
-
-#: gsr/templates/gsr/partials/analysis_main.html:44
+#: gsr/templates/gsr/partials/analysis_main.html:6
 msgid "Select at least two signals to compute synchronization."
 msgstr "Wybierz co najmniej dwa sygnały, aby policzyć synchronizację."
 
-#: gsr/templates/gsr/partials/analysis_main.html:48
+#: gsr/templates/gsr/partials/analysis_main.html:10
 msgid "Analysis results"
 msgstr "Wyniki analizy"
 
-#: gsr/templates/gsr/partials/analysis_main.html:51
+#: gsr/templates/gsr/partials/analysis_main.html:13
 msgid "No results for this step yet. Set the parameters and run the analysis."
 msgstr "Brak wyników dla tego kroku. Ustaw parametry i uruchom analizę."
 
-#: gsr/templates/gsr/partials/analysis_main.html:52 gsr/tests/test_views.py:999
+#: gsr/templates/gsr/partials/analysis_main.html:14
+#: gsr/tests/test_views.py:1051
 msgid "Run analysis"
 msgstr "Uruchom analizę"
 
-#: gsr/templates/gsr/partials/analysis_main.html:55
+#: gsr/templates/gsr/partials/analysis_main.html:17
 msgid "Settings or signals changed since this run. Run the analysis again."
 msgstr ""
 "Ustawienia lub sygnały zmieniły się od tego obliczenia. Uruchom analizę "
 "ponownie."
 
-#: gsr/templates/gsr/partials/analysis_main.html:59 gsr/views.py:680
-#: gsr/views.py:703
+#: gsr/templates/gsr/partials/analysis_main.html:18
+#: gsr/templates/gsr/partials/cleaning_main.html:33
+#: gsr/templates/gsr/partials/run_bar.html:15
+msgid "Recompute"
+msgstr "Przelicz"
+
+#: gsr/templates/gsr/partials/analysis_main.html:22 gsr/views.py:696
+#: gsr/views.py:719
 msgid "Synchronization"
 msgstr "Synchronizacja"
 
-#: gsr/templates/gsr/partials/analysis_main.html:60 gsr/views.py:685
-#: gsr/views.py:705
+#: gsr/templates/gsr/partials/analysis_main.html:23 gsr/views.py:701
+#: gsr/views.py:721
 msgid "Co-arousal"
 msgstr "Ko-pobudzenie"
 
-#: gsr/templates/gsr/partials/analysis_main.html:65
+#: gsr/templates/gsr/partials/analysis_main.html:28
 msgid ""
 "Mean of the pairs' maximum cross-correlation (the synchronization matrix "
 "below)."
@@ -713,7 +680,7 @@ msgstr ""
 "Średnia z maksymalnych korelacji wzajemnych par (macierz synchronizacji "
 "poniżej)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:66
+#: gsr/templates/gsr/partials/analysis_main.html:29
 msgid ""
 "Compares the mean synchrony with surrogate data in which the shared timing "
 "is destroyed. Below 0.05 the group is synchronized above chance; a higher p-"
@@ -723,40 +690,40 @@ msgstr ""
 "przebieg w czasie jest zniszczony. Poniżej 0,05 grupa jest zsynchronizowana "
 "powyżej poziomu przypadku; wyższe p nie dowodzi braku synchronii."
 
-#: gsr/templates/gsr/partials/analysis_main.html:69
-#: gsr/templates/gsr/partials/analysis_main.html:174
+#: gsr/templates/gsr/partials/analysis_main.html:32
+#: gsr/templates/gsr/partials/analysis_main.html:137
 msgid "Mean synchrony"
 msgstr "Średnia synchronizacja"
 
-#: gsr/templates/gsr/partials/analysis_main.html:71
+#: gsr/templates/gsr/partials/analysis_main.html:34
 msgid "mean of the pairs' maximum correlation"
 msgstr "średnia maks. korelacji par"
 
-#: gsr/templates/gsr/partials/analysis_main.html:74
+#: gsr/templates/gsr/partials/analysis_main.html:37
 msgid "Whole-group test"
 msgstr "Test całej grupy"
 
-#: gsr/templates/gsr/partials/analysis_main.html:76
-#: gsr/templates/gsr/partials/analysis_main.html:198
-#: gsr/templates/gsr/partials/analysis_main.html:203
+#: gsr/templates/gsr/partials/analysis_main.html:39
+#: gsr/templates/gsr/partials/analysis_main.html:161
+#: gsr/templates/gsr/partials/analysis_main.html:166
 msgid "No surrogate test"
 msgstr "Bez testu surogatowego"
 
-#: gsr/templates/gsr/partials/analysis_main.html:79
-#: gsr/templates/gsr/partials/analysis_main.html:206
+#: gsr/templates/gsr/partials/analysis_main.html:42
+#: gsr/templates/gsr/partials/analysis_main.html:169
 msgid "Episode count"
 msgstr "Liczba epizodów"
 
-#: gsr/templates/gsr/partials/analysis_main.html:80
+#: gsr/templates/gsr/partials/analysis_main.html:43
 #, python-format
 msgid "%(duration)s min in total"
 msgstr "łącznie %(duration)s min"
 
-#: gsr/templates/gsr/partials/analysis_main.html:84
+#: gsr/templates/gsr/partials/analysis_main.html:47
 msgid "Cluster count"
 msgstr "Liczba klastrów"
 
-#: gsr/templates/gsr/partials/analysis_main.html:90
+#: gsr/templates/gsr/partials/analysis_main.html:53
 msgid ""
 "We look for fragments where signals begin to synchronize and group them into "
 "clusters."
@@ -764,26 +731,26 @@ msgstr ""
 "Szukamy fragmentów, w których sygnały zaczynają się synchronizować, i "
 "grupujemy je w klastry."
 
-#: gsr/templates/gsr/partials/analysis_main.html:92
-#: gsr/templates/gsr/partials/analysis_main.html:98
+#: gsr/templates/gsr/partials/analysis_main.html:55
+#: gsr/templates/gsr/partials/analysis_main.html:61
 msgid "Synchronization timeline"
 msgstr "Oś czasu synchronizacji"
 
-#: gsr/templates/gsr/partials/analysis_main.html:93
+#: gsr/templates/gsr/partials/analysis_main.html:56
 msgid "group mean and episodes above, participants in sync below"
 msgstr "u góry średnia grupowa i epizody, u dołu liczba osób w synchronii"
 
-#: gsr/templates/gsr/partials/analysis_main.html:95
+#: gsr/templates/gsr/partials/analysis_main.html:58
 #, python-format
 msgid "Pair curves (%(count)s)"
 msgstr "Krzywe par (%(count)s)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:101
-#: gsr/templates/gsr/partials/analysis_main.html:102
+#: gsr/templates/gsr/partials/analysis_main.html:64
+#: gsr/templates/gsr/partials/analysis_main.html:65
 msgid "Signals with marked episodes"
 msgstr "Sygnały z zaznaczonymi epizodami"
 
-#: gsr/templates/gsr/partials/analysis_main.html:107
+#: gsr/templates/gsr/partials/analysis_main.html:70
 msgid ""
 "Stretches where a subgroup of participants (at least 2) stays synchronized "
 "above the threshold."
@@ -791,46 +758,46 @@ msgstr ""
 "Fragmenty, w których podgrupa uczestników (min. 2 osoby) utrzymuje "
 "synchronizację powyżej progu."
 
-#: gsr/templates/gsr/partials/analysis_main.html:108
+#: gsr/templates/gsr/partials/analysis_main.html:71
 msgid "Subgroup synchronization episodes"
 msgstr "Epizody synchronizacji podgrup"
 
-#: gsr/templates/gsr/partials/analysis_main.html:112
-#: gsr/templates/gsr/partials/analysis_main.html:239
-#: gsr/templates/gsr/partials/analysis_main.html:256
+#: gsr/templates/gsr/partials/analysis_main.html:75
+#: gsr/templates/gsr/partials/analysis_main.html:202
+#: gsr/templates/gsr/partials/analysis_main.html:219
 #: gsr/templates/gsr/partials/upload_main.html:32
 msgid "Duration"
 msgstr "Czas trwania"
 
-#: gsr/templates/gsr/partials/analysis_main.html:112
+#: gsr/templates/gsr/partials/analysis_main.html:75
 msgid "Participants"
 msgstr "Uczestnicy"
 
-#: gsr/templates/gsr/partials/analysis_main.html:112
+#: gsr/templates/gsr/partials/analysis_main.html:75
 msgid "Mean strength"
 msgstr "Śr. siła"
 
-#: gsr/templates/gsr/partials/analysis_main.html:112
+#: gsr/templates/gsr/partials/analysis_main.html:75
 msgid "Peak strength"
 msgstr "Szczytowa siła"
 
-#: gsr/templates/gsr/partials/analysis_main.html:128
+#: gsr/templates/gsr/partials/analysis_main.html:91
 msgid "No subgroup synchronization episodes detected."
 msgstr "Nie wykryto epizodów synchronizacji podgrup."
 
-#: gsr/templates/gsr/partials/analysis_main.html:133
+#: gsr/templates/gsr/partials/analysis_main.html:96
 msgid "Pairwise metrics"
 msgstr "Metryki par"
 
-#: gsr/templates/gsr/partials/analysis_main.html:133
+#: gsr/templates/gsr/partials/analysis_main.html:96
 msgid "bold = p < 0.05 (surrogates)"
 msgstr "pogrubione = p < 0,05 (surogaty)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:138
+#: gsr/templates/gsr/partials/analysis_main.html:101
 msgid "Pair"
 msgstr "Para"
 
-#: gsr/templates/gsr/partials/analysis_main.html:139
+#: gsr/templates/gsr/partials/analysis_main.html:102
 msgid ""
 "Highest cross-correlation of the z-scored pair at the best time shift within "
 "the max lag. From −1 to +1; closer to +1 = stronger synchronization."
@@ -839,25 +806,25 @@ msgstr ""
 "najlepszym przesunięciu czasowym w granicach maks. opóźnienia. Od −1 do +1; "
 "bliżej +1 = mocniejsza synchronizacja."
 
-#: gsr/templates/gsr/partials/analysis_main.html:139
+#: gsr/templates/gsr/partials/analysis_main.html:102
 msgid "Max correlation"
 msgstr "Maks. korelacja"
 
-#: gsr/templates/gsr/partials/analysis_main.html:140
+#: gsr/templates/gsr/partials/analysis_main.html:103
 msgid "p (surrogate)"
 msgstr "p (surogat)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:141
+#: gsr/templates/gsr/partials/analysis_main.html:104
 msgid "Time shift (in seconds) at which the pair correlation is highest."
 msgstr ""
 "Przesunięcie czasowe (w sekundach), przy którym korelacja pary jest "
 "największa."
 
-#: gsr/templates/gsr/partials/analysis_main.html:141
+#: gsr/templates/gsr/partials/analysis_main.html:104
 msgid "Lag (s)"
 msgstr "Opóźnienie (s)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:142
+#: gsr/templates/gsr/partials/analysis_main.html:105
 msgid ""
 "Mean spectral coherence in the low-frequency band (Welch method, up to ~1 "
 "Hz). From 0 to 1; higher = shared rhythm."
@@ -865,11 +832,11 @@ msgstr ""
 "Średnia koherencja widmowa w wolnych pasmach (metoda Welcha, do ~1 Hz). Od 0 "
 "do 1; wyżej = wspólny rytm."
 
-#: gsr/templates/gsr/partials/analysis_main.html:142
+#: gsr/templates/gsr/partials/analysis_main.html:105
 msgid "Coherence"
 msgstr "Koherencja"
 
-#: gsr/templates/gsr/partials/analysis_main.html:143
+#: gsr/templates/gsr/partials/analysis_main.html:106
 msgid ""
 "Dynamic Time Warping distance normalized by signal length. Lower = more "
 "similar."
@@ -877,25 +844,25 @@ msgstr ""
 "Odległość Dynamic Time Warping znormalizowana długością sygnału. Niżej = "
 "bardziej podobne."
 
-#: gsr/templates/gsr/partials/analysis_main.html:165
-#: gsr/templates/gsr/partials/analysis_main.html:166
+#: gsr/templates/gsr/partials/analysis_main.html:128
+#: gsr/templates/gsr/partials/analysis_main.html:129
 msgid "Synchronization matrix"
 msgstr "Macierz synchronizacji"
 
-#: gsr/templates/gsr/partials/analysis_main.html:169
+#: gsr/templates/gsr/partials/analysis_main.html:132
 msgid "Signal clusters"
 msgstr "Klastry sygnałów"
 
-#: gsr/templates/gsr/partials/analysis_main.html:173
+#: gsr/templates/gsr/partials/analysis_main.html:136
 msgid "Cluster"
 msgstr "Klaster"
 
-#: gsr/templates/gsr/partials/analysis_main.html:182
-#: gsr/templates/gsr/partials/analysis_main.html:295
+#: gsr/templates/gsr/partials/analysis_main.html:145
+#: gsr/templates/gsr/partials/analysis_main.html:258
 msgid "No results for this step yet."
 msgstr "Brak wyników dla tego kroku."
 
-#: gsr/templates/gsr/partials/analysis_main.html:188
+#: gsr/templates/gsr/partials/analysis_main.html:151
 msgid ""
 "Co-arousal index = time-average of max(number of people in High state, "
 "number in Low state). Compared with a circular-shift null distribution "
@@ -906,27 +873,27 @@ msgstr ""
 "kołowego (zachowuje autokorelację, niszczy tylko wspólne wyrównanie w "
 "czasie)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:191
+#: gsr/templates/gsr/partials/analysis_main.html:154
 msgid "Co-arousal index"
 msgstr "Indeks ko-pobudzenia"
 
-#: gsr/templates/gsr/partials/analysis_main.html:193
+#: gsr/templates/gsr/partials/analysis_main.html:156
 msgid "time average of max(#High, #Low)"
 msgstr "średnia w czasie z max(#Wysoki, #Niski)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:196
+#: gsr/templates/gsr/partials/analysis_main.html:159
 msgid "Null distribution"
 msgstr "Rozkład zerowy"
 
-#: gsr/templates/gsr/partials/analysis_main.html:198
+#: gsr/templates/gsr/partials/analysis_main.html:161
 msgid "circular shift, mean ± SD"
 msgstr "przesunięcie kołowe, średnia ± SD"
 
-#: gsr/templates/gsr/partials/analysis_main.html:201
+#: gsr/templates/gsr/partials/analysis_main.html:164
 msgid "Test"
 msgstr "Test"
 
-#: gsr/templates/gsr/partials/analysis_main.html:217
+#: gsr/templates/gsr/partials/analysis_main.html:180
 msgid ""
 "Mean state of each participant in 1-minute bins: red = High (+1), white = "
 "Neutral (0), blue = Low (−1)."
@@ -934,7 +901,7 @@ msgstr ""
 "Średni stan każdego uczestnika w 1-minutowych oknach: czerwony = Wysoki "
 "(+1), biały = Neutralny (0), niebieski = Niski (−1)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:218
+#: gsr/templates/gsr/partials/analysis_main.html:181
 msgid ""
 "We look for moments when many participants are simultaneously in the same "
 "arousal state (High/Low) or genuinely co-vary (correlation-based co-"
@@ -945,16 +912,16 @@ msgstr ""
 "oparty na korelacji). Sygnały są standaryzowane (z-score) w obrębie okna "
 "analizy."
 
-#: gsr/templates/gsr/partials/analysis_main.html:220
-#: gsr/templates/gsr/partials/analysis_main.html:223
+#: gsr/templates/gsr/partials/analysis_main.html:183
+#: gsr/templates/gsr/partials/analysis_main.html:186
 msgid "Participant state map over time"
 msgstr "Mapa stanów uczestników w czasie"
 
-#: gsr/templates/gsr/partials/analysis_main.html:221
+#: gsr/templates/gsr/partials/analysis_main.html:184
 msgid "episodes above, 1-minute bins below"
 msgstr "u góry epizody, u dołu przedziały 1-minutowe"
 
-#: gsr/templates/gsr/partials/analysis_main.html:228
+#: gsr/templates/gsr/partials/analysis_main.html:191
 msgid ""
 "Episodes where ≥ the required number of participants hold a shared state "
 "(High/Low), plus co-movement episodes (mean pairwise Spearman in the window "
@@ -964,7 +931,7 @@ msgstr ""
 "(Wysoki/Niski), oraz epizody ko-ruchu (średnia parowa korelacja Spearmana w "
 "oknie ≥ próg)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:229
+#: gsr/templates/gsr/partials/analysis_main.html:192
 msgid ""
 "Each second gets one label by precedence: High/Low (joint extreme) > Co-"
 "movement. Adjacent same-label seconds are merged."
@@ -972,44 +939,44 @@ msgstr ""
 "Każda sekunda dostaje jedną etykietę wg precedencji: Wysoki/Niski (wspólne "
 "ekstremum) > Ko-ruch. Sąsiednie sekundy o tej samej etykiecie są łączone."
 
-#: gsr/templates/gsr/partials/analysis_main.html:231
+#: gsr/templates/gsr/partials/analysis_main.html:194
 msgid "Co-arousal episodes"
 msgstr "Epizody ko-pobudzenia"
 
-#: gsr/templates/gsr/partials/analysis_main.html:233
+#: gsr/templates/gsr/partials/analysis_main.html:196
 msgid "Merge overlaps"
 msgstr "Połącz nakładające się"
 
-#: gsr/templates/gsr/partials/analysis_main.html:239
-#: gsr/templates/gsr/partials/analysis_main.html:256
+#: gsr/templates/gsr/partials/analysis_main.html:202
+#: gsr/templates/gsr/partials/analysis_main.html:219
 msgid "Type"
 msgstr "Typ"
 
-#: gsr/templates/gsr/partials/analysis_main.html:239
+#: gsr/templates/gsr/partials/analysis_main.html:202
 msgid "Contributors"
 msgstr "Współtworzący"
 
-#: gsr/templates/gsr/partials/analysis_main.html:239
+#: gsr/templates/gsr/partials/analysis_main.html:202
 msgid "Strength"
 msgstr "Siła"
 
-#: gsr/templates/gsr/partials/analysis_main.html:248
+#: gsr/templates/gsr/partials/analysis_main.html:211
 msgid "full"
 msgstr "pełna"
 
-#: gsr/templates/gsr/partials/analysis_main.html:248
+#: gsr/templates/gsr/partials/analysis_main.html:211
 msgid "strong"
 msgstr "silna"
 
-#: gsr/templates/gsr/partials/analysis_main.html:248
+#: gsr/templates/gsr/partials/analysis_main.html:211
 msgid "partial"
 msgstr "częściowa"
 
-#: gsr/templates/gsr/partials/analysis_main.html:270
+#: gsr/templates/gsr/partials/analysis_main.html:233
 msgid "No episodes detected."
 msgstr "Brak wykrytych epizodów."
 
-#: gsr/templates/gsr/partials/analysis_main.html:274
+#: gsr/templates/gsr/partials/analysis_main.html:237
 msgid ""
 "Percent of time each signal was in the High, Neutral and Low state (z-score "
 "relative to its own baseline within the analysis window)."
@@ -1017,73 +984,81 @@ msgstr ""
 "Procent czasu, w którym każdy sygnał był w stanie Wysokim, Neutralnym i "
 "Niskim (z-score względem własnej linii bazowej w oknie analizy)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:275
+#: gsr/templates/gsr/partials/analysis_main.html:238
 msgid "Time in states (per signal)"
 msgstr "Udział czasu w stanach (per sygnał)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:278
-#: gsr/templates/gsr/partials/cleaning_main.html:124
+#: gsr/templates/gsr/partials/analysis_main.html:241
+#: gsr/templates/gsr/partials/cleaning_main.html:81
 msgid "Signal"
 msgstr "Sygnał"
 
-#: gsr/templates/gsr/partials/analysis_main.html:278
+#: gsr/templates/gsr/partials/analysis_main.html:241
 msgid "Distribution"
 msgstr "Rozkład"
 
-#: gsr/templates/gsr/partials/analysis_main.html:278
+#: gsr/templates/gsr/partials/analysis_main.html:241
 msgid "Neutral"
 msgstr "Neutralny"
 
-#: gsr/templates/gsr/partials/analysis_main.html:304
+#: gsr/templates/gsr/partials/analysis_main.html:266
 msgid "The results go into the PDF report and the ZIP."
 msgstr "Wyniki trafiają do raportu PDF i do ZIP."
 
-#: gsr/templates/gsr/partials/analysis_main.html:306
+#: gsr/templates/gsr/partials/analysis_main.html:268
 msgid "Next: Export"
 msgstr "Dalej: Eksport"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:11
+#: gsr/templates/gsr/partials/analysis_settings.html:5
+msgid "Analysis settings"
+msgstr "Ustawienia analizy"
+
+#: gsr/templates/gsr/partials/analysis_settings.html:8
+msgid "Synchronization settings"
+msgstr "Ustawienia synchronizacji"
+
+#: gsr/templates/gsr/partials/analysis_settings.html:11
+#: gsr/templates/gsr/partials/analysis_settings.html:20
+msgid "Advanced settings"
+msgstr "Ustawienia zaawansowane"
+
+#: gsr/templates/gsr/partials/analysis_settings.html:17
+msgid "Co-arousal settings"
+msgstr "Ustawienia ko-pobudzenia"
+
+#: gsr/templates/gsr/partials/analysis_settings.html:25
 msgid ""
-"Checked signals will be processed and visible in the charts. Unchecking a "
-"signal excludes it from cleaning and downstream analysis."
+"Applying settings runs the analysis again: one run computes both "
+"synchronization and co-arousal with the cleaning settings from step 2."
 msgstr ""
-"Zaznaczone sygnały będą przetwarzane i widoczne na wykresach. Odznaczenie "
-"sygnału wyklucza go z czyszczenia i dalszej analizy."
+"Zastosowanie ustawień ponownie uruchamia analizę: jedno uruchomienie liczy "
+"synchronizację i ko-pobudzenie z ustawieniami czyszczenia z kroku 2."
 
-#: gsr/templates/gsr/partials/cleaning_main.html:12
-msgid "Cleaning controls"
-msgstr "Panel czyszczenia"
-
-#: gsr/templates/gsr/partials/cleaning_main.html:17
-#: gsr/templates/gsr/projects.html:36
-msgid "Signals"
-msgstr "Sygnały"
-
-#: gsr/templates/gsr/partials/cleaning_main.html:23
-msgid "No signals uploaded yet."
-msgstr "Nie wgrano jeszcze sygnałów."
-
-#: gsr/templates/gsr/partials/cleaning_main.html:46
-msgid "Applying settings recomputes the preview; it can take a few seconds."
-msgstr "Zastosowanie ustawień przelicza podgląd; może to potrwać kilka sekund."
-
-#: gsr/templates/gsr/partials/cleaning_main.html:58
+#: gsr/templates/gsr/partials/cleaning_main.html:11
 msgid "Upload recordings first."
 msgstr "Najpierw wgraj nagrania."
 
-#: gsr/templates/gsr/partials/cleaning_main.html:64
+#: gsr/templates/gsr/partials/cleaning_main.html:17
 msgid "Cleaning and synchronizing the recordings…"
 msgstr "Czyszczenie i synchronizacja nagrań…"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:68
+#: gsr/templates/gsr/partials/cleaning_main.html:21
 msgid "Check the signals and settings, then apply them."
 msgstr "Sprawdź sygnały i ustawienia, a następnie je zastosuj."
 
-#: gsr/templates/gsr/partials/cleaning_main.html:73
+#: gsr/templates/gsr/partials/cleaning_main.html:26
 msgid "Compute preview"
 msgstr "Policz podgląd"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:79
+#: gsr/templates/gsr/partials/cleaning_main.html:32
+msgid ""
+"Settings or signals changed since this preview was computed. Recompute it to "
+"see the current result."
+msgstr ""
+"Ustawienia lub sygnały zmieniły się od obliczenia tego podglądu. Przelicz "
+"go, aby zobaczyć aktualny wynik."
+
+#: gsr/templates/gsr/partials/cleaning_main.html:36
 #, python-format
 msgid ""
 "The rating is informational and does not exclude a signal: good <10%% "
@@ -1092,31 +1067,31 @@ msgstr ""
 "Ocena jest informacyjna i nie wyklucza sygnału: dobra <10%% odrzuconych "
 "próbek, uwaga ≥10%% i <30%%, słaba ≥30%%."
 
-#: gsr/templates/gsr/partials/cleaning_main.html:80
-#: gsr/templates/gsr/partials/cleaning_main.html:126
+#: gsr/templates/gsr/partials/cleaning_main.html:37
+#: gsr/templates/gsr/partials/cleaning_main.html:83
 msgid "Signal quality"
 msgstr "Jakość sygnału"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:85
-#: gsr/templates/gsr/partials/cleaning_main.html:136
+#: gsr/templates/gsr/partials/cleaning_main.html:42
+#: gsr/templates/gsr/partials/cleaning_main.html:93
 msgid "good"
 msgstr "dobra"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:85
-#: gsr/templates/gsr/partials/cleaning_main.html:136
+#: gsr/templates/gsr/partials/cleaning_main.html:42
+#: gsr/templates/gsr/partials/cleaning_main.html:93
 msgid "warning"
 msgstr "uwaga"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:85
-#: gsr/templates/gsr/partials/cleaning_main.html:136
+#: gsr/templates/gsr/partials/cleaning_main.html:42
+#: gsr/templates/gsr/partials/cleaning_main.html:93
 msgid "poor"
 msgstr "słaba"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:92
+#: gsr/templates/gsr/partials/cleaning_main.html:49
 msgid "Identical signals detected"
 msgstr "Wykryto identyczne sygnały"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:98
+#: gsr/templates/gsr/partials/cleaning_main.html:55
 msgid ""
 "Signal after artifact removal (outliers, jumps), linear interpolation, "
 "Butterworth low-pass filter, and optional median filter. X-axis is relative "
@@ -1127,22 +1102,22 @@ msgstr ""
 "X to czas względny (minuty) od momentu synchronizacji. Szary: sygnał surowy, "
 "×: odrzucone próbki."
 
-#: gsr/templates/gsr/partials/cleaning_main.html:99
-#: gsr/templates/gsr/partials/cleaning_main.html:105
+#: gsr/templates/gsr/partials/cleaning_main.html:56
+#: gsr/templates/gsr/partials/cleaning_main.html:62
 msgid "Cleaned vs raw"
 msgstr "Sygnał oczyszczony i surowy"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:100
+#: gsr/templates/gsr/partials/cleaning_main.html:57
 msgid "minutes from synchronization"
 msgstr "minuty od synchronizacji"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:111
-#: gsr/templates/gsr/partials/cleaning_main.html:112
+#: gsr/templates/gsr/partials/cleaning_main.html:68
+#: gsr/templates/gsr/partials/cleaning_main.html:69
 #: gsr/templates/gsr/partials/upload_overview.html:74
 msgid "Signal overlay"
 msgstr "Nałożenie sygnałów"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:118
+#: gsr/templates/gsr/partials/cleaning_main.html:75
 msgid ""
 "This summary shows how cleaning affects point counts: rejected artifacts, "
 "time-window exclusions, and downsampling impact for analysis charts."
@@ -1150,41 +1125,71 @@ msgstr ""
 "Podsumowanie pokazuje wpływ czyszczenia na liczbę punktów: artefakty, zakres "
 "czasu i efekt downsamplingu dla wykresów analitycznych."
 
-#: gsr/templates/gsr/partials/cleaning_main.html:119
+#: gsr/templates/gsr/partials/cleaning_main.html:76
 msgid "Cleaning summary"
 msgstr "Podsumowanie czyszczenia"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:125
+#: gsr/templates/gsr/partials/cleaning_main.html:82
 msgid "Rejected artifacts"
 msgstr "Artefakty odrzucone"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:127
+#: gsr/templates/gsr/partials/cleaning_main.html:84
 msgid "Outside time range"
 msgstr "Poza zakresem czasu"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:128
+#: gsr/templates/gsr/partials/cleaning_main.html:85
 msgid "In time window"
 msgstr "W zakresie czasu"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:144
+#: gsr/templates/gsr/partials/cleaning_main.html:101
 msgid "Total"
 msgstr "Suma"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:154
+#: gsr/templates/gsr/partials/cleaning_main.html:111
 msgid "Shared absolute time"
 msgstr "Wspólny czas absolutny"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:156
+#: gsr/templates/gsr/partials/cleaning_main.html:113
 msgid "Downsampling (shared)"
 msgstr "Downsampling (wspólny)"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:166
+#: gsr/templates/gsr/partials/cleaning_main.html:122
 msgid "Download clean CSV"
 msgstr "Pobierz oczyszczony CSV"
 
-#: gsr/templates/gsr/partials/cleaning_main.html:167
+#: gsr/templates/gsr/partials/cleaning_main.html:123
 msgid "Next: Analysis"
 msgstr "Dalej: Analiza"
+
+#: gsr/templates/gsr/partials/cleaning_settings.html:3
+msgid "Cleaning settings"
+msgstr "Ustawienia czyszczenia"
+
+#: gsr/templates/gsr/partials/cleaning_settings.html:6
+#: gsr/templates/gsr/projects.html:36
+msgid "Signals"
+msgstr "Sygnały"
+
+#: gsr/templates/gsr/partials/cleaning_settings.html:12
+msgid "No signals uploaded yet."
+msgstr "Nie wgrano jeszcze sygnałów."
+
+#: gsr/templates/gsr/partials/cleaning_settings.html:15
+msgid ""
+"Checked signals will be processed and visible in the charts. Unchecking a "
+"signal excludes it from cleaning and downstream analysis."
+msgstr ""
+"Zaznaczone sygnały będą przetwarzane i widoczne na wykresach. Odznaczenie "
+"sygnału wyklucza go z czyszczenia i dalszej analizy."
+
+#: gsr/templates/gsr/partials/cleaning_settings.html:24
+#: gsr/templates/gsr/partials/param_field.html:4
+msgid "changed"
+msgstr "zmienione"
+
+#: gsr/templates/gsr/partials/cleaning_settings.html:38
+msgid "Applying settings recomputes the preview; it can take a few seconds."
+msgstr "Zastosowanie ustawień przelicza podgląd; może to potrwać kilka sekund."
 
 #: gsr/templates/gsr/partials/episode_count.html:1
 #, python-format
@@ -1307,43 +1312,51 @@ msgstr "Pobierz %(name)s"
 msgid "Choose"
 msgstr "Wybierz"
 
-#: gsr/templates/gsr/partials/param_field.html:14
+#: gsr/templates/gsr/partials/param_field.html:16
 #, python-format
 msgid "changed (default %(value)s)"
 msgstr "zmienione (domyślnie %(value)s)"
 
-#: gsr/templates/gsr/partials/param_field.html:14
-msgid "default"
-msgstr "domyślnie"
-
-#: gsr/templates/gsr/partials/run_bar.html:6
+#: gsr/templates/gsr/partials/run_bar.html:7
 msgid "Current settings"
 msgstr "Bieżące ustawienia"
 
-#: gsr/templates/gsr/partials/run_bar.html:9
+#: gsr/templates/gsr/partials/run_bar.html:10
 msgid "Outdated result"
 msgstr "Wynik nieaktualny"
 
-#: gsr/templates/gsr/partials/run_bar.html:9
+#: gsr/templates/gsr/partials/run_bar.html:10
 msgid "Up to date"
 msgstr "Aktualny"
 
-#: gsr/templates/gsr/partials/run_bar.html:9
+#: gsr/templates/gsr/partials/run_bar.html:10
 #, python-format
 msgid "Computed %(time)s · %(seconds)s s"
 msgstr "Policzono %(time)s · %(seconds)s s"
 
-#: gsr/templates/gsr/partials/run_bar.html:11
+#: gsr/templates/gsr/partials/run_bar.html:12
 msgid "Not run yet"
 msgstr "Jeszcze nie uruchomiono"
 
-#: gsr/templates/gsr/partials/run_bar.html:13
+#: gsr/templates/gsr/partials/run_bar.html:14
 msgid "Edit settings"
 msgstr "Edytuj ustawienia"
 
-#: gsr/templates/gsr/partials/run_bar.html:14
-msgid "Recompute"
-msgstr "Przelicz"
+#: gsr/templates/gsr/partials/settings_drawer.html:15
+msgid "Close settings"
+msgstr "Zamknij ustawienia"
+
+#: gsr/templates/gsr/partials/settings_drawer.html:21
+msgid "Apply settings"
+msgstr "Zastosuj ustawienia"
+
+#: gsr/templates/gsr/partials/settings_drawer.html:22
+msgid "Reset defaults"
+msgstr "Przywróć domyślne"
+
+#: gsr/templates/gsr/partials/settings_drawer.html:25
+msgid "Unapplied changes: Apply recomputes the result with them."
+msgstr "Niezastosowane zmiany: Zastosuj przeliczy z nimi wynik."
 
 #: gsr/templates/gsr/partials/significance.html:2
 msgid "above chance"
@@ -1538,7 +1551,7 @@ msgstr "Zapisano"
 msgid "Loaded"
 msgstr "Wczytany"
 
-#: gsr/templates/gsr/partials/upload_row.html:25 gsr/tests/test_views.py:1000
+#: gsr/templates/gsr/partials/upload_row.html:25 gsr/tests/test_views.py:1052
 #, python-format
 msgid "%(counter)s Excel fix"
 msgid_plural "%(counter)s Excel fixes"
@@ -1619,11 +1632,11 @@ msgstr "Czy na pewno usunąć projekt?"
 msgid "No saved projects yet. Create one to get started."
 msgstr "Brak zapisanych projektów. Utwórz pierwszy projekt, aby zacząć."
 
-#: gsr/views.py:76 gsr/views.py:701
+#: gsr/views.py:76 gsr/views.py:717
 msgid "Import"
 msgstr "Import"
 
-#: gsr/views.py:76 gsr/views.py:701
+#: gsr/views.py:76 gsr/views.py:717
 msgid "Cleaning"
 msgstr "Czyszczenie"
 
@@ -1734,88 +1747,88 @@ msgstr "Sygnał %(alias)s wykluczono z czyszczenia i analizy."
 msgid "Signal %(alias)s deleted."
 msgstr "Usunięto sygnał %(alias)s."
 
-#: gsr/views.py:400
+#: gsr/views.py:405
 #, python-format
 msgid "rejected %(rejected)s of %(total)s samples"
 msgstr "odrzucono %(rejected)s z %(total)s próbek"
 
-#: gsr/views.py:550
+#: gsr/views.py:566
 #, python-format
 msgid "subgroups of ≥ %(size)s people above %(threshold)s"
 msgstr "podgrupy ≥ %(size)s osób powyżej %(threshold)s"
 
-#: gsr/views.py:657
+#: gsr/views.py:673
 #, python-format
 msgid "Signals added: %(aliases)s"
 msgstr "Dodane sygnały: %(aliases)s"
 
-#: gsr/views.py:659
+#: gsr/views.py:675
 #, python-format
 msgid "Signals removed: %(aliases)s"
 msgstr "Usunięte sygnały: %(aliases)s"
 
-#: gsr/views.py:660
+#: gsr/views.py:676
 #, python-format
 msgid "Signal renamed: %(old)s → %(new)s"
 msgstr "Zmieniona nazwa sygnału: %(old)s → %(new)s"
 
-#: gsr/views.py:676
+#: gsr/views.py:692
 msgid "Cleaned signals"
 msgstr "Sygnały po czyszczeniu"
 
-#: gsr/views.py:676
+#: gsr/views.py:692
 msgid "per participant, relative time, full resolution"
 msgstr "per uczestnik, czas względny, pełna rozdzielczość"
 
-#: gsr/views.py:678
+#: gsr/views.py:694
 msgid "Analysis-ready merged file"
 msgstr "Połączony plik do analizy"
 
-#: gsr/views.py:678
+#: gsr/views.py:694
 msgid "scaled, downsampled, shared time axis"
 msgstr "skalowany, po downsamplingu, wspólna oś czasu"
 
-#: gsr/views.py:680
+#: gsr/views.py:696
 msgid "episodes, pairs, windows"
 msgstr "epizody, pary, okna"
 
-#: gsr/views.py:681 gsr/views.py:686
+#: gsr/views.py:697 gsr/views.py:702
 msgid "episodes"
 msgstr "epizody"
 
-#: gsr/views.py:682
+#: gsr/views.py:698
 msgid "pairs"
 msgstr "pary"
 
-#: gsr/views.py:683
+#: gsr/views.py:699
 msgid "windows"
 msgstr "okna"
 
-#: gsr/views.py:685
+#: gsr/views.py:701
 msgid "episodes, state timeline, time in states"
 msgstr "epizody, stany w czasie, udział czasu w stanach"
 
-#: gsr/views.py:687
+#: gsr/views.py:703
 msgid "state timeline"
 msgstr "oś stanów"
 
-#: gsr/views.py:688
+#: gsr/views.py:704
 msgid "time in states"
 msgstr "udział czasu w stanach"
 
-#: gsr/views.py:690
+#: gsr/views.py:706
 msgid "Run settings and results"
 msgstr "Ustawienia i wyniki obliczenia"
 
-#: gsr/views.py:690
+#: gsr/views.py:706
 msgid "for reproducibility: settings, library versions, file SHA-256"
 msgstr "dla odtwarzalności: ustawienia, wersje bibliotek, SHA-256 plików"
 
-#: gsr/views.py:692
+#: gsr/views.py:708
 msgid "Charts"
 msgstr "Wykresy"
 
-#: gsr/views.py:692
+#: gsr/views.py:708
 #, python-format
 msgid "%(count)d report chart, 2× resolution, white background, in the ZIP"
 msgid_plural ""
@@ -1827,122 +1840,22 @@ msgstr[1] ""
 msgstr[2] ""
 "%(count)d wykresów raportu, rozdzielczość 2×, białe tło, w archiwum ZIP"
 
-#: gsr/views.py:701
+#: gsr/views.py:717
 msgid "Summary page"
 msgstr "Strona podsumowania"
 
-#: gsr/views.py:706
+#: gsr/views.py:722
 msgid "Methodology"
 msgstr "Metodologia"
 
-#: gsr/views.py:706
+#: gsr/views.py:722
 msgid "Reproducibility"
 msgstr "Odtwarzalność"
 
-#: gsr/views.py:707
+#: gsr/views.py:723
 #, python-format
 msgid "%(count)d chart"
 msgid_plural "%(count)d charts"
 msgstr[0] "%(count)d wykres"
 msgstr[1] "%(count)d wykresy"
 msgstr[2] "%(count)d wykresów"
-
-#~ msgid ""
-#~ "Upload one eSense CSV export per participant. The alias defaults to the "
-#~ "first word or number of the file name; rename it below."
-#~ msgstr ""
-#~ "Wgraj jeden eksport CSV z eSense na uczestnika. Alias to domyślnie "
-#~ "pierwsze słowo lub liczba z nazwy pliku; zmienisz go poniżej."
-
-#~ msgid "CSV files"
-#~ msgstr "Pliki CSV"
-
-#~ msgid "Datasets in project"
-#~ msgstr "Sygnały w projekcie"
-
-#~ msgid "Alias"
-#~ msgstr "Alias"
-
-#~ msgid "Rows"
-#~ msgstr "Wiersze"
-
-#~ msgid "Common window"
-#~ msgstr "Wspólne okno"
-
-#~ msgid ""
-#~ "Raw GSR data (skin conductance in µS) read directly from CSV files. X-"
-#~ "axis shows the original recording time. Proceed to Cleaning to "
-#~ "synchronize signals, remove artifacts, and apply filtering."
-#~ msgstr ""
-#~ "Surowe dane GSR (przewodność skórna w µS) odczytane z plików CSV. Oś X to "
-#~ "oryginalny czas nagrania. Przejdź do Czyszczenia, aby zsynchronizować "
-#~ "sygnały, usunąć artefakty i zastosować filtrację."
-
-#~ msgid "People"
-#~ msgstr "Osób"
-
-#~ msgid "Null mean ± SD"
-#~ msgstr "Średnia zerowa ± SD"
-
-#~ msgid "Above chance (p<0.05)"
-#~ msgstr "Istotne ponad przypadek (p<0.05)"
-
-#~ msgid "Not significant (p≥0.05)"
-#~ msgstr "Nieistotne (p≥0.05)"
-
-#~ msgid "Not in sync"
-#~ msgstr "Poza synchronizacją"
-
-#~ msgid "Timeline (non-overlapping)"
-#~ msgstr "Oś czasu (bez nakładania)"
-
-#~ msgid ""
-#~ "Settings or signals changed after the last run. The exports describe the "
-#~ "last run; run the analysis again to include the changes."
-#~ msgstr ""
-#~ "Ustawienia lub sygnały zmieniły się po ostatnim obliczeniu. Eksport "
-#~ "opisuje ostatnie obliczenie; uruchom analizę ponownie, aby uwzględnić "
-#~ "zmiany."
-
-#~ msgid ""
-#~ "The report for other researchers: project description, results summary, "
-#~ "import, cleaning, synchronization and co-arousal results with charts, "
-#~ "methodology, and the data needed to reproduce the run. Its language "
-#~ "follows the UI language (PL/EN)."
-#~ msgstr ""
-#~ "Raport dla innych badaczy: opis projektu, podsumowanie wyników, import, "
-#~ "czyszczenie, wyniki synchronizacji i ko-pobudzenia z wykresami, "
-#~ "metodologia oraz dane potrzebne do odtworzenia obliczeń. Język raportu "
-#~ "odpowiada językowi interfejsu (PL/EN)."
-
-#, python-format
-#~ msgid "Results of the run from %(time)s"
-#~ msgstr "Wyniki obliczenia z %(time)s"
-
-#~ msgid "Data"
-#~ msgstr "Dane"
-
-#~ msgid ""
-#~ "A ZIP with every file below plus the report charts as PNG. Every chart on "
-#~ "the screens also has its own “Save PNG” button."
-#~ msgstr ""
-#~ "Archiwum ZIP ze wszystkimi plikami poniżej oraz wykresami raportu w PNG. "
-#~ "Każdy wykres na ekranach ma też własny przycisk „Zapisz PNG”."
-
-#~ msgid "Download ZIP"
-#~ msgstr "Pobierz ZIP"
-
-#~ msgid "Cleaned signals CSV"
-#~ msgstr "CSV sygnałów po czyszczeniu"
-
-#~ msgid "Analysis-ready merged CSV"
-#~ msgstr "Połączony CSV do analizy"
-
-#~ msgid "states"
-#~ msgstr "stany"
-
-#~ msgid "Run settings + results JSON"
-#~ msgstr "JSON z ustawieniami i wynikami"
-
-#~ msgid "reproducibility: settings, library versions, file SHA-256"
-#~ msgstr "odtwarzalność: ustawienia, wersje bibliotek, SHA-256 plików"
