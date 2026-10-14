@@ -102,9 +102,10 @@ _TEXT: dict[str, dict[str, str]] = {
                             "nauczycielem, gdy jest w nim nauczyciel i co najmniej jeden uczeń. Kroki schematu VSR: "
                             "1 to epizod ko-ruchu (synchronizacji lub ko-ruchu z zakładki Ko-pobudzenie) "
                             "nakładający się na wspólny stan Wysoki lub Niski, 2 epizod ko-ruchu bez wspólnego "
-                            "stanu, 3 i 4 epizod wspólnego stanu Wysokiego lub Niskiego bez ko-ruchu, 5 odcinek "
-                            "poza tymi epizodami, w którym korelacja w oknach Analizy pozostaje poniżej zera co "
-                            "najmniej przez minimalny czas epizodu.",
+                            "stanu, 3 i 4 epizod wspólnego stanu Wysokiego lub Niskiego bez ko-ruchu, 5 epizod "
+                            "ko-ruchu, którego r nie jest dodatnie (sygnały zmieniały się w przeciwnym kierunku), "
+                            "albo odcinek poza tymi epizodami, w którym korelacja w oknach Analizy pozostaje "
+                            "poniżej zera co najmniej przez minimalny czas epizodu.",
         "method_choice": "Korelacja r momentu to średnia z okien zakładki Synchronizacja (to samo okno, krok i "
                          "metoda) dla sygnałów pary albo nauczyciela i średniej uczniów (każdy uczeń w z-score, "
                          "potem średnia ponownie w z-score). Gdy kilka epizodów spełnia ten sam krok, pierwszy jest "
@@ -193,8 +194,9 @@ _TEXT: dict[str, dict[str, str]] = {
                             "of the VSR flow chart: 1 is a co-movement episode (synchronization, or co-movement on "
                             "the Co-arousal tab) overlapping a shared High or Low state, 2 a co-movement episode "
                             "without a shared state, 3 and 4 a shared High or Low episode without co-movement, 5 a "
-                            "stretch outside those episodes where the correlation in the Analysis windows stays "
-                            "below zero for at least the minimum episode duration.",
+                            "co-movement episode whose r is not positive (the signals moved in the opposite "
+                            "direction), or a stretch outside those episodes where the correlation in the Analysis "
+                            "windows stays below zero for at least the minimum episode duration.",
         "method_choice": "A moment's correlation r is the mean over the Synchronization tab's windows (same window, "
                          "step and method) of the pair's signals, or of the teacher and the students' average (each "
                          "student z-scored, then the average z-scored again). When several episodes answer the "
