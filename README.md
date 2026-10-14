@@ -39,9 +39,11 @@ authentication before hosting the app for more than one person.
 
 - `backend/gsr/pipeline/` - Django-free pipeline: `parser` (eSense CSV), `preprocessing`
   (synchronization, cleaning, scaling, merge, downsampling), `synchrony` (joint
-  synchronization), `coarousal` (co-arousal), `config` (`PipelineConfig`).
+  synchronization), `coarousal` (co-arousal), `config` (`PipelineConfig`), `vsr_config`
+  (`VsrConfig`, VSR interview parameters).
 - `backend/gsr/models.py`, `backend/gsr/services/` - projects, dataset upload, analysis service,
-  stored last results per screen (`results`), exports (`exports`).
+  stored last results per screen (`results`), exports (`exports`), interview roles and VSR
+  parameters kept outside the analysis signature (`interview`).
 - `backend/gsr/views.py`, `backend/gsr/templates/gsr/`, `backend/gsr/static/gsr/` - UI screens;
   `static/gsr/js/charts.js` holds the ECharts option builders ported from GSRv2,
   `static/gsr/vendor/` the pinned htmx and ECharts builds and the IBM Plex web fonts (`fonts/`, SIL OFL).
