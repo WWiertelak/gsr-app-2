@@ -255,13 +255,13 @@ details.advanced { margin-top: var(--s2); }
 details.advanced > summary { cursor: pointer; color: var(--accent); font-size: var(--fs-sm); font-weight: 600; padding: var(--s1) 0; }
 
 /* Settings drawer (Cleaning, Analysis): fixed on the right, mounted in #drawer-root outside #main, so it stays open
-   while HTMX swaps the results. Wide screens make room for it; narrower ones overlay it. Without JS it opens through
-   its #settings-drawer anchor. */
+   while HTMX swaps the results. Wide screens make room for it; narrower ones overlay it. Without JS (no .js on <html>)
+   it opens through its #settings-drawer anchor. */
 .drawer {
   display: none; position: fixed; top: 0; right: 0; bottom: 0; z-index: 40; width: min(var(--drawer-w), 100vw);
   flex-direction: column; background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow-pop);
 }
-#drawer-root.open .drawer, .drawer:target { display: flex; }
+#drawer-root.open .drawer, html:not(.js) .drawer:target { display: flex; }
 @media (min-width: 1280px) { body.drawer-open .page { margin-right: var(--drawer-w); } }
 .drawer-form { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .drawer-head { display: flex; align-items: center; gap: 10px; padding: var(--s4) var(--s5); border-bottom: 1px solid var(--line); }

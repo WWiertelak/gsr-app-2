@@ -8,7 +8,8 @@
 (function () {
   "use strict";
 
-  // Styles that only make sense with this script (e.g. the drop zone's upload button is replaced by auto-submit).
+  // Styles that only make sense with this script (e.g. the drop zone's upload button is replaced by auto-submit;
+  // the drawer's visibility follows #drawer-root.open only, the :target fallback is for pages without JS).
   document.documentElement.classList.add("js");
 
   function labels() {
@@ -197,8 +198,8 @@
     }
   }
 
-  // A URL ending in #settings-drawer (a bookmark, a link opened in a new tab) opens the drawer through the JS state
-  // instead of :target, so the close button and Escape can close it.
+  // A URL ending in #settings-drawer (a bookmark, a link opened in a new tab) opens the drawer through the JS state,
+  // so the close button and Escape can close it.
   function adoptDrawerHash() {
     if (window.location.hash !== "#settings-drawer") {
       return;
