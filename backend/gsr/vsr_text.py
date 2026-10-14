@@ -85,6 +85,8 @@ def _details(proposal: dict[str, Any], kind: str) -> list[str]:
                 shared_state(proposal, kind) if step == 1 else _("no shared arousal state")]
     if step in (3, 4):
         return [_episode(proposal["episode"], times), shared_state(proposal, kind), r, _("no co-movement")]
+    if proposal.get("episode"):
+        return [_episode(proposal["episode"], times), r, _("the signals moved in the opposite direction")]
     return [_("%(times)s outside the synchronization and co-arousal episodes") % {"times": times}, r,
             _("the signals did not move together")]
 

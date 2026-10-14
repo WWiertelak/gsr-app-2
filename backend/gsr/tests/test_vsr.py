@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from django.utils import translation
+
 import numpy as np
 import pytest
 
@@ -18,6 +20,7 @@ from gsr.pipeline.common import PipelineError
 from gsr.pipeline.config import PipelineConfig
 from gsr.pipeline.preprocessing import run_pipeline
 from gsr.pipeline.synchrony import compute_synchrony
+from gsr import vsr_text
 from gsr.pipeline.vsr import (
     COAROUSAL,
     HIGH,
@@ -27,7 +30,9 @@ from gsr.pipeline.vsr import (
     SYNCHRONY,
     Candidate,
     Episode,
+    Proposal,
     Windows,
+    _moment_payload,
     aggregate_student_signal,
     candidates_by_step,
     compute_vsr,
@@ -178,6 +183,31 @@ def test_no_synchrony_stays_outside_the_interviews_episodes() -> None:
 
     # The run breaks at the episode instead of bridging across it.
     assert [(c.start_seconds, c.end_seconds) for c in steps[5]] == [(300.0, 375.0), (425.0, 500.0)]
+
+
+def test_an_episode_whose_signals_moved_in_opposite_directions_is_no_synchrony() -> None:
+    # An unsigned-synchrony Analysis finds an anti-phase subgroup; it is no co-movement.
+    windows = _windows([(100, 160, -0.9), (600, 700, 0.6)])
+    synchrony = [_sync(100, 160, ["S1", "S2"])]
+    coarousal = [_coarousal("High", 130, 200, ["S1", "S2"]), _coarousal("Co-movement", 600, 700, ["S1", "S2"])]
+
+    steps = _steps(synchrony, coarousal, windows)
+
+    assert [(c.episode.source, c.episode.number) for c in steps[1] + steps[2]] == [(COAROUSAL, 2)]
+    step5, = steps[5]
+    assert (step5.episode.source, step5.episode.number) == (SYNCHRONY, 1)
+    assert step5.correlation == pytest.approx(-0.9)
+    # The opposite-direction episode does not hide the shared High state it overlaps.
+    assert [c.episode.number for c in steps[3]] == [1]
+
+    moment = _moment_payload(Proposal(1, PRIMARY, 1, 1, 1, step5), None)
+    with translation.override("en"):
+        english = vsr_text.justification(moment, "dyad")
+    with translation.override("pl"):
+        polish = vsr_text.justification(moment, "dyad")
+    assert "synchronization episode E1" in english and "opposite direction" in english
+    assert "co-movement" not in english
+    assert "przeciwnym kierunku" in polish
 
 
 def test_candidates_of_one_step_are_ranked_strongest_first() -> None:

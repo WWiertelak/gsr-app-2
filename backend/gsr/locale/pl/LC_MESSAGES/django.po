@@ -2592,12 +2592,16 @@ msgstr "bez wspólnego stanu pobudzenia"
 msgid "no co-movement"
 msgstr "bez ko-ruchu"
 
-#: gsr/vsr_text.py:88
+#: gsr/vsr_text.py:89
+msgid "the signals moved in the opposite direction"
+msgstr "sygnały zmieniały się w przeciwnym kierunku"
+
+#: gsr/vsr_text.py:90
 #, python-format
 msgid "%(times)s outside the synchronization and co-arousal episodes"
 msgstr "%(times)s poza epizodami synchronizacji i ko-pobudzenia"
 
-#: gsr/vsr_text.py:89
+#: gsr/vsr_text.py:91
 msgid "the signals did not move together"
 msgstr "sygnały nie zmieniały się razem"
 

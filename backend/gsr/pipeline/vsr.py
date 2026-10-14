@@ -5,14 +5,15 @@ takes the episodes the Analysis step found, with the Analysis settings they were
 with, and sorts them into the document's STEPS 1-5 for every interview:
 
   1. co-movement and a shared arousal state - a synchronization episode (Synchronization
-     tab) or a co-movement episode (Co-arousal tab) of the interview's people that
-     overlaps a shared High or Low episode (Co-arousal tab) of the same people;
+     tab) or a co-movement episode (Co-arousal tab) of the interview's people, with a
+     positive r, that overlaps a shared High or Low episode (Co-arousal tab) of the same people;
   2. co-movement only - such a co-movement episode that overlaps no shared state;
   3. shared High arousal - a shared High episode that overlaps no co-movement;
   4. shared Low arousal - a shared Low episode that overlaps no co-movement;
-  5. no synchrony - a stretch outside all of those episodes where the interview's
-     windowed correlation stays below zero, at least as long as the Analysis' minimum
-     episode duration (gaps up to its maximum episode gap are bridged).
+  5. no synchrony - a co-movement episode whose r is not positive (the signals moved in
+     the opposite direction), or a stretch outside all of those episodes where the
+     interview's windowed correlation stays below zero, at least as long as the Analysis'
+     minimum episode duration (gaps up to its maximum episode gap are bridged).
 
 An episode belongs to a student pair when both students are in it (members of a
 synchronization subgroup, contributors of a co-arousal episode), and to the teacher
@@ -113,7 +114,8 @@ class Candidate:
     start_seconds: float
     end_seconds: float
     correlation: float
-    # The co-movement episode (STEPS 1-2) or the shared-state episode (STEPS 3-4); None in STEP 5.
+    # The co-movement episode (STEPS 1-2 and an opposite-direction one in STEP 5) or the shared-state
+    # episode (STEPS 3-4); None for a STEP 5 stretch outside the episodes.
     episode: Episode | None = None
     # STEP 1: the shared-state episode the co-movement episode overlaps most.
     shared: Episode | None = None
@@ -327,19 +329,26 @@ def candidates_by_step(windows: Windows, comovement: list[Episode], shared: list
                        config: PipelineConfig, lesson: tuple[float, float]) -> dict[int, list[Candidate]]:
     """Every Analysis episode of the interview as the step it answers, strongest first within a step."""
     steps: dict[int, list[Candidate]] = {number: [] for number in STEP_NUMBERS}
+    same_direction: list[Episode] = []
+    opposite: list[Candidate] = []
     for episode in comovement:
+        correlation = windows.mean(episode.start_seconds, episode.end_seconds)
+        if correlation <= 0.0:
+            opposite.append(Candidate(5, episode.start_seconds, episode.end_seconds, correlation, episode=episode))
+            continue
+        same_direction.append(episode)
         state = _overlapping(episode, shared)
         steps[1 if state else 2].append(
-            Candidate(1 if state else 2, episode.start_seconds, episode.end_seconds,
-                      windows.mean(episode.start_seconds, episode.end_seconds), episode=episode, shared=state)
+            Candidate(1 if state else 2, episode.start_seconds, episode.end_seconds, correlation,
+                      episode=episode, shared=state)
         )
     for episode in shared:
-        if _overlapping(episode, comovement) is None:
+        if _overlapping(episode, same_direction) is None:
             steps[3 if episode.state == HIGH else 4].append(
                 Candidate(3 if episode.state == HIGH else 4, episode.start_seconds, episode.end_seconds,
                           windows.mean(episode.start_seconds, episode.end_seconds), episode=episode)
             )
-    steps[5] = _no_synchrony(windows, comovement + shared, config, lesson)
+    steps[5] = opposite + _no_synchrony(windows, comovement + shared, config, lesson)
     for candidates in steps.values():
         candidates.sort(key=Candidate.sort_key)
     return steps
