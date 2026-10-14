@@ -231,27 +231,33 @@ def test_report_sections_flow_on_after_the_summary_page(payload) -> None:
     assert pages <= 10, pages
 
 
-def _section_start_pages(payload: dict[str, Any]) -> tuple[int, dict[str, int]]:
-    """Page count of the PDF and the page (1-based) each section starts on."""
+def _section_starts(payload: dict[str, Any]) -> tuple[int, dict[str, tuple[int, float]]]:
+    """Page count of the PDF and where each section starts: its page (1-based) and its top on that page."""
     from weasyprint import HTML
 
     document = HTML(string=render_report_html(payload), base_url=str(FONT_DIR)).render()
-    starts: dict[str, int] = {}
+    starts: dict[str, tuple[int, float]] = {}
     for number, page in enumerate(document.pages, start=1):
-        for anchor in page.anchors:
-            starts.setdefault(anchor, number)
+        for anchor, position in page.anchors.items():
+            starts.setdefault(anchor, (number, position[1]))
     return len(document.pages), starts
 
 
 def test_outdated_run_with_a_long_description_does_not_leave_an_empty_page(payload) -> None:
     charts = {key: _png() for key in ("raw_overlay", "clean_overlay", "sync_timeline", "sync_signals", "sync_matrix",
                                       "coarousal_states")}
-    description = "\n".join(f"Session note {line}: the group worked on a shared task in the lab." for line in range(8))
+    def notes(count: int) -> str:
+        return "\n".join(f"Session note {line}: the group worked on a shared task in the lab." for line in range(count))
+
+    description = notes(8)
     long_payload = {**payload, "lang": "en", "chart_images": charts, "stale": True, "project_description": description}
-    plain_pages, _ = _section_start_pages({**payload, "lang": "en", "chart_images": charts})
-    pages, starts = _section_start_pages(long_payload)
-    # The warning and a clamped description stay on page 1; the summary flows on and Import follows it on page 2.
-    assert starts["summary"] == 1 and starts["import"] == 2, starts
+    plain_pages, _ = _section_starts({**payload, "lang": "en", "chart_images": charts})
+    pages, starts = _section_starts(long_payload)
+    _, three_line_starts = _section_starts({**long_payload, "project_description": notes(3)})
+    # Page 1 clamps the description to three lines, so a longer one does not push the summary down.
+    assert starts["summary"] == three_line_starts["summary"] and starts["summary"][0] == 1, starts
+    # The summary flows on and Import follows it on page 2.
+    assert starts["import"][0] == 2, starts
     assert pages <= plain_pages + 1, (pages, plain_pages)
     page = render_report_html(long_payload)
     assert description in html.unescape(page[page.index('id="import"'):page.index('id="cleaning"')])
