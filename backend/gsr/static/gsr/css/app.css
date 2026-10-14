@@ -620,7 +620,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
   .rail-steps { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); grid-auto-flow: column; }
   .rail-steps .rail-nav { display: flex; flex-direction: column; gap: 2px; width: auto; height: auto; padding: 6px 2px; }
   .rail-steps .rail-nav .rail-tip {
-    position: static; display: block; width: 100%; transform: none; padding: 0; background: none; box-shadow: none; opacity: 1;
+    position: static; z-index: auto; display: block; width: 100%; transform: none; padding: 0; background: none; box-shadow: none; opacity: 1;
     font-size: var(--fs-xs); text-align: center;
   }
   .rail-steps .rail-nav .rail-tip b, .rail-steps .rail-nav .rail-tip small { display: block; overflow: hidden; text-overflow: ellipsis; }
