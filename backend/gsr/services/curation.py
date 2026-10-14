@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any, Iterable
 
 from django.db import transaction
@@ -157,7 +157,15 @@ def ensure_synced(project: Project, result: AnalysisResult | None) -> None:
 def lesson_clock_start(payload: dict[str, Any]) -> datetime | None:
     """The sensor clock at lesson time 0, or None when the recordings have no clock."""
     stored = (payload.get("lesson") or {}).get("start_clock")
-    return datetime.fromisoformat(stored) if stored else None
+    if stored:
+        return datetime.fromisoformat(stored)
+    # Proposals stored before the lesson clock was kept: read it back from a proposed moment (to the second).
+    for interview in payload.get("interviews", []):
+        for moment in interview["moments"]:
+            if moment.get("start_clock"):
+                clock = datetime.combine(date(2000, 1, 2), time.fromisoformat(moment["start_clock"]))
+                return clock - timedelta(seconds=moment["start_seconds"])
+    return None
 
 
 def _clock(clock_start: datetime | None, seconds: float) -> str | None:

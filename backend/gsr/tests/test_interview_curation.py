@@ -268,11 +268,16 @@ def test_a_decided_moment_no_longer_proposed_stays_and_is_marked_for_checking() 
 def test_the_lists_are_created_for_proposals_stored_before_curation() -> None:
     project = Project.objects.create(name="Legacy")
     result = _fake_result(project, [(1, 10, 40), (2, 100, 130)])
+    # Proposals stored before the lesson clock was kept carry the clock only on their moments.
+    del result.payload["lesson"]["start_clock"]
+    for moment in result.payload["interviews"][0]["moments"]:
+        moment["start_clock"] = f"09:{int(moment['start_seconds']) // 60:02d}:{int(moment['start_seconds']) % 60:02d}"
+    result.save()
     assert not project.interview_moments.exists()
     curation.ensure_synced(project, result)
     items = _list(project, result, "A+B")
     assert [item.row.start_seconds for item in items] == [10, 100]
-    # Clock and video times of a moved moment come from the stored lesson clock.
+    # Clock and video times of a moved moment come from the lesson clock read back from a proposed moment.
     curation.change_time(items[0].row, result, 60, 90, "Later")
     item = _list(project, result, "A+B")[0]
     assert (item.start_clock, item.end_clock, item.start_video) == ("09:01:00", "09:01:30", "0:00:30")
