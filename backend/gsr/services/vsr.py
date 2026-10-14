@@ -124,7 +124,7 @@ def compute_interviews(project: Project) -> AnalysisResult:
         lesson={
             "start_seconds": float(times.min()) * 60.0,
             "end_seconds": float(times.max()) * 60.0,
-            "start_clock": clock_start.strftime("%H:%M:%S") if (clock_start := _clock_start(result)) else None,
+            "start_clock": clock_start.isoformat() if (clock_start := _clock_start(result)) else None,
         },
         quality=_signal_quality(result, result.aliases),
         analysis_computed_at=analysis.computed_at.isoformat(),

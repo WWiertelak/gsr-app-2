@@ -220,10 +220,11 @@ def test_proposing_again_keeps_every_decision_and_the_order(proposed) -> None:
     assert not project.interview_moments.filter(needs_check=True).exists()
 
 
-def _fake_result(project: Project, moments: list[tuple[int, float, float]], key: str = "A+B") -> AnalysisResult:
+def _fake_result(project: Project, moments: list[tuple[int, float, float]], key: str = "A+B",
+                 start_clock: str = "2024-05-06T09:00:00") -> AnalysisResult:
     payload = {
         "config": {"vsr_primary_moment_count": 2},
-        "lesson": {"start_seconds": 0.0, "end_seconds": 600.0, "start_clock": "09:00:00"},
+        "lesson": {"start_seconds": 0.0, "end_seconds": 600.0, "start_clock": start_clock},
         "roles": {"video_start_time": "09:00:30"},
         "interviews": [{
             "key": key,
@@ -275,6 +276,17 @@ def test_the_lists_are_created_for_proposals_stored_before_curation() -> None:
     curation.change_time(items[0].row, result, 60, 90, "Later")
     item = _list(project, result, "A+B")[0]
     assert (item.start_clock, item.end_clock, item.start_video) == ("09:01:00", "09:01:30", "0:00:30")
+
+
+@pytest.mark.django_db
+def test_a_moved_moment_reads_the_clock_like_the_engine_from_a_sub_second_lesson_start() -> None:
+    project = Project.objects.create(name="Clock")
+    result = _fake_result(project, [(1, 10, 40)], start_clock="2024-05-06T10:00:00.700000")
+    curation.sync_interview_moments(project, result)
+    row = _list(project, result, "A+B")[0].row
+    curation.change_time(row, result, 10.5, 40, "Earlier")
+    item = _list(project, result, "A+B")[0]
+    assert (item.start_clock, item.end_clock) == ("10:00:11", "10:00:40")
 
 
 def test_lesson_times_parse_as_minutes_and_seconds() -> None:

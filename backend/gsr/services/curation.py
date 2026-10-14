@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any, Iterable
 
 from django.db import transaction
@@ -26,7 +27,6 @@ from ..pipeline.vsr import PRIMARY, RESERVE
 from ..pipeline.vsr_config import VsrConfig
 from .vsr import video_time
 
-SECONDS_PER_DAY = 24 * 3600
 MAX_REASON_LENGTH = 1000
 MAX_NOTE_LENGTH = 2000
 # The forms show whole seconds, so times within half a second count as equal.
@@ -154,38 +154,17 @@ def ensure_synced(project: Project, result: AnalysisResult | None) -> None:
         sync_interview_moments(project, result)
 
 
-def _clock_seconds(text: str | None) -> int | None:
-    if not text:
-        return None
-    hours, minutes, seconds = (int(part) for part in text.split(":"))
-    return hours * 3600 + minutes * 60 + seconds
+def lesson_clock_start(payload: dict[str, Any]) -> datetime | None:
+    """The sensor clock at lesson time 0, or None when the recordings have no clock."""
+    stored = (payload.get("lesson") or {}).get("start_clock")
+    return datetime.fromisoformat(stored) if stored else None
 
 
-def _format_clock(seconds: int) -> str:
-    seconds %= SECONDS_PER_DAY
-    return f"{seconds // 3600:02d}:{seconds // 60 % 60:02d}:{seconds % 60:02d}"
+def _clock(clock_start: datetime | None, seconds: float) -> str | None:
+    return None if clock_start is None else (clock_start + timedelta(seconds=seconds)).strftime("%H:%M:%S")
 
 
-def lesson_clock_start(payload: dict[str, Any]) -> int | None:
-    """The sensor clock (seconds of the day) at lesson time 0, or None when the recordings have no clock."""
-    lesson = payload.get("lesson") or {}
-    stored = _clock_seconds(lesson.get("start_clock"))
-    if stored is not None:
-        return stored
-    # Proposals stored before the lesson clock was kept: read it back from a proposed moment.
-    for interview in payload.get("interviews", []):
-        for moment in interview["moments"]:
-            clock = _clock_seconds(moment.get("start_clock"))
-            if clock is not None:
-                return (clock - int(moment["start_seconds"])) % SECONDS_PER_DAY
-    return None
-
-
-def _clock(clock_start: int | None, seconds: float) -> str | None:
-    return None if clock_start is None else _format_clock(clock_start + int(seconds))
-
-
-def _times(row: InterviewMoment, clock_start: int | None, video_start: str | None) -> dict[str, str | None]:
+def _times(row: InterviewMoment, clock_start: datetime | None, video_start: str | None) -> dict[str, str | None]:
     if not row.is_manual and not row.time_changed:
         start_clock, end_clock = row.proposal.get("start_clock"), row.proposal.get("end_clock")
     else:
