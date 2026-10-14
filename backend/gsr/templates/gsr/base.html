@@ -15,9 +15,9 @@
   <a class="skip-link" href="#content">{% translate "Skip to content" %}</a>
   <div class="shell">
     <aside class="rail" aria-label="{% translate 'Navigation' %}">
-      <a class="rail-brand" href="{% url 'gsr:projects' %}"><span class="logo" aria-hidden="true"></span>GSR Analyzer</a>
+      <a class="rail-brand" href="{% url 'gsr:projects' %}"><span class="logo" aria-hidden="true"></span><span class="brand-name">GSR Analyzer</span></a>
       {% block rail %}{% endblock %}
-      <nav aria-label="{% translate 'App' %}">
+      <nav class="rail-app" aria-label="{% translate 'App' %}">
         <h2 class="rail-section">{% translate "App" %}</h2>
         <a class="rail-nav" href="{% url 'gsr:projects' %}"{% block rail_projects_current %}{% endblock %}>
           <span class="n" aria-hidden="true">▤</span><b>{% translate "Projects" %}</b><small>{% translate "all projects" %}</small>

@@ -165,6 +165,17 @@ def test_upload_screen_empty_state_offers_a_translated_drop_zone(client) -> None
 
 
 @pytest.mark.django_db
+def test_rail_keeps_text_names_when_it_collapses_to_icons_or_a_top_bar(client, project) -> None:
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    # Narrow screens hide the brand name and the project name visually; both stay in the markup for screen readers,
+    # and the collapsed project switcher shows the project's initial instead.
+    assert '<span class="brand-name">GSR Analyzer</span>' in page
+    assert '<span class="initial" aria-hidden="true">S</span><span class="name">Sesja łódzka</span>' in page
+    # The top bar orders the rail's parts by these hooks.
+    assert '<nav class="rail-steps-nav" aria-labelledby="rail-steps-title">' in page and '<nav class="rail-app"' in page
+
+
+@pytest.mark.django_db
 def test_upload_screen_lists_recordings_in_one_table_with_inline_alias(client, project) -> None:
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()

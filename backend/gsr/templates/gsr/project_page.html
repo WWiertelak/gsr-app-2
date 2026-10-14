@@ -3,7 +3,7 @@
 {% block title %}{{ step_label }} · {{ project.name }}{% endblock %}
 {% block rail %}
 <details class="rail-project">
-  <summary><span class="name">{{ project.name }}</span><small>{% translate "Switch project" %} ▾</small></summary>
+  <summary><span class="initial" aria-hidden="true">{{ project.name|make_list|first|upper }}</span><span class="name">{{ project.name }}</span><small>{% translate "Switch project" %} ▾</small></summary>
   <ul>
     {% for other in other_projects %}
       <li><a href="{% url 'gsr:project' other.pk %}">{{ other.name }}</a></li>
@@ -11,7 +11,7 @@
     <li><a class="all" href="{% url 'gsr:projects' %}">{% translate "All projects" %}</a></li>
   </ul>
 </details>
-<nav aria-labelledby="rail-steps-title">
+<nav class="rail-steps-nav" aria-labelledby="rail-steps-title">
   <h2 class="rail-section" id="rail-steps-title">{% translate "Project steps" %}</h2>
   {% include "gsr/partials/rail_steps.html" %}
 </nav>
