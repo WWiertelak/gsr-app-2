@@ -35,6 +35,7 @@ from .reporting.report import render_report_pdf, report_text, resolve_lang
 from .services import exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
+from .services.interview import forget_interview_alias, rename_interview_alias
 from .services.results import (
     FALLBACK_SIGNAL_COLOR,
     compute_analysis,
@@ -378,8 +379,10 @@ def dataset_rename(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespon
     except ValidationError as exc:
         error = " ".join(exc.messages)
     else:
-        dataset.alias = alias
-        dataset.save(update_fields=["alias"])
+        with transaction.atomic():
+            rename_interview_alias(project, dataset.alias, alias)
+            dataset.alias = alias
+            dataset.save(update_fields=["alias"])
     if _is_htmx(request):
         context = {
             "project": project,
@@ -438,7 +441,9 @@ def dataset_delete(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespon
     project = _project(pk)
     dataset = get_object_or_404(Dataset, pk=dataset_pk, project=project)
     alias = dataset.alias
-    dataset.delete()
+    with transaction.atomic():
+        dataset.delete()
+        forget_interview_alias(project, alias)
     messages.success(request, _("Signal %(alias)s deleted.") % {"alias": alias})
     return redirect("gsr:upload", project.pk)
 

@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.http import QueryDict
+from django.template.loader import render_to_string
+from django.urls import reverse
 
+from gsr import params
 from gsr.models import AnalysisResult, Project
 from gsr.pipeline.vsr_config import VsrConfig, parse_video_start_time
 from gsr.services.datasets import add_dataset
@@ -16,6 +20,7 @@ from gsr.services.interview import (
     vsr_field_rows,
 )
 from gsr.services.results import compute_analysis, current_signature, is_stale
+from gsr.vsr_params import VSR_PARAMS
 
 from .sample_data import Participant, write_group
 
@@ -157,3 +162,74 @@ def test_vsr_signature_changes_when_roles_or_vsr_parameters_change(lesson_projec
     lesson_project.interview_config = apply_interview_config(lesson_project, {"vsr": {"vsr_step_seconds": 10}})
     lesson_project.save(update_fields=["interview_config"])
     assert compute_vsr_signature(lesson_project) != with_teacher
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"vsr_sync_threshold": "nan"}, "vsr_sync_threshold must be a valid number"),
+        ({"vsr_high_z": float("inf")}, "vsr_high_z must be a valid number"),
+        ({"vsr_primary_moment_count": "5.5"}, "vsr_primary_moment_count must be a valid integer"),
+        ({"vsr_primary_moment_count": "five"}, "vsr_primary_moment_count must be a valid integer"),
+    ],
+)
+def test_vsr_config_rejects_non_finite_and_non_integer_values(kwargs, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        VsrConfig(**kwargs)
+
+
+def test_vsr_config_accepts_whole_number_floats_for_counts() -> None:
+    config = VsrConfig(vsr_primary_moment_count=4.0, vsr_reserve_moment_count="2.0")
+    assert config.vsr_primary_moment_count == 4 and isinstance(config.vsr_primary_moment_count, int)
+    assert config.vsr_reserve_moment_count == 2
+
+
+def test_vsr_params_render_and_parse_with_their_own_defaults() -> None:
+    changed = {**VsrConfig().model_dump(), "vsr_sync_threshold": 0.75}
+    row = next(row for row in vsr_field_rows(changed) if row["param"].name == "vsr_sync_threshold")
+    html = render_to_string("gsr/partials/param_field.html", {"row": row})
+    assert "(domyślnie 0,8)" in html
+    assert params.parse_params(VSR_PARAMS, QueryDict("vsr_sync_threshold="))["vsr_sync_threshold"] == 0.8
+
+
+@pytest.mark.django_db
+def test_apply_interview_config_ignores_flat_vsr_keys(lesson_project) -> None:
+    stored = apply_interview_config(lesson_project, {"vsr_sync_threshold": 0.75})
+    assert stored["vsr"]["vsr_sync_threshold"] == 0.8
+
+
+@pytest.mark.django_db
+def test_renaming_a_recording_keeps_its_interview_roles(client, lesson_project) -> None:
+    lesson_project.interview_config = apply_interview_config(
+        lesson_project, {"teacher_alias": "T", "student_pairs": [["S1", "S2"]]}
+    )
+    lesson_project.save(update_fields=["interview_config"])
+    for old, new in (("S1", "Ola"), ("T", "Teacher")):
+        dataset = lesson_project.datasets.get(alias=old)
+        client.post(reverse("gsr:dataset_rename", args=[lesson_project.pk, dataset.pk]), {"alias": new})
+
+    lesson_project.refresh_from_db()
+    config = load_interview_config(lesson_project)
+    assert config.roles.teacher_alias == "Teacher"
+    assert config.roles.student_pairs == (("Ola", "S2"),)
+    stored = apply_interview_config(lesson_project, {"vsr": {"vsr_sync_threshold": 0.7}})
+    assert stored["student_pairs"] == [["Ola", "S2"]]
+    compute_vsr_signature(lesson_project)
+
+
+@pytest.mark.django_db
+def test_deleting_a_recording_drops_it_from_interview_roles(client, lesson_project) -> None:
+    lesson_project.interview_config = apply_interview_config(
+        lesson_project, {"teacher_alias": "T", "student_pairs": [["S1", "S2"]], "video_start_time": "09:00:00"}
+    )
+    lesson_project.save(update_fields=["interview_config"])
+    for alias in ("S1", "T"):
+        dataset = lesson_project.datasets.get(alias=alias)
+        client.post(reverse("gsr:dataset_delete", args=[lesson_project.pk, dataset.pk]))
+
+    lesson_project.refresh_from_db()
+    config = load_interview_config(lesson_project)
+    assert config.roles.teacher_alias is None
+    assert config.roles.student_pairs == ()
+    assert config.roles.video_start_time == "09:00:00"
+    compute_vsr_signature(lesson_project)

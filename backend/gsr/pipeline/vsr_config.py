@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import math
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -35,22 +36,21 @@ def _coerce(name: str, value: Any) -> Any:
     if value is None:
         raise ValueError(f"{name} may not be null")
     kind, low, high = _FIELD_RULES[name]
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be a valid {'integer' if kind == _INT else 'number'}")
+    try:
+        number = float(str(value).strip().replace(",", "."))
+    except ValueError:
+        number = math.nan
+    if not math.isfinite(number) or (kind == _INT and not number.is_integer()):
+        raise ValueError(f"{name} must be a valid {'integer' if kind == _INT else 'number'}")
     if kind == _INT:
-        if isinstance(value, bool) or not isinstance(value, (int, float, str)):
-            raise ValueError(f"{name} must be an integer")
-        number = int(str(value).strip())
-        if isinstance(value, str) and "." in value.strip():
-            raise ValueError(f"{name} must be an integer")
-    else:
-        try:
-            number = float(str(value).strip().replace(",", "."))
-        except ValueError:
-            raise ValueError(f"{name} must be a valid number") from None
+        number = int(number)
     if low is not None and number < low:
         raise ValueError(f"{name} must be greater than or equal to {low}")
     if high is not None and number > high:
         raise ValueError(f"{name} must be less than or equal to {high}")
-    return number if kind == _FLOAT else number
+    return number
 
 
 @dataclass(init=False)
@@ -71,12 +71,7 @@ class VsrConfig:
         if unknown:
             raise TypeError(f"Unknown VsrConfig fields: {', '.join(sorted(unknown))}")
         for name, spec in field_map.items():
-            if name in kwargs:
-                value = kwargs[name]
-            elif spec.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
-                value = spec.default_factory()  # type: ignore[misc]
-            else:
-                value = spec.default
+            value = kwargs[name] if name in kwargs else spec.default
             object.__setattr__(self, name, _coerce(name, value))
         if self.vsr_async_threshold >= self.vsr_sync_threshold:
             raise ValueError("vsr_async_threshold must be lower than vsr_sync_threshold")

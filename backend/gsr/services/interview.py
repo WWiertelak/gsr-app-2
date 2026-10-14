@@ -7,7 +7,6 @@ synchronization / co-arousal runs stale.
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import json
 from dataclasses import dataclass
@@ -16,10 +15,11 @@ from typing import Any
 from django.utils.translation import gettext
 
 from ..models import Project
+from ..params import changed_label, field_rows
 from ..pipeline.vsr_config import VsrConfig, parse_video_start_time
 from .results import included_datasets
 
-VSR_PARAM_NAMES = tuple(f.name for f in dataclasses.fields(VsrConfig))
+_ROLE_KEYS = ("teacher_alias", "student_pairs", "video_start_time")
 
 
 @dataclass(frozen=True)
@@ -91,57 +91,53 @@ def load_interview_config(project: Project) -> InterviewConfig:
 
 def apply_interview_config(project: Project, updates: dict[str, Any]) -> dict[str, Any]:
     """Merge ``updates`` into stored interview settings; raises ``ValueError`` when invalid."""
-    stored = dict(project.interview_config or {})
+    stored = project.interview_config or {}
     aliases = {dataset.alias for dataset in project.datasets.all()}
+    roles = validate_roles({**stored, **{key: updates[key] for key in _ROLE_KEYS if key in updates}}, aliases)
+    vsr = VsrConfig.from_dict({**(stored.get("vsr") or {}), **(updates.get("vsr") or {})})
+    return InterviewConfig(roles=roles, vsr=vsr).to_storage()
 
-    if "teacher_alias" in updates or "student_pairs" in updates or "video_start_time" in updates:
-        role_updates = {
-            "teacher_alias": updates.get("teacher_alias", stored.get("teacher_alias")),
-            "student_pairs": updates.get("student_pairs", stored.get("student_pairs", [])),
-            "video_start_time": updates.get("video_start_time", stored.get("video_start_time")),
-        }
-        roles = validate_roles(role_updates, aliases)
-        stored["teacher_alias"] = roles.teacher_alias
-        stored["student_pairs"] = [[left, right] for left, right in roles.student_pairs]
-        stored["video_start_time"] = roles.video_start_time
 
-    if "vsr" in updates:
-        vsr_payload = {**(stored.get("vsr") or {}), **(updates["vsr"] or {})}
-        stored["vsr"] = VsrConfig.from_dict(vsr_payload).model_dump()
-    elif any(key in updates for key in VSR_PARAM_NAMES):
-        vsr_payload = {**(stored.get("vsr") or {}), **{k: updates[k] for k in VSR_PARAM_NAMES if k in updates}}
-        stored["vsr"] = VsrConfig.from_dict(vsr_payload).model_dump()
+def rename_interview_alias(project: Project, old: str, new: str) -> None:
+    """Keep the stored roles pointing at a recording after it is renamed."""
+    stored = project.interview_config or {}
+    if not stored or old == new:
+        return
+    teacher = stored.get("teacher_alias")
+    pairs = stored.get("student_pairs") or []
+    project.interview_config = {
+        **stored,
+        "teacher_alias": new if teacher == old else teacher,
+        "student_pairs": [[new if alias == old else alias for alias in pair] for pair in pairs],
+    }
+    project.save(update_fields=["interview_config", "updated_at"])
 
-    # Re-validate roles when only aliases might have changed (caller passes full updates).
-    roles = validate_roles(stored, aliases)
-    stored["teacher_alias"] = roles.teacher_alias
-    stored["student_pairs"] = [[left, right] for left, right in roles.student_pairs]
-    stored["video_start_time"] = roles.video_start_time
-    return stored
+
+def forget_interview_alias(project: Project, alias: str) -> None:
+    """Drop a deleted recording from the teacher role and from every pair that contains it."""
+    stored = project.interview_config or {}
+    if not stored:
+        return
+    teacher = stored.get("teacher_alias")
+    pairs = stored.get("student_pairs") or []
+    project.interview_config = {
+        **stored,
+        "teacher_alias": None if teacher == alias else teacher,
+        "student_pairs": [pair for pair in pairs if alias not in pair],
+    }
+    project.save(update_fields=["interview_config", "updated_at"])
 
 
 def vsr_field_rows(values: dict[str, Any]) -> list[dict[str, Any]]:
-    from ..vsr_params import DEFAULTS, VSR_PARAMS
+    from ..vsr_params import VSR_PARAMS
 
-    return [
-        {
-            "param": param,
-            "value": values.get(param.name),
-            "modified": values.get(param.name) != DEFAULTS[param.name],
-        }
-        for param in VSR_PARAMS
-    ]
+    return field_rows(VSR_PARAMS, values)
 
 
 def vsr_changed_label(values: dict[str, Any]) -> str | None:
-    from django.utils.translation import ngettext
+    from ..vsr_params import VSR_PARAMS
 
-    from ..vsr_params import DEFAULTS, VSR_PARAMS
-
-    changed = sum(1 for param in VSR_PARAMS if values.get(param.name) != DEFAULTS[param.name])
-    if not changed:
-        return None
-    return ngettext("%(count)d changed", "%(count)d changed", changed) % {"count": changed}
+    return changed_label(VSR_PARAMS, values)
 
 
 def compute_vsr_signature(project: Project) -> str:
