@@ -239,6 +239,30 @@ COAROUSAL_ADVANCED = (
 ANALYSIS_PARAMS = (*SYNCHRONY_ESSENTIAL, *SYNCHRONY_ADVANCED, *COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED)
 
 
+def analysis_window(values: dict[str, Any], duration_seconds: float) -> dict[str, Any]:
+    """The analysed period inside the common recording window, in whole seconds from the window's start: the Cleaning
+    time range clipped to the window; a missing bound is the window's own edge. ``max`` is the last whole second."""
+    limit = max(0, int(duration_seconds))
+
+    def seconds(minutes: Any, default: int) -> int:
+        return default if minutes is None else min(max(0, round(float(minutes) * 60.0)), limit)
+
+    start, end = seconds(values.get("time_range_from"), 0), seconds(values.get("time_range_to"), limit)
+    return {"from": start, "to": end, "max": limit, "full": start == 0 and end == limit}
+
+
+def window_settings(from_seconds: int, to_seconds: int, duration_seconds: float) -> dict[str, float | None]:
+    """The Cleaning time range (minutes) for a period picked on the Upload overlap timeline. An edge of the common window
+    is stored as no bound, so the full window keeps the default settings. Raises ``ValueError`` when out of the window."""
+    limit = max(0, int(duration_seconds))
+    if not 0 <= from_seconds < to_seconds <= limit:
+        raise ValueError(gettext("The analysed period must lie inside the common window and end after it starts."))
+    return {
+        "time_range_from": None if from_seconds == 0 else round(from_seconds / 60.0, 4),
+        "time_range_to": None if to_seconds == limit else round(to_seconds / 60.0, 4),
+    }
+
+
 def cleaning_params() -> tuple[Param, ...]:
     params: list[Param] = []
     for group in CLEANING_GROUPS:

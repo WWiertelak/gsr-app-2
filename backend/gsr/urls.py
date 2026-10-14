@@ -11,6 +11,7 @@ urlpatterns = [
     path("projects/<uuid:pk>/delete/", views.project_delete, name="project_delete"),
     path("projects/<uuid:pk>/upload/", views.upload, name="upload"),
     path("projects/<uuid:pk>/upload/overview/", views.upload_overview, name="upload_overview"),
+    path("projects/<uuid:pk>/upload/window/", views.upload_window, name="upload_window"),
     path("projects/<uuid:pk>/datasets/<uuid:dataset_pk>/rename/", views.dataset_rename, name="dataset_rename"),
     path("projects/<uuid:pk>/datasets/<uuid:dataset_pk>/delete/", views.dataset_delete, name="dataset_delete"),
     path("projects/<uuid:pk>/datasets/<uuid:dataset_pk>/exclude/", views.dataset_exclude, name="dataset_exclude"),

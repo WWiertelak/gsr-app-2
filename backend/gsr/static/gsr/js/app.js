@@ -3,7 +3,8 @@
  * swaps), result switches (pair curves, merged episode table), analysis tabs (ARIA tabs with arrow keys), info
  * tooltips, confirm dialogs, the settings drawer (opened from the run bar, kept open with its unapplied edits across
  * HTMX swaps), the Upload drop zone and its Separate/Overlay view switch, progress for plain form posts and on the
- * button that started a computation, and the Export screen's chart capture for the PDF report and the ZIP.
+ * button that started a computation, the Upload overlap timeline's analysed-period handles, and the Export screen's
+ * chart capture for the PDF report and the ZIP.
  */
 (function () {
   "use strict";
@@ -281,6 +282,74 @@
     });
     hydrate(scope);
     resizeCharts();
+  });
+
+  // ── Analysed-period handles on the Upload overlap timeline: keep start before end, move the band and show the clock
+  // times while dragging; the form saves itself (HTMX, on change) ──
+  function clockText(seconds) {
+    var total = Math.floor(seconds) % 86400;
+    return [Math.floor(total / 3600), Math.floor(total / 60) % 60, total % 60].map(function (part) {
+      return String(part).padStart(2, "0");
+    }).join(":");
+  }
+
+  function updateWindow(form, moved) {
+    var from = form.querySelector('[name="window_from"]');
+    var to = form.querySelector('[name="window_to"]');
+    var max = Number(to.max);
+    if (Number(from.value) >= Number(to.value)) {
+      if (moved === from) {
+        from.value = Math.max(0, Number(to.value) - 1);
+      } else {
+        to.value = Math.min(max, Number(from.value) + 1);
+      }
+    }
+    var start = Number(from.value);
+    var end = Number(to.value);
+    var offset = Number(form.dataset.clockOffset);
+    from.setAttribute("aria-valuetext", clockText(offset + start));
+    to.setAttribute("aria-valuetext", clockText(offset + end));
+    var left = Number(form.dataset.windowLeft);
+    var width = Number(form.dataset.windowWidth);
+    var band = form.parentNode.querySelector("[data-window-band]");
+    if (band) {
+      band.style.left = left + (width * start) / max + "%";
+      band.style.width = (width * (end - start)) / max + "%";
+    }
+    var windowShade = form.parentNode.querySelector(".tl-window");
+    var full = start === 0 && end === max;
+    if (windowShade) {
+      windowShade.classList.toggle("narrowed", !full);
+    }
+    var label = document.querySelector("[data-window-label]");
+    if (label) {
+      var minutes = ((end - start) / 60).toLocaleString(document.documentElement.lang || undefined, {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+      });
+      label.textContent = full ? form.dataset.labelFull : form.dataset.labelPart
+        .replace("{start}", clockText(offset + start))
+        .replace("{end}", clockText(offset + end))
+        .replace("{duration}", minutes);
+    }
+  }
+
+  document.addEventListener("input", function (event) {
+    var form = event.target.closest && event.target.closest("[data-window]");
+    if (form) {
+      updateWindow(form, event.target);
+    }
+  });
+
+  // "Use the whole common window" moves the handles back to the window's edges as it submits.
+  document.addEventListener("click", function (event) {
+    var reset = event.target.closest("[data-window-reset]");
+    var form = reset && document.getElementById(reset.getAttribute("form"));
+    if (form) {
+      form.querySelector('[name="window_from"]').value = 0;
+      form.querySelector('[name="window_to"]').value = form.querySelector('[name="window_to"]').max;
+      updateWindow(form, null);
+    }
   });
 
   // Unapplied edits: mark each edited field and show the footer note; a group switch dims its fields when off.

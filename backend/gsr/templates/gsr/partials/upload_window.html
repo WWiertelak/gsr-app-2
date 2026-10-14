@@ -1,0 +1,16 @@
+{% load i18n %}
+{# The common window and the analysed period picked with the timeline's handles; the handles' form re-renders this on save. #}
+<div class="alert {% if window_error %}error{% else %}success{% endif %} window-summary" id="window-summary" aria-live="polite">
+  {% if window %}
+    <strong>{% blocktranslate with start=window.start|date:"H:i:s" end=window.end|date:"H:i:s" duration=window.duration_minutes|floatformat:1 %}Common window {{ start }}–{{ end }} · {{ duration }} min{% endblocktranslate %}</strong>
+    <span data-window-label>{% if window.full %}{% translate "Analysed period: the whole common window." %}{% else %}{% blocktranslate with start=window.from_clock end=window.to_clock duration=window.minutes|floatformat:1 %}Analysed period {{ start }}–{{ end }} · {{ duration }} min{% endblocktranslate %}{% endif %}</span>
+    <span>{% translate "Drag the handles on the shaded window (or focus one and use the arrow keys) to analyse only part of it. Data outside the analysed period is not analysed." %}</span>
+  {% endif %}
+  {% if window_error %}<span role="alert">{{ window_error }}</span>{% endif %}
+  <div class="window-actions">
+    <button type="submit" form="window-form" class="small secondary window-apply">{% translate "Apply period" %}</button>
+    {% if window and not window.full %}
+      <button type="submit" form="window-form" name="reset" value="1" class="small secondary" data-window-reset>{% translate "Use the whole common window" %}</button>
+    {% endif %}
+  </div>
+</div>
