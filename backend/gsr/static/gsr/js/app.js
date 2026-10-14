@@ -1,14 +1,15 @@
 /*
  * Page behaviour: hydrate [data-chart] elements with ECharts (also after HTMX
  * swaps), result switches (pair curves, merged episode table), analysis tabs (ARIA tabs with arrow keys), info
- * tooltips, confirm dialogs, the run bar's "Edit settings", the Upload drop zone and its Separate/Overlay view switch,
- * progress for plain form posts and on the button that started a computation, and the Export screen's chart capture
- * for the PDF report and the ZIP.
+ * tooltips, confirm dialogs, the settings drawer (opened from the run bar, kept open with its unapplied edits across
+ * HTMX swaps), the Upload drop zone and its Separate/Overlay view switch, progress for plain form posts and on the
+ * button that started a computation, and the Export screen's chart capture for the PDF report and the ZIP.
  */
 (function () {
   "use strict";
 
-  // Styles that only make sense with this script (e.g. the drop zone's upload button is replaced by auto-submit).
+  // Styles that only make sense with this script (e.g. the drop zone's upload button is replaced by auto-submit;
+  // the drawer's visibility follows #drawer-root.open only, the :target fallback is for pages without JS).
   document.documentElement.classList.add("js");
 
   function labels() {
@@ -158,18 +159,66 @@
     }
   });
 
-  // ── Run bar: "Edit settings" opens the settings panel it controls ──
-  document.addEventListener("click", function (event) {
-    var button = event.target.closest("[data-open-settings]");
-    var panel = button && document.getElementById(button.getAttribute("aria-controls"));
-    if (!panel) {
+  // ── Settings drawer: lives in #drawer-root outside #main, so the open state (a class on the root) survives the
+  // HTMX swaps; each response refreshes the drawer's content out of band ──
+  function drawerRoot() {
+    return document.getElementById("drawer-root");
+  }
+
+  function drawerForm() {
+    var root = drawerRoot();
+    return root && root.querySelector(".drawer form");
+  }
+
+  function isDrawerOpen() {
+    var root = drawerRoot();
+    return !!root && root.classList.contains("open") && !!root.querySelector(".drawer");
+  }
+
+  function syncDrawerState() {
+    var open = isDrawerOpen();
+    document.body.classList.toggle("drawer-open", open);
+    document.querySelectorAll("[data-open-settings]").forEach(function (button) {
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  }
+
+  function setDrawer(open, moveFocus) {
+    var root = drawerRoot();
+    if (!root || !root.querySelector(".drawer")) {
       return;
     }
-    panel.open = true;
-    panel.scrollIntoView({ block: "nearest" });
-    var summary = panel.querySelector("summary");
-    if (summary) {
-      summary.focus();
+    root.classList.toggle("open", open);
+    syncDrawerState();
+    // On wide screens the work area narrows beside the drawer.
+    resizeCharts();
+    var target = open ? root.querySelector("#settings-drawer-title") : document.querySelector("[data-open-settings]");
+    if (moveFocus && target) {
+      target.focus();
+    }
+  }
+
+  // A URL ending in #settings-drawer (a bookmark, a link opened in a new tab) opens the drawer through the JS state,
+  // so the close button and Escape can close it.
+  function adoptDrawerHash() {
+    if (window.location.hash !== "#settings-drawer") {
+      return;
+    }
+    var url = new URL(window.location.href);
+    url.hash = "";
+    window.history.replaceState(window.history.state, "", url);
+    setDrawer(true, false);
+  }
+
+  window.addEventListener("hashchange", adoptDrawerHash);
+
+  document.addEventListener("click", function (event) {
+    if (event.target.closest("[data-open-settings]")) {
+      event.preventDefault();
+      setDrawer(!isDrawerOpen(), true);
+    } else if (event.target.closest("[data-close-settings]")) {
+      event.preventDefault();
+      setDrawer(false, true);
     }
   });
 
@@ -234,6 +283,115 @@
     resizeCharts();
   });
 
+  // Unapplied edits: mark each edited field and show the footer note; a group switch dims its fields when off.
+  function isEdited(input) {
+    if (input.type === "checkbox") {
+      return input.checked !== input.defaultChecked;
+    }
+    if (input.tagName === "SELECT") {
+      return Array.prototype.some.call(input.options, function (option) {
+        return option.selected !== option.defaultSelected;
+      });
+    }
+    return input.value !== input.defaultValue;
+  }
+
+  function editableFields(form) {
+    return form.querySelectorAll('input:not([type="hidden"]), select');
+  }
+
+  function markEdits(form) {
+    var edited = false;
+    editableFields(form).forEach(function (input) {
+      var changed = isEdited(input);
+      var holder = input.closest(".f, label");
+      edited = edited || changed;
+      if (holder) {
+        holder.toggleAttribute("data-dirty", changed);
+      }
+      if (input.classList.contains("switch")) {
+        input.closest(".group").classList.toggle("off", !input.checked);
+      }
+    });
+    var note = form.querySelector("[data-dirty-note]");
+    if (note) {
+      note.hidden = !edited;
+    }
+  }
+
+  ["input", "change"].forEach(function (type) {
+    document.addEventListener(type, function (event) {
+      var form = event.target.closest && event.target.closest(".drawer form");
+      if (form) {
+        markEdits(form);
+      }
+    });
+  });
+
+  // Before a swap: remember the drawer's scroll position, open sections and unapplied edits, so they can be put back
+  // on the refreshed drawer. Edits sent by Apply are put back only when that run failed (the refreshed drawer carries
+  // data-autoopen), so the user still sees what they changed; Reset defaults discards them.
+  function snapshotDrawer(source) {
+    var form = drawerForm();
+    if (!form) {
+      return null;
+    }
+    var body = form.querySelector(".drawer-body");
+    var fromDrawer = !!source && form.contains(source);
+    var isReset = fromDrawer && /-reset$/.test(source.id || "");
+    return {
+      fromDrawer: fromDrawer,
+      scroll: body ? body.scrollTop : 0,
+      details: Array.prototype.map.call(form.querySelectorAll("details[open][id]"), function (details) {
+        return details.id;
+      }),
+      edits: isReset ? [] : Array.prototype.filter.call(editableFields(form), isEdited).map(function (input) {
+        return { name: input.name, value: input.value, checked: input.checked, type: input.type };
+      })
+    };
+  }
+
+  function restoreDrawer(snapshot) {
+    var form = drawerForm();
+    if (!form || !snapshot) {
+      return;
+    }
+    snapshot.details.forEach(function (id) {
+      var details = form.querySelector("#" + id);
+      if (details) {
+        details.open = true;
+      }
+    });
+    var edits = snapshot.fromDrawer && !form.closest(".drawer[data-autoopen]") ? [] : snapshot.edits;
+    edits.forEach(function (edit) {
+      editableFields(form).forEach(function (input) {
+        if (input.name !== edit.name) {
+          return;
+        }
+        if (edit.type === "checkbox") {
+          if (input.value === edit.value) {
+            input.checked = edit.checked;
+          }
+        } else {
+          input.value = edit.value;
+        }
+      });
+    });
+    markEdits(form);
+    var body = form.querySelector(".drawer-body");
+    if (body) {
+      body.scrollTop = snapshot.scroll;
+    }
+  }
+
+  function openDrawerOnError() {
+    var root = drawerRoot();
+    if (root && root.querySelector(".drawer[data-autoopen]")) {
+      root.classList.add("open");
+    }
+    syncDrawerState();
+  }
+
   // ── Info tooltips: placed next to their (i) button, above it when there is room, so they do not
   // cover the controls they describe; Escape hides the open one until the pointer/focus leaves it ──
   function placeTip(tip) {
@@ -267,11 +425,17 @@
     document.querySelectorAll(".tip:hover, .tip:focus-within").forEach(placeTip);
   }, true);
 
+  // Escape hides the open tooltip first; otherwise it closes the settings drawer.
   document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") {
-      document.querySelectorAll(".tip:hover, .tip:focus-within").forEach(function (tip) {
-        tip.classList.add("dismissed");
-      });
+    if (event.key !== "Escape") {
+      return;
+    }
+    var tips = document.querySelectorAll(".tip:hover:not(.dismissed), .tip:focus-within:not(.dismissed)");
+    tips.forEach(function (tip) {
+      tip.classList.add("dismissed");
+    });
+    if (!tips.length && isDrawerOpen()) {
+      setDrawer(false, true);
     }
   });
   ["mouseout", "focusout"].forEach(function (type) {
@@ -418,23 +582,42 @@
     setBusy(false);
   });
 
-  // The button that started a computation shows its own spinner (the overlay waits 1.5 s).
+  // The button that started a computation shows its own spinner (the overlay waits 1.5 s). A drawer button loses
+  // focus while it is disabled and is then replaced, so remember it to give focus back after the swap.
+  var drawerFocusId = null;
   document.addEventListener("htmx:beforeRequest", function (event) {
     var trigger = event.detail.requestConfig && event.detail.requestConfig.triggeringEvent;
     if (trigger && trigger.submitter) {
       trigger.submitter.setAttribute("aria-busy", "true");
     }
+    var form = drawerForm();
+    var focused = (trigger && trigger.submitter) || document.activeElement;
+    drawerFocusId = form && focused && focused.id && form.contains(focused) ? focused.id : null;
   });
   document.addEventListener("htmx:afterRequest", clearBusyButtons);
 
+  var drawerSnapshot = null;
   document.addEventListener("htmx:beforeSwap", function (event) {
     disposeCharts(event.detail.target);
+    drawerSnapshot = snapshotDrawer(event.detail.requestConfig && event.detail.requestConfig.elt);
+  });
+  document.addEventListener("htmx:afterSwap", function () {
+    restoreDrawer(drawerSnapshot);
+    drawerSnapshot = null;
+    openDrawerOnError();
+    var focusTarget = drawerFocusId && document.getElementById(drawerFocusId);
+    drawerFocusId = null;
+    if (focusTarget && isDrawerOpen() && (!document.activeElement || document.activeElement === document.body)) {
+      focusTarget.focus();
+    }
   });
   // Swapped-in content (and out-of-band swaps) may carry new charts.
   document.addEventListener("htmx:afterSettle", function () {
     hydrate(document);
   });
   document.addEventListener("DOMContentLoaded", function () {
+    adoptDrawerHash();
+    openDrawerOnError();
     hydrate(document);
   });
 })();

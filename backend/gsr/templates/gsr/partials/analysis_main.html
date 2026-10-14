@@ -1,303 +1,264 @@
 {% load i18n gsr_tags %}
-{% include "gsr/partials/run_bar.html" with settings_id="analysis-settings-panel" run_form="analysis-settings" run_disabled=analysis_blocked %}
-<div class="layout-sidebar">
-  <form class="card sidebar" id="analysis-settings" method="post" action="{% url 'gsr:analysis' project.pk %}"
-        hx-post="{% url 'gsr:analysis' project.pk %}" hx-target="#main" hx-swap="innerHTML"
-        hx-indicator="#busy" hx-disabled-elt="find button, #run-bar button, #analysis-empty button">
-    {% csrf_token %}
-    <input type="hidden" name="tab" value="{{ tab }}" data-tab-input>
-    <h2>{% translate "Analysis controls" %}</h2>
+{% include "gsr/partials/run_bar.html" with run_form="analysis-settings" run_disabled=analysis_blocked %}
+<div class="stack">
+  {% if error %}{% include "gsr/partials/error.html" %}{% endif %}
+  {% if analysis_blocked %}
+    <div class="alert warning">{% translate "Select at least two signals to compute synchronization." %} <a href="{% url 'gsr:cleaning' project.pk %}">{% translate "Go to Cleaning" %}</a></div>
+  {% endif %}
 
-    <details class="settings-panel" id="analysis-settings-panel"{% if error %} open{% endif %}>
-      <summary><span class="settings-title">{% translate "Settings" %}</span></summary>
-
-      <fieldset>
-        <legend>{% translate "Synchronization settings" %}</legend>
-        {% for row in sync_essential %}{% include "gsr/partials/param_field.html" %}{% endfor %}
-        <details class="advanced">
-          <summary>{% translate "Advanced settings" %}</summary>
-          {% for row in sync_advanced %}{% include "gsr/partials/param_field.html" %}{% endfor %}
-        </details>
-      </fieldset>
-
-      <fieldset>
-        <legend>{% translate "Co-arousal settings" %}</legend>
-        {% for row in coarousal_essential %}{% include "gsr/partials/param_field.html" %}{% endfor %}
-        <details class="advanced">
-          <summary>{% translate "Advanced settings" %}</summary>
-          {% for row in coarousal_advanced %}{% include "gsr/partials/param_field.html" %}{% endfor %}
-        </details>
-      </fieldset>
-
-      <div class="settings-actions">
-        <button type="submit"{% if analysis_blocked %} disabled{% endif %}>{% translate "Apply settings" %}</button>
-        {% translate "Applying settings runs the analysis again: one run computes both synchronization and co-arousal with the cleaning settings from step 2." as apply_help %}
-        {% include "gsr/partials/tip.html" with text=apply_help tip_id="tip-apply" %}
-        <button type="submit" class="ghost" formaction="{% url 'gsr:analysis_reset' project.pk %}" hx-post="{% url 'gsr:analysis_reset' project.pk %}" formnovalidate>{% translate "Reset defaults" %}</button>
+  <section class="card" aria-labelledby="analysis-results-title">
+    <h2 class="sr-only" id="analysis-results-title">{% translate "Analysis results" %}</h2>
+    {% if not result %}
+      <div class="empty-state" id="analysis-empty">
+        <p>{% translate "No results for this step yet. Set the parameters and run the analysis." %}</p>
+        <button type="submit" class="lg" form="analysis-settings"{% if analysis_blocked %} disabled{% endif %}>{% translate "Run analysis" %}</button>
       </div>
-    </details>
-  </form>
-
-  <div class="stack">
-    {% if error %}{% include "gsr/partials/error.html" %}{% endif %}
-    {% if analysis_blocked %}
-      <div class="alert warning">{% translate "Select at least two signals to compute synchronization." %} <a href="{% url 'gsr:cleaning' project.pk %}">{% translate "Go to Cleaning" %}</a></div>
+    {% elif stale %}
+      <div class="alert warning stale-note">{% translate "Settings or signals changed since this run. Run the analysis again." %}</div>
     {% endif %}
 
-    <section class="card" aria-labelledby="analysis-results-title">
-      <h2 class="sr-only" id="analysis-results-title">{% translate "Analysis results" %}</h2>
-      {% if not result %}
-        <div class="empty-state" id="analysis-empty">
-          <p>{% translate "No results for this step yet. Set the parameters and run the analysis." %}</p>
-          <button type="submit" class="lg" form="analysis-settings"{% if analysis_blocked %} disabled{% endif %}>{% translate "Run analysis" %}</button>
+    <div class="tabs" role="tablist" aria-labelledby="analysis-results-title">
+      <a href="?tab=synchronization" role="tab" id="tab-synchronization" aria-controls="panel-synchronization" data-tab="synchronization" class="{% if tab == 'synchronization' %}active{% endif %}" aria-selected="{% if tab == 'synchronization' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'synchronization' %}0{% else %}-1{% endif %}">{% translate "Synchronization" %}{% if result and synchrony %} {% include "gsr/partials/episode_count.html" with count=synchrony.stats.episode_count %}{% endif %}</a>
+      <a href="?tab=coarousal" role="tab" id="tab-coarousal" aria-controls="panel-coarousal" data-tab="coarousal" class="{% if tab == 'coarousal' %}active{% endif %}" aria-selected="{% if tab == 'coarousal' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'coarousal' %}0{% else %}-1{% endif %}">{% translate "Co-arousal" %}{% if result and coarousal %} {% include "gsr/partials/episode_count.html" with count=coarousal.stats.episode_count %}{% endif %}</a>
+    </div>
+
+    <div class="result{% if stale %} is-stale{% endif %}" role="tabpanel" id="panel-synchronization" aria-labelledby="tab-synchronization" tabindex="0" data-tab-panel="synchronization"{% if tab != "synchronization" %} hidden{% endif %}>
+      {% if result and synchrony %}
+        {% translate "Mean of the pairs' maximum cross-correlation (the synchronization matrix below)." as mean_help %}
+        {% translate "Compares the mean synchrony with surrogate data in which the shared timing is destroyed. Below 0.05 the group is synchronized above chance; a higher p-value is not evidence of no synchrony." as group_test_help %}
+        <ul class="tiles kpis">
+          <li class="tile">
+            <span class="label">{% translate "Mean synchrony" %}{% include "gsr/partials/tip.html" with text=mean_help tip_id="tip-mean-synchrony" %}</span>
+            <span class="value">{{ synchrony.stats.mean_synchrony|floatformat:3 }}</span>
+            <span class="sub">{% translate "mean of the pairs' maximum correlation" %}</span>
+          </li>
+          <li class="tile">
+            <span class="label">{% translate "Whole-group test" %}{% include "gsr/partials/tip.html" with text=group_test_help tip_id="tip-group-test" %}</span>
+            <span class="value">{% if sync_significant is None %}—{% else %}p = {{ synchrony.stats.mean_synchrony_p_value|floatformat:3 }}{% endif %}</span>
+            <span class="sub">{% if sync_significant is None %}{% translate "No surrogate test" %}{% else %}{% include "gsr/partials/significance.html" with significant=sync_significant %} {{ synchrony.stats.surrogate_method|choice_label:"synchrony_surrogate_method" }} × {{ synchrony.stats.surrogate_count }}{% endif %}</span>
+          </li>
+          <li class="tile">
+            <span class="label">{% translate "Episode count" %}</span>
+            <span class="value">{{ synchrony.stats.episode_count }}{% if sync_episodes %} <small>· {% blocktranslate with duration=sync_episode_minutes|mmss %}{{ duration }} min in total{% endblocktranslate %}</small>{% endif %}</span>
+            <span class="sub">{{ sync_episode_rule }}</span>
+          </li>
+          <li class="tile">
+            <span class="label">{% translate "Cluster count" %}</span>
+            <span class="value">{{ synchrony.stats.cluster_count }}</span>
+            <span class="sub">{{ cluster_members }}</span>
+          </li>
+        </ul>
+
+        {% translate "We look for fragments where signals begin to synchronize and group them into clusters." as sync_help %}
+        <div class="section-head">
+          <h3>{% translate "Synchronization timeline" %}</h3>{% include "gsr/partials/tip.html" with text=sync_help tip_id="tip-sync-timeline" %}
+          <span class="subtitle">{% translate "group mean and episodes above, participants in sync below" %}</span>
+          {% if sync_timeline.pairs %}
+            <label class="switch"><input type="checkbox" role="switch" data-pairs-for="sync-timeline"> {% blocktranslate with count=sync_timeline.pairs|length %}Pair curves ({{ count }}){% endblocktranslate %}</label>
+          {% endif %}
         </div>
-      {% elif stale %}
-        <p class="alert warning">{% translate "Settings or signals changed since this run. Run the analysis again." %}</p>
-      {% endif %}
+        {% include "gsr/partials/chart.html" with label=_("Synchronization timeline") kind="syncTimeline" data=sync_timeline chart_id="sync-timeline" name="sync_timeline" height=420 %}
 
-      <div class="tabs" role="tablist" aria-labelledby="analysis-results-title">
-        <a href="?tab=synchronization" role="tab" id="tab-synchronization" aria-controls="panel-synchronization" data-tab="synchronization" class="{% if tab == 'synchronization' %}active{% endif %}" aria-selected="{% if tab == 'synchronization' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'synchronization' %}0{% else %}-1{% endif %}">{% translate "Synchronization" %}{% if result and synchrony %} {% include "gsr/partials/episode_count.html" with count=synchrony.stats.episode_count %}{% endif %}</a>
-        <a href="?tab=coarousal" role="tab" id="tab-coarousal" aria-controls="panel-coarousal" data-tab="coarousal" class="{% if tab == 'coarousal' %}active{% endif %}" aria-selected="{% if tab == 'coarousal' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'coarousal' %}0{% else %}-1{% endif %}">{% translate "Co-arousal" %}{% if result and coarousal %} {% include "gsr/partials/episode_count.html" with count=coarousal.stats.episode_count %}{% endif %}</a>
-      </div>
+        {% if sync_signals.series %}
+          <h3 class="section-gap">{% translate "Signals with marked episodes" %}</h3>
+          {% include "gsr/partials/chart.html" with label=_("Signals with marked episodes") kind="episodeSignals" data=sync_signals chart_id="sync-signals" name="sync_signals" height=320 %}
+        {% endif %}
 
-      <div role="tabpanel" id="panel-synchronization" aria-labelledby="tab-synchronization" tabindex="0" data-tab-panel="synchronization"{% if tab != "synchronization" %} hidden{% endif %}>
-        {% if result and synchrony %}
-          {% translate "Mean of the pairs' maximum cross-correlation (the synchronization matrix below)." as mean_help %}
-          {% translate "Compares the mean synchrony with surrogate data in which the shared timing is destroyed. Below 0.05 the group is synchronized above chance; a higher p-value is not evidence of no synchrony." as group_test_help %}
-          <ul class="tiles kpis">
-            <li class="tile">
-              <span class="label">{% translate "Mean synchrony" %}{% include "gsr/partials/tip.html" with text=mean_help tip_id="tip-mean-synchrony" %}</span>
-              <span class="value">{{ synchrony.stats.mean_synchrony|floatformat:3 }}</span>
-              <span class="sub">{% translate "mean of the pairs' maximum correlation" %}</span>
-            </li>
-            <li class="tile">
-              <span class="label">{% translate "Whole-group test" %}{% include "gsr/partials/tip.html" with text=group_test_help tip_id="tip-group-test" %}</span>
-              <span class="value">{% if sync_significant is None %}—{% else %}p = {{ synchrony.stats.mean_synchrony_p_value|floatformat:3 }}{% endif %}</span>
-              <span class="sub">{% if sync_significant is None %}{% translate "No surrogate test" %}{% else %}{% include "gsr/partials/significance.html" with significant=sync_significant %} {{ synchrony.stats.surrogate_method|choice_label:"synchrony_surrogate_method" }} × {{ synchrony.stats.surrogate_count }}{% endif %}</span>
-            </li>
-            <li class="tile">
-              <span class="label">{% translate "Episode count" %}</span>
-              <span class="value">{{ synchrony.stats.episode_count }}{% if sync_episodes %} <small>· {% blocktranslate with duration=sync_episode_minutes|mmss %}{{ duration }} min in total{% endblocktranslate %}</small>{% endif %}</span>
-              <span class="sub">{{ sync_episode_rule }}</span>
-            </li>
-            <li class="tile">
-              <span class="label">{% translate "Cluster count" %}</span>
-              <span class="value">{{ synchrony.stats.cluster_count }}</span>
-              <span class="sub">{{ cluster_members }}</span>
-            </li>
-          </ul>
-
-          {% translate "We look for fragments where signals begin to synchronize and group them into clusters." as sync_help %}
-          <div class="section-head">
-            <h3>{% translate "Synchronization timeline" %}</h3>{% include "gsr/partials/tip.html" with text=sync_help tip_id="tip-sync-timeline" %}
-            <span class="subtitle">{% translate "group mean and episodes above, participants in sync below" %}</span>
-            {% if sync_timeline.pairs %}
-              <label class="switch"><input type="checkbox" role="switch" data-pairs-for="sync-timeline"> {% blocktranslate with count=sync_timeline.pairs|length %}Pair curves ({{ count }}){% endblocktranslate %}</label>
+        <div class="grid-2 section-gap">
+          <div>
+            {% translate "Stretches where a subgroup of participants (at least 2) stays synchronized above the threshold." as episodes_help %}
+            <div class="section-head"><h3>{% translate "Subgroup synchronization episodes" %}</h3>{% include "gsr/partials/tip.html" with text=episodes_help tip_id="tip-sync-episodes" %}</div>
+            {% if sync_episodes %}
+              <div class="table-wrap">
+                <table class="data">
+                  <thead><tr><th>#</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Participants" %}</th><th>{% translate "Mean strength" %}</th><th>{% translate "Peak strength" %}</th></tr></thead>
+                  <tbody>
+                    {% for episode in sync_episodes %}
+                      <tr>
+                        <td><strong>E{{ episode.number }}</strong></td>
+                        <td class="left"><span class="when">{% if episode.bar %}<span class="minibar" aria-hidden="true"><i style="left: {{ episode.bar.left }}%; width: {{ episode.bar.width }}%"></i></span>{% endif %}{{ episode.start_relative|mmss }}–{{ episode.end_relative|mmss }}</span></td>
+                        <td>{{ episode.duration|mmss }}</td>
+                        <td class="left"><div class="chips">{% for member in episode.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div></td>
+                        <td>{{ episode.mean_strength|floatformat:3 }}</td>
+                        <td>{{ episode.peak_strength|floatformat:3 }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="muted">{% translate "No subgroup synchronization episodes detected." %}</p>
             {% endif %}
           </div>
-          {% include "gsr/partials/chart.html" with label=_("Synchronization timeline") kind="syncTimeline" data=sync_timeline chart_id="sync-timeline" name="sync_timeline" height=420 %}
 
-          {% if sync_signals.series %}
-            <h3 class="section-gap">{% translate "Signals with marked episodes" %}</h3>
-            {% include "gsr/partials/chart.html" with label=_("Signals with marked episodes") kind="episodeSignals" data=sync_signals chart_id="sync-signals" name="sync_signals" height=320 %}
-          {% endif %}
-
-          <div class="grid-2 section-gap">
-            <div>
-              {% translate "Stretches where a subgroup of participants (at least 2) stays synchronized above the threshold." as episodes_help %}
-              <div class="section-head"><h3>{% translate "Subgroup synchronization episodes" %}</h3>{% include "gsr/partials/tip.html" with text=episodes_help tip_id="tip-sync-episodes" %}</div>
-              {% if sync_episodes %}
-                <div class="table-wrap">
-                  <table class="data">
-                    <thead><tr><th>#</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Participants" %}</th><th>{% translate "Mean strength" %}</th><th>{% translate "Peak strength" %}</th></tr></thead>
-                    <tbody>
-                      {% for episode in sync_episodes %}
-                        <tr>
-                          <td><strong>E{{ episode.number }}</strong></td>
-                          <td class="left"><span class="when">{% if episode.bar %}<span class="minibar" aria-hidden="true"><i style="left: {{ episode.bar.left }}%; width: {{ episode.bar.width }}%"></i></span>{% endif %}{{ episode.start_relative|mmss }}–{{ episode.end_relative|mmss }}</span></td>
-                          <td>{{ episode.duration|mmss }}</td>
-                          <td class="left"><div class="chips">{% for member in episode.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div></td>
-                          <td>{{ episode.mean_strength|floatformat:3 }}</td>
-                          <td>{{ episode.peak_strength|floatformat:3 }}</td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
-              {% else %}
-                <p class="muted">{% translate "No subgroup synchronization episodes detected." %}</p>
-              {% endif %}
-            </div>
-
-            <div>
-              <div class="section-head"><h3>{% translate "Pairwise metrics" %}</h3>{% if has_pair_p %}<span class="subtitle">{% translate "bold = p < 0.05 (surrogates)" %}</span>{% endif %}</div>
-              <div class="table-wrap">
-                <table class="data">
-                  <thead>
-                    <tr>
-                      <th>{% translate "Pair" %}</th>
-                      <th title="{% translate 'Highest cross-correlation of the z-scored pair at the best time shift within the max lag. From −1 to +1; closer to +1 = stronger synchronization.' %}">{% translate "Max correlation" %}</th>
-                      {% if has_pair_p %}<th>{% translate "p (surrogate)" %}</th>{% endif %}
-                      <th title="{% translate 'Time shift (in seconds) at which the pair correlation is highest.' %}">{% translate "Lag (s)" %}</th>
-                      <th title="{% translate 'Mean spectral coherence in the low-frequency band (Welch method, up to ~1 Hz). From 0 to 1; higher = shared rhythm.' %}">{% translate "Coherence" %}</th>
-                      <th title="{% translate 'Dynamic Time Warping distance normalized by signal length. Lower = more similar.' %}">DTW</th>
+          <div>
+            <div class="section-head"><h3>{% translate "Pairwise metrics" %}</h3>{% if has_pair_p %}<span class="subtitle">{% translate "bold = p < 0.05 (surrogates)" %}</span>{% endif %}</div>
+            <div class="table-wrap">
+              <table class="data">
+                <thead>
+                  <tr>
+                    <th>{% translate "Pair" %}</th>
+                    <th title="{% translate 'Highest cross-correlation of the z-scored pair at the best time shift within the max lag. From −1 to +1; closer to +1 = stronger synchronization.' %}">{% translate "Max correlation" %}</th>
+                    {% if has_pair_p %}<th>{% translate "p (surrogate)" %}</th>{% endif %}
+                    <th title="{% translate 'Time shift (in seconds) at which the pair correlation is highest.' %}">{% translate "Lag (s)" %}</th>
+                    <th title="{% translate 'Mean spectral coherence in the low-frequency band (Welch method, up to ~1 Hz). From 0 to 1; higher = shared rhythm.' %}">{% translate "Coherence" %}</th>
+                    <th title="{% translate 'Dynamic Time Warping distance normalized by signal length. Lower = more similar.' %}">DTW</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for pair in pairs %}
+                    <tr{% if pair.significant %} class="sig"{% elif pair.significant is False %} class="nsig"{% endif %}>
+                      <td>{{ pair.alias_a }} · {{ pair.alias_b }}</td>
+                      <td>{{ pair.max_xcorr|floatformat:3 }}</td>
+                      {% if has_pair_p %}<td>{% if pair.p_value is None %}—{% else %}{{ pair.p_value|floatformat:3 }}{% endif %}</td>{% endif %}
+                      <td>{{ pair.lag_seconds|floatformat:2 }}</td>
+                      <td>{{ pair.coherence|floatformat:3 }}</td>
+                      <td>{% if pair.dtw_distance is None %}—{% else %}{{ pair.dtw_distance|floatformat:3 }}{% endif %}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {% for pair in pairs %}
-                      <tr{% if pair.significant %} class="sig"{% elif pair.significant is False %} class="nsig"{% endif %}>
-                        <td>{{ pair.alias_a }} · {{ pair.alias_b }}</td>
-                        <td>{{ pair.max_xcorr|floatformat:3 }}</td>
-                        {% if has_pair_p %}<td>{% if pair.p_value is None %}—{% else %}{{ pair.p_value|floatformat:3 }}{% endif %}</td>{% endif %}
-                        <td>{{ pair.lag_seconds|floatformat:2 }}</td>
-                        <td>{{ pair.coherence|floatformat:3 }}</td>
-                        <td>{% if pair.dtw_distance is None %}—{% else %}{{ pair.dtw_distance|floatformat:3 }}{% endif %}</td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
+                  {% endfor %}
+                </tbody>
+              </table>
             </div>
           </div>
+        </div>
 
-          <div class="grid-2 section-gap">
-            <div>
-              <h3>{% translate "Synchronization matrix" %}</h3>
-              {% include "gsr/partials/chart.html" with label=_("Synchronization matrix") kind="heatmap" data=sync_matrix chart_id="sync-matrix" name="sync_matrix" height=360 %}
-            </div>
-            <div>
-              <h3>{% translate "Signal clusters" %}</h3>
-              <div class="cluster-list">
-                {% for cluster in synchrony.clusters.clusters %}
-                  <div class="cluster-card">
-                    <div class="head"><strong>{% translate "Cluster" %} {{ cluster.cluster|add:1 }}</strong>
-                      <span class="muted">{% translate "Mean synchrony" %}: {% if cluster.mean_synchrony is None %}—{% else %}{{ cluster.mean_synchrony|floatformat:3 }}{% endif %}</span></div>
-                    <div class="chips">{% for member in cluster.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div>
-                  </div>
-                {% endfor %}
-              </div>
+        <div class="grid-2 section-gap">
+          <div>
+            <h3>{% translate "Synchronization matrix" %}</h3>
+            {% include "gsr/partials/chart.html" with label=_("Synchronization matrix") kind="heatmap" data=sync_matrix chart_id="sync-matrix" name="sync_matrix" height=360 %}
+          </div>
+          <div>
+            <h3>{% translate "Signal clusters" %}</h3>
+            <div class="cluster-list">
+              {% for cluster in synchrony.clusters.clusters %}
+                <div class="cluster-card">
+                  <div class="head"><strong>{% translate "Cluster" %} {{ cluster.cluster|add:1 }}</strong>
+                    <span class="muted">{% translate "Mean synchrony" %}: {% if cluster.mean_synchrony is None %}—{% else %}{{ cluster.mean_synchrony|floatformat:3 }}{% endif %}</span></div>
+                  <div class="chips">{% for member in cluster.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div>
+                </div>
+              {% endfor %}
             </div>
           </div>
-        {% elif result %}
-          <p class="muted">{% translate "No results for this step yet." %}</p>
+        </div>
+      {% elif result %}
+        <p class="muted">{% translate "No results for this step yet." %}</p>
+      {% endif %}
+    </div>
+
+    <div class="result{% if stale %} is-stale{% endif %}" role="tabpanel" id="panel-coarousal" aria-labelledby="tab-coarousal" tabindex="0" data-tab-panel="coarousal"{% if tab != "coarousal" %} hidden{% endif %}>
+      {% if result and coarousal %}
+        {% translate "Co-arousal index = time-average of max(number of people in High state, number in Low state). Compared with a circular-shift null distribution (preserves autocorrelation, destroys only shared timing)." as index_help %}
+        <ul class="tiles kpis">
+          <li class="tile">
+            <span class="label">{% translate "Co-arousal index" %}{% include "gsr/partials/tip.html" with text=index_help tip_id="tip-coarousal-index" %}</span>
+            <span class="value">{{ coarousal.coarousal_index|floatformat:3 }}</span>
+            <span class="sub">{% translate "time average of max(#High, #Low)" %}</span>
+          </li>
+          <li class="tile">
+            <span class="label">{% translate "Null distribution" %}</span>
+            <span class="value">{% if coarousal.coarousal_null_mean is None %}—{% else %}{{ coarousal.coarousal_null_mean|floatformat:3 }} <small>± {{ coarousal.coarousal_null_sd|floatformat:3 }}</small>{% endif %}</span>
+            <span class="sub">{% if coarousal.coarousal_null_mean is None %}{% translate "No surrogate test" %}{% else %}{% translate "circular shift, mean ± SD" %}{% endif %}</span>
+          </li>
+          <li class="tile">
+            <span class="label">{% translate "Test" %}</span>
+            <span class="value">{% if coarousal.coarousal_p_value is None %}—{% else %}p = {{ coarousal.coarousal_p_value|floatformat:3 }}{% endif %}</span>
+            <span class="sub">{% if coarousal.coarousal_p_value is None %}{% translate "No surrogate test" %}{% else %}{% include "gsr/partials/significance.html" with significant=coarousal.stats.coarousal_significant %}{% endif %}</span>
+          </li>
+          <li class="tile">
+            <span class="label">{% translate "Episode count" %}</span>
+            <span class="value">{{ coarousal.stats.episode_count }}</span>
+            <span class="sub chips">
+              <span class="badge high" title="{% translate 'High ↑' %}">↑ {{ coarousal.stats.high_episode_count }}</span>
+              <span class="badge low" title="{% translate 'Low ↓' %}">↓ {{ coarousal.stats.low_episode_count }}</span>
+              <span class="badge comove" title="{% translate 'Co-move ↔' %}">↔ {{ coarousal.stats.comovement_episode_count }}</span>
+            </span>
+          </li>
+        </ul>
+
+        {% if coarousal_states.rows %}
+          {% translate "Mean state of each participant in 1-minute bins: red = High (+1), white = Neutral (0), blue = Low (−1)." as states_help %}
+          {% translate "We look for moments when many participants are simultaneously in the same arousal state (High/Low) or genuinely co-vary (correlation-based co-movement). Signals are standardized (z-score) within the analysis window." as coarousal_help %}
+          <div class="section-head">
+            <h3>{% translate "Participant state map over time" %}</h3>{% include "gsr/partials/tip.html" with text=coarousal_help|add:" "|add:states_help tip_id="tip-coarousal" %}
+            <span class="subtitle">{% translate "episodes above, 1-minute bins below" %}</span>
+          </div>
+          {% include "gsr/partials/chart.html" with label=_("Participant state map over time") kind="coarousalStates" data=coarousal_states chart_id="coarousal-states" name="coarousal_states" height=coarousal_height %}
         {% endif %}
-      </div>
 
-      <div role="tabpanel" id="panel-coarousal" aria-labelledby="tab-coarousal" tabindex="0" data-tab-panel="coarousal"{% if tab != "coarousal" %} hidden{% endif %}>
-        {% if result and coarousal %}
-          {% translate "Co-arousal index = time-average of max(number of people in High state, number in Low state). Compared with a circular-shift null distribution (preserves autocorrelation, destroys only shared timing)." as index_help %}
-          <ul class="tiles kpis">
-            <li class="tile">
-              <span class="label">{% translate "Co-arousal index" %}{% include "gsr/partials/tip.html" with text=index_help tip_id="tip-coarousal-index" %}</span>
-              <span class="value">{{ coarousal.coarousal_index|floatformat:3 }}</span>
-              <span class="sub">{% translate "time average of max(#High, #Low)" %}</span>
-            </li>
-            <li class="tile">
-              <span class="label">{% translate "Null distribution" %}</span>
-              <span class="value">{% if coarousal.coarousal_null_mean is None %}—{% else %}{{ coarousal.coarousal_null_mean|floatformat:3 }} <small>± {{ coarousal.coarousal_null_sd|floatformat:3 }}</small>{% endif %}</span>
-              <span class="sub">{% if coarousal.coarousal_null_mean is None %}{% translate "No surrogate test" %}{% else %}{% translate "circular shift, mean ± SD" %}{% endif %}</span>
-            </li>
-            <li class="tile">
-              <span class="label">{% translate "Test" %}</span>
-              <span class="value">{% if coarousal.coarousal_p_value is None %}—{% else %}p = {{ coarousal.coarousal_p_value|floatformat:3 }}{% endif %}</span>
-              <span class="sub">{% if coarousal.coarousal_p_value is None %}{% translate "No surrogate test" %}{% else %}{% include "gsr/partials/significance.html" with significant=coarousal.stats.coarousal_significant %}{% endif %}</span>
-            </li>
-            <li class="tile">
-              <span class="label">{% translate "Episode count" %}</span>
-              <span class="value">{{ coarousal.stats.episode_count }}</span>
-              <span class="sub chips">
-                <span class="badge high" title="{% translate 'High ↑' %}">↑ {{ coarousal.stats.high_episode_count }}</span>
-                <span class="badge low" title="{% translate 'Low ↓' %}">↓ {{ coarousal.stats.low_episode_count }}</span>
-                <span class="badge comove" title="{% translate 'Co-move ↔' %}">↔ {{ coarousal.stats.comovement_episode_count }}</span>
-              </span>
-            </li>
-          </ul>
-
-          {% if coarousal_states.rows %}
-            {% translate "Mean state of each participant in 1-minute bins: red = High (+1), white = Neutral (0), blue = Low (−1)." as states_help %}
-            {% translate "We look for moments when many participants are simultaneously in the same arousal state (High/Low) or genuinely co-vary (correlation-based co-movement). Signals are standardized (z-score) within the analysis window." as coarousal_help %}
+        <div class="grid-2 section-gap">
+          <div>
+            {% translate "Episodes where ≥ the required number of participants hold a shared state (High/Low), plus co-movement episodes (mean pairwise Spearman in the window ≥ threshold)." as coarousal_episodes_help %}
+            {% translate "Each second gets one label by precedence: High/Low (joint extreme) > Co-movement. Adjacent same-label seconds are merged." as merge_help %}
             <div class="section-head">
-              <h3>{% translate "Participant state map over time" %}</h3>{% include "gsr/partials/tip.html" with text=coarousal_help|add:" "|add:states_help tip_id="tip-coarousal" %}
-              <span class="subtitle">{% translate "episodes above, 1-minute bins below" %}</span>
-            </div>
-            {% include "gsr/partials/chart.html" with label=_("Participant state map over time") kind="coarousalStates" data=coarousal_states chart_id="coarousal-states" name="coarousal_states" height=coarousal_height %}
-          {% endif %}
-
-          <div class="grid-2 section-gap">
-            <div>
-              {% translate "Episodes where ≥ the required number of participants hold a shared state (High/Low), plus co-movement episodes (mean pairwise Spearman in the window ≥ threshold)." as coarousal_episodes_help %}
-              {% translate "Each second gets one label by precedence: High/Low (joint extreme) > Co-movement. Adjacent same-label seconds are merged." as merge_help %}
-              <div class="section-head">
-                <h3>{% translate "Co-arousal episodes" %}</h3>{% include "gsr/partials/tip.html" with text=coarousal_episodes_help tip_id="tip-coarousal-episodes" %}
-                {% if coarousal_episodes %}
-                  <label class="switch"><input type="checkbox" role="switch" data-merge-toggle aria-controls="coarousal-episodes coarousal-merged"> {% translate "Merge overlaps" %}</label>{% include "gsr/partials/tip.html" with text=merge_help tip_id="tip-coarousal-merge" %}
-                {% endif %}
-              </div>
+              <h3>{% translate "Co-arousal episodes" %}</h3>{% include "gsr/partials/tip.html" with text=coarousal_episodes_help tip_id="tip-coarousal-episodes" %}
               {% if coarousal_episodes %}
-                <div class="table-wrap" id="coarousal-episodes">
-                  <table class="data">
-                    <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Contributors" %}</th><th class="left">{% translate "Strength" %}</th></tr></thead>
-                    <tbody>
-                      {% for episode in coarousal_episodes %}
-                        <tr>
-                          <td>{{ episode.number }}</td>
-                          <td class="left">{% include "gsr/partials/direction.html" with direction=episode.direction %}</td>
-                          <td class="left">{{ episode.start_s|seconds_mmss }}–{{ episode.end_s|seconds_mmss }}</td>
-                          <td>{{ episode.duration_s|seconds_mmss }}</td>
-                          <td class="left"><div class="chips">{% for member in episode.contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% empty %}—{% endfor %}</div></td>
-                          <td class="left">{% if episode.strength == "full" %}{% translate "full" %}{% elif episode.strength == "strong" %}{% translate "strong" %}{% else %}{% translate "partial" %}{% endif %}</td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
-                <div class="table-wrap" id="coarousal-merged" hidden>
-                  <table class="data">
-                    <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th></tr></thead>
-                    <tbody>
-                      {% for segment in coarousal.primary_timeline %}
-                        <tr>
-                          <td>{{ forloop.counter }}</td>
-                          <td class="left">{% include "gsr/partials/direction.html" with direction=segment.label %}</td>
-                          <td class="left">{{ segment.start_min|mmss }}–{{ segment.end_min|mmss }}</td>
-                          <td>{{ segment.duration_s|seconds_mmss }}</td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
-              {% else %}
-                <p class="muted">{% translate "No episodes detected." %}</p>
+                <label class="switch"><input type="checkbox" role="switch" data-merge-toggle aria-controls="coarousal-episodes coarousal-merged"> {% translate "Merge overlaps" %}</label>{% include "gsr/partials/tip.html" with text=merge_help tip_id="tip-coarousal-merge" %}
               {% endif %}
             </div>
-            <div>
-              {% translate "Percent of time each signal was in the High, Neutral and Low state (z-score relative to its own baseline within the analysis window)." as states_pct_help %}
-              <div class="section-head"><h3>{% translate "Time in states (per signal)" %}</h3>{% include "gsr/partials/tip.html" with text=states_pct_help tip_id="tip-time-in-states" %}</div>
-              <div class="table-wrap">
+            {% if coarousal_episodes %}
+              <div class="table-wrap" id="coarousal-episodes">
                 <table class="data">
-                  <thead><tr><th>{% translate "Signal" %}</th><th class="left"><span class="sr-only">{% translate "Distribution" %}</span></th><th>{% translate "High ↑" %} %</th><th>{% translate "Neutral" %} %</th><th>{% translate "Low ↓" %} %</th></tr></thead>
+                  <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Contributors" %}</th><th class="left">{% translate "Strength" %}</th></tr></thead>
                   <tbody>
-                    {% for row in state_bars %}
+                    {% for episode in coarousal_episodes %}
                       <tr>
-                        <td><span class="chip"><span class="dot" style="background: {{ colors|get_item:row.alias }}"></span>{{ row.alias }}</span></td>
-                        <td class="left"><span class="state-bar" aria-hidden="true"><i class="high" style="width: {{ row.high_width }}%"></i><i class="neutral" style="width: {{ row.neutral_width }}%"></i><i class="low" style="width: {{ row.low_width }}%"></i></span></td>
-                        <td>{{ row.high_pct|floatformat:1 }}</td>
-                        <td>{{ row.neutral_pct|floatformat:1 }}</td>
-                        <td>{{ row.low_pct|floatformat:1 }}</td>
+                        <td>{{ episode.number }}</td>
+                        <td class="left">{% include "gsr/partials/direction.html" with direction=episode.direction %}</td>
+                        <td class="left">{{ episode.start_s|seconds_mmss }}–{{ episode.end_s|seconds_mmss }}</td>
+                        <td>{{ episode.duration_s|seconds_mmss }}</td>
+                        <td class="left"><div class="chips">{% for member in episode.contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% empty %}—{% endfor %}</div></td>
+                        <td class="left">{% if episode.strength == "full" %}{% translate "full" %}{% elif episode.strength == "strong" %}{% translate "strong" %}{% else %}{% translate "partial" %}{% endif %}</td>
                       </tr>
                     {% endfor %}
                   </tbody>
                 </table>
               </div>
+              <div class="table-wrap" id="coarousal-merged" hidden>
+                <table class="data">
+                  <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th></tr></thead>
+                  <tbody>
+                    {% for segment in coarousal.primary_timeline %}
+                      <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td class="left">{% include "gsr/partials/direction.html" with direction=segment.label %}</td>
+                        <td class="left">{{ segment.start_min|mmss }}–{{ segment.end_min|mmss }}</td>
+                        <td>{{ segment.duration_s|seconds_mmss }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="muted">{% translate "No episodes detected." %}</p>
+            {% endif %}
+          </div>
+          <div>
+            {% translate "Percent of time each signal was in the High, Neutral and Low state (z-score relative to its own baseline within the analysis window)." as states_pct_help %}
+            <div class="section-head"><h3>{% translate "Time in states (per signal)" %}</h3>{% include "gsr/partials/tip.html" with text=states_pct_help tip_id="tip-time-in-states" %}</div>
+            <div class="table-wrap">
+              <table class="data">
+                <thead><tr><th>{% translate "Signal" %}</th><th class="left"><span class="sr-only">{% translate "Distribution" %}</span></th><th>{% translate "High ↑" %} %</th><th>{% translate "Neutral" %} %</th><th>{% translate "Low ↓" %} %</th></tr></thead>
+                <tbody>
+                  {% for row in state_bars %}
+                    <tr>
+                      <td><span class="chip"><span class="dot" style="background: {{ colors|get_item:row.alias }}"></span>{{ row.alias }}</span></td>
+                      <td class="left"><span class="state-bar" aria-hidden="true"><i class="high" style="width: {{ row.high_width }}%"></i><i class="neutral" style="width: {{ row.neutral_width }}%"></i><i class="low" style="width: {{ row.low_width }}%"></i></span></td>
+                      <td>{{ row.high_pct|floatformat:1 }}</td>
+                      <td>{{ row.neutral_pct|floatformat:1 }}</td>
+                      <td>{{ row.low_pct|floatformat:1 }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
             </div>
           </div>
-        {% elif result %}
-          <p class="muted">{% translate "No results for this step yet." %}</p>
-        {% endif %}
-      </div>
+        </div>
+      {% elif result %}
+        <p class="muted">{% translate "No results for this step yet." %}</p>
+      {% endif %}
+    </div>
 
-    </section>
-  </div>
+  </section>
 </div>
 {% if result %}
   <div class="action-bar">
@@ -306,4 +267,5 @@
     <a class="button lg" href="{% url 'gsr:export' project.pk %}">{% translate "Next: Export" %} →</a>
   </div>
 {% endif %}
-{% if htmx %}{% include "gsr/partials/rail_steps.html" with oob=True %}{% endif %}
+{% if htmx %}{% include "gsr/partials/rail_steps.html" with oob=True %}
+<div id="drawer-root" hx-swap-oob="innerHTML">{% include drawer %}</div>{% endif %}

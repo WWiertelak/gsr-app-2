@@ -1,8 +1,10 @@
 {% load i18n gsr_tags %}{% with p=row.param %}
 {% if p.kind == "bool" %}
-<div class="field-head"><label class="toggle"><input type="checkbox" name="{{ p.name }}" value="1"{% if row.value %} checked{% endif %}> {{ p.label }}</label>{% include "gsr/partials/tip.html" with text=p.help tip_id="tip-"|add:p.name %}</div>
+<div class="f bool{% if row.modified %} changed{% endif %}">
+  <div class="field-head"><label class="check"><input type="checkbox" id="f-{{ p.name }}" name="{{ p.name }}" value="1"{% if row.value %} checked{% endif %}> {{ p.label }}</label>{% include "gsr/partials/tip.html" with text=p.help tip_id="tip-"|add:p.name %}{% if row.modified %}<span class="note">{% translate "changed" %}</span>{% endif %}</div>
+</div>
 {% else %}
-<div class="field">
+<div class="f{% if row.modified %} changed{% endif %}">
   <div class="field-head"><label for="f-{{ p.name }}">{{ p.label }}</label>{% include "gsr/partials/tip.html" with text=p.help tip_id="tip-"|add:p.name %}</div>
   {% if p.kind == "choice" %}
     <select id="f-{{ p.name }}" name="{{ p.name }}">
@@ -11,7 +13,7 @@
   {% else %}
     <input id="f-{{ p.name }}" type="number" name="{{ p.name }}" step="{{ p.step }}" value="{{ row.value|input_value }}"{% if p.nullable %} placeholder="{% translate 'full range' %}"{% endif %}>
   {% endif %}
-  {% if not p.nullable %}<span class="default-note{% if row.modified %} modified{% endif %}">{% if row.modified %}{% blocktranslate with value=p.default|display_number %}changed (default {{ value }}){% endblocktranslate %}{% else %}{% translate "default" %}{% endif %}</span>{% endif %}
+  {% if row.modified and not p.nullable %}<span class="note">{% blocktranslate with value=p.default|display_number %}changed (default {{ value }}){% endblocktranslate %}</span>{% endif %}
 </div>
 {% endif %}
 {% endwith %}

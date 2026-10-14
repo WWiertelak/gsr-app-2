@@ -49,7 +49,7 @@
   </div>
 
   {# Mount point for the settings drawer: outside #main, so it survives the HTMX swaps of the work area. #}
-  <div id="drawer-root"></div>
+  <div id="drawer-root">{% block drawer %}{% endblock %}</div>
 
   {# Progress: an inline bar at once; the blocking overlay only when a computation takes over 1.5 s. #}
   <div id="busy" class="busy" role="status" aria-live="polite">

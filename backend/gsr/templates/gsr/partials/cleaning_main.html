@@ -1,163 +1,118 @@
 {% load i18n %}
-{% include "gsr/partials/run_bar.html" with settings_id="cleaning-settings-panel" run_form="cleaning-refresh" %}
+{% include "gsr/partials/run_bar.html" with run_form="cleaning-refresh" %}
 <form id="cleaning-refresh" method="post" action="{% url 'gsr:cleaning_refresh' project.pk %}"
       hx-post="{% url 'gsr:cleaning_refresh' project.pk %}" hx-target="#main" hx-swap="innerHTML"
       hx-indicator="#busy" hx-disabled-elt="#run-bar button">{% csrf_token %}</form>
-<div class="layout-sidebar">
-  <form class="card sidebar" method="post" action="{% url 'gsr:cleaning' project.pk %}"
-        hx-post="{% url 'gsr:cleaning' project.pk %}" hx-target="#main" hx-swap="innerHTML"
-        hx-indicator="#busy" hx-disabled-elt="find button, #run-bar button">
-    {% csrf_token %}
-    {% translate "Checked signals will be processed and visible in the charts. Unchecking a signal excludes it from cleaning and downstream analysis." as signals_help %}
-    <h2>{% translate "Cleaning controls" %}</h2>
-    <details class="settings-panel" id="cleaning-settings-panel"{% if error %} open{% endif %}>
-      <summary><span class="settings-title">{% translate "Settings" %}</span></summary>
+<div class="stack">
+  {% if error %}{% include "gsr/partials/error.html" %}{% endif %}
 
-      <fieldset>
-        <legend>{% translate "Signals" %}{% include "gsr/partials/tip.html" with text=signals_help tip_id="tip-signals" %}</legend>
-        <div class="signal-list">
-          {% for item in datasets %}
-            <label><input type="checkbox" name="datasets" value="{{ item.dataset.pk }}"{% if item.dataset.included %} checked{% endif %}>
-              <span class="dot" style="background: {{ item.color }}"></span>{{ item.dataset.alias }}</label>
-          {% empty %}
-            <p class="muted">{% translate "No signals uploaded yet." %}</p>
-          {% endfor %}
+  {% if not datasets %}
+    <section class="card">
+      <p>{% translate "Upload recordings first." %} <a href="{% url 'gsr:upload' project.pk %}">{% translate "Go to Import" %}</a></p>
+    </section>
+  {% elif not result %}
+    <section class="card">
+      {% if not error and included_count %}
+        <div class="placeholder" hx-post="{% url 'gsr:cleaning_refresh' project.pk %}" hx-trigger="load" hx-target="#main" hx-swap="innerHTML" hx-indicator="#busy">
+          <div><div class="spinner"></div>{% translate "Cleaning and synchronizing the recordings…" %}</div>
         </div>
-      </fieldset>
-
-      {% for entry in groups %}
-        <fieldset>
-          <legend>
-            {% if entry.toggle %}
-              <label class="toggle"><input type="checkbox" name="{{ entry.toggle.param.name }}" value="1"{% if entry.toggle.value %} checked{% endif %}> {{ entry.group.title }}</label>
-            {% else %}
-              {{ entry.group.title }}
-            {% endif %}
-            {% include "gsr/partials/tip.html" with text=entry.help tip_id="tip-group-"|add:entry.group.key %}
-          </legend>
-          <div class="{% if entry.rows|length == 2 %}field-pair{% endif %}">
-            {% for row in entry.rows %}<div>{% include "gsr/partials/param_field.html" %}</div>{% endfor %}
-          </div>
-        </fieldset>
-      {% endfor %}
-
-      <div class="settings-actions">
-        <button type="submit">{% translate "Apply settings" %}</button>
-        {% translate "Applying settings recomputes the preview; it can take a few seconds." as apply_help %}
-        {% include "gsr/partials/tip.html" with text=apply_help tip_id="tip-apply" %}
-        <button type="submit" class="ghost" formaction="{% url 'gsr:cleaning_reset' project.pk %}" hx-post="{% url 'gsr:cleaning_reset' project.pk %}" formnovalidate>{% translate "Reset defaults" %}</button>
-      </div>
-    </details>
-  </form>
-
-  <div class="stack">
-    {% if error %}{% include "gsr/partials/error.html" %}{% endif %}
-
-    {% if not datasets %}
-      <section class="card">
-        <p>{% translate "Upload recordings first." %} <a href="{% url 'gsr:upload' project.pk %}">{% translate "Go to Import" %}</a></p>
-      </section>
-    {% elif not result %}
-      <section class="card">
-        {% if not error and included_count %}
-          <div class="placeholder" hx-post="{% url 'gsr:cleaning_refresh' project.pk %}" hx-trigger="load" hx-target="#main" hx-swap="innerHTML" hx-indicator="#busy">
-            <div><div class="spinner"></div>{% translate "Cleaning and synchronizing the recordings…" %}</div>
-          </div>
-        {% endif %}
-        {% if error or not included_count %}
-          <p class="muted">{% translate "Check the signals and settings, then apply them." %}</p>
-        {% endif %}
-        <noscript>
-          <form method="post" action="{% url 'gsr:cleaning_refresh' project.pk %}">
-            {% csrf_token %}
-            <button type="submit" class="secondary">{% translate "Compute preview" %}</button>
-          </form>
-        </noscript>
-      </section>
-    {% else %}
-      <section class="card" aria-labelledby="quality-title">
-        {% translate "The rating is informational and does not exclude a signal: good <10% rejected samples, warning ≥10% and <30%, poor ≥30%." as quality_help %}
-        <div class="section-head"><h2 id="quality-title">{% translate "Signal quality" %}</h2>{% include "gsr/partials/tip.html" with text=quality_help tip_id="tip-quality" %}</div>
-        <ul class="tiles quality-tiles">
-          {% for row in quality_rows %}
-            <li class="tile">
-              <span class="tile-head"><span class="chip"><span class="dot" style="background: {{ row.color }}"></span>{{ row.alias }}</span>
-                <span class="badge {{ row.signal_quality }}">{% if row.signal_quality == "good" %}{% translate "good" %}{% elif row.signal_quality == "warning" %}{% translate "warning" %}{% else %}{% translate "poor" %}{% endif %}</span></span>
-              <span class="value">{{ row.artifact_rejected_pct|floatformat:1 }} %</span>
-              <span class="sub">{{ row.tile_note }}</span>
-            </li>
-          {% endfor %}
-        </ul>
-        {% if summary.identical_signal_groups %}
-          <p class="alert warning"><strong>{% translate "Identical signals detected" %}:</strong>
-            {% for group in summary.identical_signal_groups %}{{ group|join:" = " }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>
-        {% endif %}
-      </section>
-
-      <section class="card" aria-labelledby="clean-title">
-        {% translate "Signal after artifact removal (outliers, jumps), linear interpolation, Butterworth low-pass filter, and optional median filter. X-axis is relative time (minutes) from synchronization. Grey: raw signal, ×: rejected samples." as clean_help %}
-        <div class="section-head"><h2 id="clean-title">{% translate "Cleaned vs raw" %}</h2>{% include "gsr/partials/tip.html" with text=clean_help tip_id="tip-clean" %}
-          <span class="subtitle">{% translate "minutes from synchronization" %}</span></div>
-        <div class="chart-grid">
-          {% for item in charts.per_signal %}
-            <div class="chart-card">
-              <h3><span class="dot" style="background: {{ item.color }}"></span>{{ item.alias }}</h3>
-              {% with index=forloop.counter0|stringformat:"s" %}{% include "gsr/partials/chart.html" with label=_("Cleaned vs raw") sub=item.alias kind="cleanVsRaw" data=item chart_id="clean-"|add:index name="clean_"|add:item.alias height=260 %}{% endwith %}
-            </div>
-          {% endfor %}
-        </div>
-        {% if charts.per_signal|length > 1 %}
-          <div class="chart-card section-gap">
-            <h3>{% translate "Signal overlay" %}</h3>
-            {% include "gsr/partials/chart.html" with label=_("Signal overlay") kind="overlay" data=charts.overlay chart_id="clean-overlay" name="clean_overlay" height=320 %}
-          </div>
-        {% endif %}
-      </section>
-
-      <section class="card" aria-labelledby="summary-title">
-        {% translate "This summary shows how cleaning affects point counts: rejected artifacts, time-window exclusions, and downsampling impact for analysis charts." as summary_help %}
-        <div class="section-head"><h2 id="summary-title">{% translate "Cleaning summary" %}</h2>{% include "gsr/partials/tip.html" with text=summary_help tip_id="tip-summary" %}</div>
-        <div class="table-wrap">
-          <table class="data">
-            <thead>
-              <tr>
-                <th>{% translate "Signal" %}</th>
-                <th>{% translate "Rejected artifacts" %}</th>
-                <th>{% translate "Signal quality" %}</th>
-                <th>{% translate "Outside time range" %}</th>
-                <th>{% translate "In time window" %}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in quality_rows %}
-                <tr>
-                  <td><span class="chip"><span class="dot" style="background: {{ row.color }}"></span>{{ row.alias }}</span></td>
-                  <td>{{ row.artifact_rejected_points }} ({{ row.artifact_rejected_pct|floatformat:1 }} %)</td>
-                  <td><span class="badge {{ row.signal_quality }}">{% if row.signal_quality == "good" %}{% translate "good" %}{% elif row.signal_quality == "warning" %}{% translate "warning" %}{% else %}{% translate "poor" %}{% endif %}</span></td>
-                  <td>{{ row.outside_time_window_points }}</td>
-                  <td>{{ row.in_time_window_points }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td>{% translate "Total" %}</td>
-                <td>{{ summary.totals.artifact_rejected_points }}</td>
-                <td></td>
-                <td>{{ summary.totals.outside_time_window_points }}</td>
-                <td>{{ summary.totals.in_time_window_points }}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-        <p class="small muted">
-          <strong>{% translate "Shared absolute time" %}:</strong>
-          {{ alignment.start|slice:"11:19" }}–{{ alignment.end|slice:"11:19" }} · {{ preview_range.from|floatformat:1 }}–{{ preview_range.to|floatformat:1 }} min
-          · <strong>{% translate "Downsampling (shared)" %}:</strong> {{ summary.totals.merged_points_before_downsampling }} → {{ summary.totals.merged_points_after_downsampling }}
-        </p>
-      </section>
+      {% endif %}
+      {% if error or not included_count %}
+        <p class="muted">{% translate "Check the signals and settings, then apply them." %}</p>
+      {% endif %}
+      <noscript>
+        <form method="post" action="{% url 'gsr:cleaning_refresh' project.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="secondary">{% translate "Compute preview" %}</button>
+        </form>
+      </noscript>
+    </section>
+  {% else %}
+    {% if stale %}
+      <div class="alert warning stale-note">{% translate "Settings or signals changed since this preview was computed. Recompute it to see the current result." %}</div>
     {% endif %}
-  </div>
+    <section class="card result{% if stale %} is-stale{% endif %}" aria-labelledby="quality-title">
+      {% translate "The rating is informational and does not exclude a signal: good <10% rejected samples, warning ≥10% and <30%, poor ≥30%." as quality_help %}
+      <div class="section-head"><h2 id="quality-title">{% translate "Signal quality" %}</h2>{% include "gsr/partials/tip.html" with text=quality_help tip_id="tip-quality" %}</div>
+      <ul class="tiles quality-tiles">
+        {% for row in quality_rows %}
+          <li class="tile">
+            <span class="tile-head"><span class="chip"><span class="dot" style="background: {{ row.color }}"></span>{{ row.alias }}</span>
+              <span class="badge {{ row.signal_quality }}">{% if row.signal_quality == "good" %}{% translate "good" %}{% elif row.signal_quality == "warning" %}{% translate "warning" %}{% else %}{% translate "poor" %}{% endif %}</span></span>
+            <span class="value">{{ row.artifact_rejected_pct|floatformat:1 }} %</span>
+            <span class="sub">{{ row.tile_note }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if summary.identical_signal_groups %}
+        <p class="alert warning"><strong>{% translate "Identical signals detected" %}:</strong>
+          {% for group in summary.identical_signal_groups %}{{ group|join:" = " }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>
+      {% endif %}
+    </section>
+
+    <section class="card result{% if stale %} is-stale{% endif %}" aria-labelledby="clean-title">
+      {% translate "Signal after artifact removal (outliers, jumps), linear interpolation, Butterworth low-pass filter, and optional median filter. X-axis is relative time (minutes) from synchronization. Grey: raw signal, ×: rejected samples." as clean_help %}
+      <div class="section-head"><h2 id="clean-title">{% translate "Cleaned vs raw" %}</h2>{% include "gsr/partials/tip.html" with text=clean_help tip_id="tip-clean" %}
+        <span class="subtitle">{% translate "minutes from synchronization" %}</span></div>
+      <div class="chart-grid">
+        {% for item in charts.per_signal %}
+          <div class="chart-card">
+            <h3><span class="dot" style="background: {{ item.color }}"></span>{{ item.alias }}</h3>
+            {% with index=forloop.counter0|stringformat:"s" %}{% include "gsr/partials/chart.html" with label=_("Cleaned vs raw") sub=item.alias kind="cleanVsRaw" data=item chart_id="clean-"|add:index name="clean_"|add:item.alias height=260 %}{% endwith %}
+          </div>
+        {% endfor %}
+      </div>
+      {% if charts.per_signal|length > 1 %}
+        <div class="chart-card section-gap">
+          <h3>{% translate "Signal overlay" %}</h3>
+          {% include "gsr/partials/chart.html" with label=_("Signal overlay") kind="overlay" data=charts.overlay chart_id="clean-overlay" name="clean_overlay" height=320 %}
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="card result{% if stale %} is-stale{% endif %}" aria-labelledby="summary-title">
+      {% translate "This summary shows how cleaning affects point counts: rejected artifacts, time-window exclusions, and downsampling impact for analysis charts." as summary_help %}
+      <div class="section-head"><h2 id="summary-title">{% translate "Cleaning summary" %}</h2>{% include "gsr/partials/tip.html" with text=summary_help tip_id="tip-summary" %}</div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>{% translate "Signal" %}</th>
+              <th>{% translate "Rejected artifacts" %}</th>
+              <th>{% translate "Signal quality" %}</th>
+              <th>{% translate "Outside time range" %}</th>
+              <th>{% translate "In time window" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in quality_rows %}
+              <tr>
+                <td><span class="chip"><span class="dot" style="background: {{ row.color }}"></span>{{ row.alias }}</span></td>
+                <td>{{ row.artifact_rejected_points }} ({{ row.artifact_rejected_pct|floatformat:1 }} %)</td>
+                <td><span class="badge {{ row.signal_quality }}">{% if row.signal_quality == "good" %}{% translate "good" %}{% elif row.signal_quality == "warning" %}{% translate "warning" %}{% else %}{% translate "poor" %}{% endif %}</span></td>
+                <td>{{ row.outside_time_window_points }}</td>
+                <td>{{ row.in_time_window_points }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>{% translate "Total" %}</td>
+              <td>{{ summary.totals.artifact_rejected_points }}</td>
+              <td></td>
+              <td>{{ summary.totals.outside_time_window_points }}</td>
+              <td>{{ summary.totals.in_time_window_points }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p class="small muted">
+        <strong>{% translate "Shared absolute time" %}:</strong>
+        {{ alignment.start|slice:"11:19" }}–{{ alignment.end|slice:"11:19" }} · {{ preview_range.from|floatformat:1 }}–{{ preview_range.to|floatformat:1 }} min
+        · <strong>{% translate "Downsampling (shared)" %}:</strong> {{ summary.totals.merged_points_before_downsampling }} → {{ summary.totals.merged_points_after_downsampling }}
+      </p>
+    </section>
+  {% endif %}
 </div>
 {% if result %}
   <div class="action-bar">
@@ -167,4 +122,5 @@
     <a class="button lg" href="{% url 'gsr:analysis' project.pk %}">{% translate "Next: Analysis" %} →</a>
   </div>
 {% endif %}
-{% if htmx %}{% include "gsr/partials/rail_steps.html" with oob=True %}{% endif %}
+{% if htmx %}{% include "gsr/partials/rail_steps.html" with oob=True %}
+<div id="drawer-root" hx-swap-oob="innerHTML">{% include drawer %}</div>{% endif %}

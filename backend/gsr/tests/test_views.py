@@ -469,8 +469,9 @@ def test_cleaning_without_datasets_points_to_upload(client) -> None:
 
 
 def _settings_form(page: str) -> str:
-    start = page.index('<form class="card sidebar"')
-    return page[start:page.index("</form>", start)]
+    """The settings drawer's form: in #drawer-root on a full page, in the out-of-band block of an HTMX fragment."""
+    start = page.index('<aside class="drawer" id="settings-drawer"')
+    return page[start:page.index("</aside>", start)]
 
 
 def _run_bar(page: str) -> str:
@@ -479,38 +480,84 @@ def _run_bar(page: str) -> str:
 
 
 @pytest.mark.django_db
-def test_cleaning_settings_are_collapsed_with_a_summary_and_tooltips(client, project) -> None:
-    project.pipeline_config = {**project.pipeline_config, "time_range_to": 3.0, "clean_filter_iqr": True}
+def test_cleaning_settings_live_in_a_drawer_with_groups_switches_and_changed_markers(client, project) -> None:
+    project.pipeline_config = {**project.pipeline_config, "time_range_to": 3.0, "clean_filter_iqr": True,
+                               "clean_filter_zscore_threshold": 4}
     project.save()
     project.datasets.filter(alias="C").update(included=False)
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
+    # The drawer replaces the old settings column: it mounts in #drawer-root, outside the HTMX swap target.
+    assert "layout-sidebar" not in page and "settings-panel" not in page
+    assert page.index("</main>") < page.index('<div id="drawer-root">') < page.index('<aside class="drawer"')
     form = _settings_form(page)
-    assert '<details class="settings-panel" id="cleaning-settings-panel">' in form  # closed by default
-    # The run bar above lists the values; its Edit settings button opens the panel.
+    assert "data-autoopen" not in form  # closed until Edit settings opens it
+    # The run bar lists the values; its Edit settings button opens the drawer (an #anchor without JS).
     run_bar = _run_bar(page)
-    assert ("<li>Signals: 2/3</li><li>Window: …–3 min</li><li>Filters: 5/5</li><li>Median: 5</li><li>2 changed</li>"
+    assert ("<li>Signals: 2/3</li><li>Window: …–3 min</li><li>Filters: 5/5</li><li>Median: 5</li><li>3 changed</li>"
             in run_bar)
-    assert 'data-open-settings aria-controls="cleaning-settings-panel">Edit settings</button>' in run_bar
+    assert ('href="#settings-drawer" data-open-settings aria-controls="settings-drawer" aria-expanded="false">'
+            "Edit settings</a>") in run_bar
     assert "Not run yet" in run_bar
-    # Explanations moved from inline hints into keyboard-reachable tooltips.
-    assert 'class="hint"' not in form
-    assert 'aria-describedby="tip-group-zscore"' in form and 'role="tooltip" id="tip-group-zscore"' in form
-    assert "Rejects points that are statistical outliers against the full signal." in form
-    assert "Applying settings recomputes the preview" in form
+    assert '<h2 id="settings-drawer-title" tabindex="-1">Cleaning settings</h2>' in form
+    assert '<span class="badge changed">3 changed</span>' in form
+    # Groups: a filter's on/off switch sits in its header; the group explains itself inline, not in a tooltip that
+    # would cover the fields.
+    assert '<legend class="group-head"><span>Signals</span><span class="grow"></span><span class="group-meta">2/3</span>' in form
+    assert 'class="switch" role="switch" id="f-clean_filter_zscore" name="clean_filter_zscore" value="1" checked>' in form
+    assert '<label class="switch-row changed" for="f-clean_filter_iqr">' in form  # IQR is off by default
+    assert '<p class="group-help">Rejects points that are statistical outliers against the full signal.' in form
+    assert "tip-group-" not in form and 'class="hint"' not in form
+    # Changed fields carry a marker and their default; untouched ones stay quiet.
+    assert '<div class="f changed">' in form and "changed (default 5)" in form
+    assert form.count("changed (default") == 1  # time_range_to is a range bound: marked, without a default note
+    # Sticky footer: Apply, Reset and the unapplied-changes note.
+    assert '<button type="submit" id="cleaning-settings-apply">Apply settings</button>' in form
+    assert "Applying settings recomputes the preview" in form and "data-dirty-note hidden" in form
     # Every setting is still in the form, so Apply posts the same fields as before.
     for param in params.cleaning_params():
         assert f'name="{param.name}"' in form
 
 
 @pytest.mark.django_db
-def test_cleaning_settings_panel_stays_open_on_errors(client, project) -> None:
+def test_cleaning_drawer_is_refreshed_out_of_band_and_opens_on_errors(client, project) -> None:
     form = _cleaning_form(project, clean_filter_physiological_min_us=30, clean_filter_physiological_max_us=20)
     fragment = client.post(reverse("gsr:cleaning", args=[project.pk]), form, **HTMX).content.decode()
-    assert '<details class="settings-panel" id="cleaning-settings-panel" open>' in fragment
+    assert '<div id="drawer-root" hx-swap-oob="innerHTML">' in fragment
+    assert '<aside class="drawer" id="settings-drawer" aria-labelledby="settings-drawer-title" data-autoopen>' in fragment
 
     fragment = client.post(reverse("gsr:cleaning", args=[project.pk]), _cleaning_form(project), **HTMX).content.decode()
-    assert '<details class="settings-panel" id="cleaning-settings-panel">' in fragment and "alert error" not in fragment
+    assert '<div id="drawer-root" hx-swap-oob="innerHTML">' in fragment and "alert error" not in fragment
+    assert "data-autoopen" not in fragment
+
+
+@pytest.mark.django_db
+def test_outdated_cleaning_preview_is_dimmed_with_a_stale_notice(client, project) -> None:
+    client.post(reverse("gsr:cleaning_refresh", args=[project.pk]), **HTMX)
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
+    assert "result is-stale" not in page and 'class="alert warning stale-note"' not in page
+    assert page.count('<section class="card result" aria-labelledby=') == 3
+    assert 'class="changed"' not in _run_bar(page)
+
+    project.datasets.filter(alias="C").update(included=False)
+    page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
+    assert page.count('<section class="card result is-stale" aria-labelledby=') == 3
+    assert ('<div class="alert warning stale-note">Settings or signals changed since this preview was computed.'
+            ' Recompute it to see the current result.</div>' in page)
+    assert page.count('form="cleaning-refresh">Recompute</button>') == 1
+    assert 'form="cleaning-refresh">Recompute</button>' in _run_bar(page)
+
+    # The run bar marks what differs from the shown preview, adding a chip for a setting it does not list.
+    project.pipeline_config = {**project.pipeline_config, "median_kernel": 7, "clean_filter_zscore_threshold": 4}
+    project.save()
+    run_bar = _run_bar(client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode())
+    marker = '<span class="sr-only"> (changed since the last run)</span></li>'
+    assert f'<li class="changed">Signals: 2/3{marker}' in run_bar
+    assert "<li>Window: full range</li>" in run_bar and "<li>Filters: " in run_bar
+    assert f'<li class="changed">Median: 7{marker}' in run_bar
+    assert f'<li class="changed">Z-score deviation · Threshold (SD): 4{marker}' in run_bar
+    assert run_bar.count('class="changed"') == 3
 
 
 # ─── 3 Analysis ──────────────────────────────────────────────────────────────
@@ -568,15 +615,29 @@ def test_analysis_screen_has_landmarks_aria_tabs_and_labelled_charts(client, pro
 
 
 @pytest.mark.django_db
-def test_analysis_settings_are_collapsed_with_run_and_apply_buttons(client, project) -> None:
+def test_analysis_settings_live_in_the_drawer_with_run_and_apply_buttons(client, project) -> None:
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
     form = _settings_form(page)
-    assert '<details class="settings-panel" id="analysis-settings-panel">' in form
+    assert '<form class="drawer-form" id="analysis-settings"' in form and "Analysis settings</h2>" in form
+    assert '<input type="hidden" name="tab" value="synchronization" data-tab-input>' in form
     assert ("<li>Threshold: 0.6</li><li>Window: 30 s</li><li>High/Low z: 1/-1</li><li>Min. participants: 2</li>"
             "<li>2 changed</li>") in _run_bar(page)
     assert 'class="hint"' not in form and 'role="tooltip" id="tip-contagion_surrogate_count"' in form
     assert ">Apply settings</button>" in form
+    # Advanced sections holding a changed setting open (both surrogate counts differ here); others stay shut.
+    assert '<details class="advanced" id="advanced-synchrony" open>' in form
+    assert '<details class="advanced" id="advanced-coarousal" open>' in form
+    project.pipeline_config = {}
+    project.save()
+    form = _settings_form(client.get(reverse("gsr:analysis", args=[project.pk])).content.decode())
+    assert '<details class="advanced" id="advanced-synchrony">' in form and 'class="badge changed"' not in form
+    project.pipeline_config = dict(FAST, synchrony_dtw_enabled=False)
+    project.save()
+    form = _settings_form(client.get(reverse("gsr:analysis", args=[project.pk])).content.decode())
+    assert '<div class="f bool changed">' in form and '<span class="badge changed">3 changed</span>' in form
+    project.pipeline_config = dict(FAST)
+    project.save()
     for param in params.ANALYSIS_PARAMS:
         assert f'name="{param.name}"' in form
     # Without a result the empty state offers the first run as a large button; it submits the collapsed settings form.
@@ -588,10 +649,19 @@ def test_analysis_settings_are_collapsed_with_run_and_apply_buttons(client, proj
     project.save()
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
     assert "run-status stale" in page and 'form="analysis-settings">Recompute</button>' in _run_bar(page)
+    marker = '<span class="sr-only"> (changed since the last run)</span></li>'
+    assert f'<li class="changed">Threshold: 0.7{marker}' in _run_bar(page)
+    assert _run_bar(page).count('class="changed"') == 1
+
+    # The outdated result stays readable but dimmed; the run bar's Recompute is the single recompute action.
+    assert page.count('<div class="result is-stale" role="tabpanel"') == 2
+    assert ('<div class="alert warning stale-note">Settings or signals changed since this run. Run the analysis again.'
+            '</div>' in page)
+    assert page.count('form="analysis-settings">Recompute</button>') == 1
 
     form = _analysis_form(project, contagion_min_participants=5)
     fragment = client.post(reverse("gsr:analysis", args=[project.pk]), form, **HTMX).content.decode()
-    assert '<details class="settings-panel" id="analysis-settings-panel" open>' in fragment
+    assert '<div id="drawer-root" hx-swap-oob="innerHTML">' in fragment and "data-autoopen" in _settings_form(fragment)
 
 
 @pytest.mark.django_db
@@ -986,12 +1056,12 @@ def test_language_switch_translates_screens_and_chart_labels(client, project) ->
     response = client.post(reverse("set_language"), {"language": "en", "next": reverse("gsr:cleaning", args=[project.pk])})
     assert response.status_code == 302 and response["Location"] == reverse("gsr:cleaning", args=[project.pk])
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
-    assert '<html lang="en">' in page and "Cleaning controls" in page and "Synchronized count" in page
+    assert '<html lang="en">' in page and "Cleaning settings" in page and "Synchronized count" in page
 
     client.post(reverse("set_language"), {"language": "pl", "next": "/"})
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
-    assert "Panel czyszczenia" in page and "Zakres fizjologiczny" in page
-    assert "Sygnały: 3/3" in page and "Ustawienia" in page and 'aria-label="Więcej informacji"' in page
+    assert "Ustawienia czyszczenia" in page and "Zakres fizjologiczny" in page
+    assert "Sygnały: 3/3" in page and "Edytuj ustawienia" in page and 'aria-label="Więcej informacji"' in page
 
 
 def test_polish_catalog_is_compiled() -> None:

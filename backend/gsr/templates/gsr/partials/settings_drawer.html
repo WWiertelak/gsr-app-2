@@ -1,0 +1,27 @@
+{% load i18n %}{% comment %}The settings drawer shared by Cleaning and Analysis. It renders into #drawer-root, outside the HTMX
+swap target #main, so it stays open while the results behind it update. Children fill title, groups and apply_help;
+the form posts to form_action and swaps #main. data-autoopen opens it when the last run failed.{% endcomment %}
+<aside class="drawer" id="settings-drawer" aria-labelledby="settings-drawer-title"{% if error %} data-autoopen{% endif %}>
+  <form class="drawer-form" id="{{ form_id }}" method="post" action="{{ form_action }}"
+        hx-post="{{ form_action }}" hx-target="#main" hx-swap="innerHTML"
+        hx-indicator="#busy" hx-disabled-elt="#settings-drawer button, #run-bar button{% block disabled_extra %}{% endblock %}">
+    {% csrf_token %}
+    {% block hidden %}{% endblock %}
+    <header class="drawer-head">
+      <h2 id="settings-drawer-title" tabindex="-1">{% block title %}{% endblock %}</h2>
+      {% if changed_label %}<span class="badge changed">{{ changed_label }}</span>{% endif %}
+      <span class="grow"></span>
+      <a class="drawer-close" href="#run-bar" data-close-settings aria-label="{% translate 'Close settings' %}" title="{% translate 'Close settings' %}"><span aria-hidden="true">×</span></a>
+    </header>
+    <div class="drawer-body">
+      {% block groups %}{% endblock %}
+    </div>
+    <footer class="drawer-foot">
+      <button type="submit" id="{{ form_id }}-apply"{% if apply_disabled %} disabled{% endif %}>{% translate "Apply settings" %}</button>
+      <button type="submit" id="{{ form_id }}-reset" class="ghost" formaction="{{ reset_action }}" hx-post="{{ reset_action }}" formnovalidate>{% translate "Reset defaults" %}</button>
+      <span class="grow"></span>
+      {% block apply_help %}{% endblock %}
+      <p class="dirty-note" data-dirty-note hidden>{% translate "Unapplied changes: Apply recomputes the result with them." %}</p>
+    </footer>
+  </form>
+</aside>

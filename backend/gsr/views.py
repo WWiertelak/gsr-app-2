@@ -71,6 +71,16 @@ def _current_values(project: Project) -> dict[str, Any]:
         return PipelineConfig().model_dump()
 
 
+def _applied_values(result: AnalysisResult | None) -> dict[str, Any] | None:
+    """The settings a stored result was computed with, or None without a result."""
+    if result is None:
+        return None
+    try:
+        return PipelineConfig.from_dict(result.config).model_dump()
+    except ValueError:
+        return None
+
+
 def _steps(project: Project, current: str) -> list[dict[str, Any]]:
     """The project steps for the left rail, each with a one-line text status (not only a colour)."""
     labels = {"upload": _("Import"), "cleaning": _("Cleaning"), "analysis": _("Analysis"), "export": _("Export")}
@@ -379,8 +389,17 @@ def _cleaning_context(project: Project, error: UserError | None = None) -> dict[
                 for dataset in project.datasets.order_by("created_at")]
     included_count = len(included_datasets(project))
     context: dict[str, Any] = {
+        "drawer": "gsr/partials/cleaning_settings.html",
+        "form_id": "cleaning-settings",
+        "form_action": reverse("gsr:cleaning", args=[project.pk]),
+        "reset_action": reverse("gsr:cleaning_reset", args=[project.pk]),
+        "changed_label": params.changed_label(params.cleaning_params(), values),
         "groups": groups,
-        "settings_summary": params.cleaning_summary(values, included_count, len(datasets)),
+        "settings_summary": params.cleaning_summary(
+            values, included_count, len(datasets), _applied_values(result),
+            result is not None and set(result.dataset_ids) != {str(row["dataset"].id) for row in datasets
+                                                                if row["dataset"].included},
+        ),
         "datasets": datasets,
         "result": result,
         "stale": is_stale(project, result),
@@ -511,18 +530,29 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
     values = _current_values(project)
     result = get_result(project, AnalysisResult.KIND_ANALYSIS)
     colors = signal_colors(project)
+    analysis_blocked = len(included_datasets(project)) < 2
+    sync_advanced = params.field_rows(params.SYNCHRONY_ADVANCED, values)
+    coarousal_advanced = params.field_rows(params.COAROUSAL_ADVANCED, values)
     context: dict[str, Any] = {
+        "drawer": "gsr/partials/analysis_settings.html",
+        "form_id": "analysis-settings",
+        "form_action": reverse("gsr:analysis", args=[project.pk]),
+        "reset_action": reverse("gsr:analysis_reset", args=[project.pk]),
+        "apply_disabled": analysis_blocked,
+        "changed_label": params.changed_label(params.ANALYSIS_PARAMS, values),
         "tab": tab,
         "tabs": ANALYSIS_TABS,
         "sync_essential": params.field_rows(params.SYNCHRONY_ESSENTIAL, values),
-        "sync_advanced": params.field_rows(params.SYNCHRONY_ADVANCED, values),
+        "sync_advanced": sync_advanced,
+        "sync_advanced_changed": any(row["modified"] for row in sync_advanced),
         "coarousal_essential": params.field_rows(params.COAROUSAL_ESSENTIAL, values),
-        "coarousal_advanced": params.field_rows(params.COAROUSAL_ADVANCED, values),
-        "settings_summary": params.analysis_summary(values),
+        "coarousal_advanced": coarousal_advanced,
+        "coarousal_advanced_changed": any(row["modified"] for row in coarousal_advanced),
+        "settings_summary": params.analysis_summary(values, _applied_values(result)),
         "result": result,
         "stale": is_stale(project, result),
         "error": error,
-        "analysis_blocked": len(included_datasets(project)) < 2,
+        "analysis_blocked": analysis_blocked,
         "colors": colors,
     }
     if result is not None:

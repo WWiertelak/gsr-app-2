@@ -1,0 +1,25 @@
+{% extends "gsr/partials/settings_drawer.html" %}
+{% load i18n %}
+{% block disabled_extra %}, #analysis-empty button{% endblock %}
+{% block hidden %}<input type="hidden" name="tab" value="{{ tab }}" data-tab-input>{% endblock %}
+{% block title %}{% translate "Analysis settings" %}{% endblock %}
+{% block groups %}
+<fieldset class="group">
+  <legend class="group-head"><span>{% translate "Synchronization settings" %}</span></legend>
+  <div class="fields">{% for row in sync_essential %}{% include "gsr/partials/param_field.html" %}{% endfor %}</div>
+  <details class="advanced" id="advanced-synchrony"{% if sync_advanced_changed %} open{% endif %}>
+    <summary>{% translate "Advanced settings" %}</summary>
+    <div class="fields">{% for row in sync_advanced %}{% include "gsr/partials/param_field.html" %}{% endfor %}</div>
+  </details>
+</fieldset>
+
+<fieldset class="group">
+  <legend class="group-head"><span>{% translate "Co-arousal settings" %}</span></legend>
+  <div class="fields">{% for row in coarousal_essential %}{% include "gsr/partials/param_field.html" %}{% endfor %}</div>
+  <details class="advanced" id="advanced-coarousal"{% if coarousal_advanced_changed %} open{% endif %}>
+    <summary>{% translate "Advanced settings" %}</summary>
+    <div class="fields">{% for row in coarousal_advanced %}{% include "gsr/partials/param_field.html" %}{% endfor %}</div>
+  </details>
+</fieldset>
+{% endblock %}
+{% block apply_help %}{% translate "Applying settings runs the analysis again: one run computes both synchronization and co-arousal with the cleaning settings from step 2." as apply_help %}{% include "gsr/partials/tip.html" with text=apply_help tip_id="tip-apply" %}{% endblock %}

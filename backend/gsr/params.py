@@ -300,15 +300,51 @@ def choice_label(name: str, value: Any) -> Any:
     return value
 
 
-def _changed_note(params: tuple[Param, ...], values: dict[str, Any]) -> list[str]:
+def changed_label(params: tuple[Param, ...], values: dict[str, Any]) -> str | None:
+    """How many of ``params`` differ from their defaults ("2 changed"), or None when none do."""
     changed = sum(1 for param in params if values.get(param.name) != param.default)
     if not changed:
-        return [gettext("defaults")]
-    return [ngettext("%(count)d changed", "%(count)d changed", changed) % {"count": changed}]
+        return None
+    return ngettext("%(count)d changed", "%(count)d changed", changed) % {"count": changed}
 
 
-def cleaning_summary(values: dict[str, Any], included: int, total: int) -> list[str]:
-    """One-line description of the Cleaning settings for the collapsed settings panel."""
+def _value_text(param: Param, value: Any) -> str:
+    if param.kind == "bool":
+        return gettext("on") if value else gettext("off")
+    if param.kind == "choice":
+        return str(dict(param.choices).get(value, value))
+    return display_number(value) or "–"
+
+
+def _summary(
+    chips: list[tuple[str, tuple[str, ...]]],
+    params: tuple[Param, ...],
+    values: dict[str, Any],
+    applied: dict[str, Any] | None,
+    sections: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Run bar chips: each marked when a setting it shows differs from the applied run (``applied``); a changed setting
+    no chip shows gets its own chip, and the last chip says how many settings differ from the defaults."""
+    changed = set() if applied is None else {
+        param.name for param in params if values.get(param.name) != applied.get(param.name)
+    }
+    shown = {name for _, names in chips for name in names}
+    items = [{"text": text, "changed": bool(changed.intersection(names))} for text, names in chips]
+    items += [
+        {"text": gettext("%(section)s · %(label)s: %(value)s") % {
+            "section": sections[param.name], "label": param.label, "value": _value_text(param, values.get(param.name))},
+         "changed": True}
+        for param in params if param.name in changed and param.name not in shown
+    ]
+    items.append({"text": changed_label(params, values) or gettext("defaults"), "changed": False})
+    return items
+
+
+def cleaning_summary(
+    values: dict[str, Any], included: int, total: int, applied: dict[str, Any] | None = None,
+    signals_changed: bool = False,
+) -> list[dict[str, Any]]:
+    """One-line description of the Cleaning settings for the run bar; ``applied`` = the settings of the shown preview."""
     start, end = values.get("time_range_from"), values.get("time_range_to")
     if start is None and end is None:
         window = gettext("full range")
@@ -316,28 +352,44 @@ def cleaning_summary(values: dict[str, Any], included: int, total: int) -> list[
         window = f"{display_number(start) or '…'}–{display_number(end) or '…'} min"
     enabled = sum(1 for group in CLEANING_FILTERS if group.toggle and values.get(group.toggle.name))
     kernel = values.get("median_kernel")
-    return [
-        gettext("Signals: %(included)d/%(total)d") % {"included": included, "total": total},
-        gettext("Window: %(window)s") % {"window": window},
-        gettext("Filters: %(enabled)d/%(total)d") % {"enabled": enabled, "total": len(CLEANING_FILTERS)},
-        gettext("Median: %(value)s") % {"value": display_number(kernel) if kernel else gettext("off")},
-        *_changed_note(cleaning_params(), values),
-    ]
+    items = _summary(
+        [
+            (gettext("Signals: %(included)d/%(total)d") % {"included": included, "total": total}, ()),
+            (gettext("Window: %(window)s") % {"window": window}, ("time_range_from", "time_range_to")),
+            (gettext("Filters: %(enabled)d/%(total)d") % {"enabled": enabled, "total": len(CLEANING_FILTERS)},
+             tuple(group.toggle.name for group in CLEANING_FILTERS if group.toggle)),
+            (gettext("Median: %(value)s") % {"value": display_number(kernel) if kernel else gettext("off")},
+             ("median_kernel",)),
+        ],
+        cleaning_params(), values, applied,
+        {param.name: group.title for group in CLEANING_GROUPS for param in group.params},
+    )
+    items[0]["changed"] = signals_changed
+    return items
 
 
-def analysis_summary(values: dict[str, Any]) -> list[str]:
-    """One-line description of the Analysis settings: the essential values plus how many differ from defaults."""
+def analysis_summary(values: dict[str, Any], applied: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """One-line description of the Analysis settings: the essential values plus how many differ from defaults;
+    ``applied`` = the settings of the shown run."""
     value = {name: display_number(values.get(name)) for name in (
         "synchrony_threshold", "synchrony_window_seconds", "contagion_high_z", "contagion_low_z",
         "contagion_min_participants",
     )}
-    return [
-        gettext("Threshold: %(value)s") % {"value": value["synchrony_threshold"]},
-        gettext("Window: %(value)s s") % {"value": value["synchrony_window_seconds"]},
-        gettext("High/Low z: %(high)s/%(low)s") % {"high": value["contagion_high_z"], "low": value["contagion_low_z"]},
-        gettext("Min. participants: %(value)s") % {"value": value["contagion_min_participants"]},
-        *_changed_note(ANALYSIS_PARAMS, values),
-    ]
+    return _summary(
+        [
+            (gettext("Threshold: %(value)s") % {"value": value["synchrony_threshold"]}, ("synchrony_threshold",)),
+            (gettext("Window: %(value)s s") % {"value": value["synchrony_window_seconds"]},
+             ("synchrony_window_seconds",)),
+            (gettext("High/Low z: %(high)s/%(low)s") % {"high": value["contagion_high_z"],
+                                                        "low": value["contagion_low_z"]},
+             ("contagion_high_z", "contagion_low_z")),
+            (gettext("Min. participants: %(value)s") % {"value": value["contagion_min_participants"]},
+             ("contagion_min_participants",)),
+        ],
+        ANALYSIS_PARAMS, values, applied,
+        {**{param.name: _("Synchronization") for param in (*SYNCHRONY_ESSENTIAL, *SYNCHRONY_ADVANCED)},
+         **{param.name: _("Co-arousal") for param in (*COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED)}},
+    )
 
 
 def _labelled_params() -> list[tuple[Param, str]]:
