@@ -197,6 +197,20 @@
     }
   }
 
+  // A URL ending in #settings-drawer (a bookmark, a link opened in a new tab) opens the drawer through the JS state
+  // instead of :target, so the close button and Escape can close it.
+  function adoptDrawerHash() {
+    if (window.location.hash !== "#settings-drawer") {
+      return;
+    }
+    var url = new URL(window.location.href);
+    url.hash = "";
+    window.history.replaceState(window.history.state, "", url);
+    setDrawer(true, false);
+  }
+
+  window.addEventListener("hashchange", adoptDrawerHash);
+
   document.addEventListener("click", function (event) {
     if (event.target.closest("[data-open-settings]")) {
       event.preventDefault();
@@ -601,6 +615,7 @@
     hydrate(document);
   });
   document.addEventListener("DOMContentLoaded", function () {
+    adoptDrawerHash();
     openDrawerOnError();
     hydrate(document);
   });

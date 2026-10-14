@@ -177,6 +177,7 @@ button:disabled, .button[aria-disabled="true"] { opacity: 0.45; cursor: not-allo
 .run-bar .kv { flex: 1 1 320px; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; margin: 0; padding: 0; list-style: none; }
 .run-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-left: auto; }
 .run-bar .kv li { padding: 3px var(--s2); border-radius: 5px; background: var(--sunken); color: var(--ink-2); font-size: var(--fs-xs); white-space: nowrap; }
+.run-bar .kv li.changed { background: var(--accent-weak); color: var(--accent); font-weight: 600; box-shadow: inset 0 0 0 1px currentColor; }
 .action-bar .grow { flex: 1; }
 .run-status { display: inline-flex; align-items: center; gap: 6px; padding: var(--s1) 10px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; }
 .run-status .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }

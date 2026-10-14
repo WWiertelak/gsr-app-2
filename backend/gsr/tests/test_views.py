@@ -538,6 +538,7 @@ def test_outdated_cleaning_preview_is_dimmed_with_a_stale_notice(client, project
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
     assert "result is-stale" not in page and 'class="alert warning stale-note"' not in page
     assert page.count('<section class="card result" aria-labelledby=') == 3
+    assert 'class="changed"' not in _run_bar(page)
 
     project.datasets.filter(alias="C").update(included=False)
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
@@ -546,6 +547,17 @@ def test_outdated_cleaning_preview_is_dimmed_with_a_stale_notice(client, project
             ' Recompute it to see the current result.</div>' in page)
     assert page.count('form="cleaning-refresh">Recompute</button>') == 1
     assert 'form="cleaning-refresh">Recompute</button>' in _run_bar(page)
+
+    # The run bar marks what differs from the shown preview, adding a chip for a setting it does not list.
+    project.pipeline_config = {**project.pipeline_config, "median_kernel": 7, "clean_filter_zscore_threshold": 4}
+    project.save()
+    run_bar = _run_bar(client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode())
+    marker = '<span class="sr-only"> (changed since the last run)</span></li>'
+    assert f'<li class="changed">Signals: 2/3{marker}' in run_bar
+    assert "<li>Window: full range</li>" in run_bar and "<li>Filters: " in run_bar
+    assert f'<li class="changed">Median: 7{marker}' in run_bar
+    assert f'<li class="changed">Z-score deviation · Threshold (SD): 4{marker}' in run_bar
+    assert run_bar.count('class="changed"') == 3
 
 
 # ─── 3 Analysis ──────────────────────────────────────────────────────────────
@@ -637,6 +649,9 @@ def test_analysis_settings_live_in_the_drawer_with_run_and_apply_buttons(client,
     project.save()
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
     assert "run-status stale" in page and 'form="analysis-settings">Recompute</button>' in _run_bar(page)
+    marker = '<span class="sr-only"> (changed since the last run)</span></li>'
+    assert f'<li class="changed">Threshold: 0.7{marker}' in _run_bar(page)
+    assert _run_bar(page).count('class="changed"') == 1
 
     # The outdated result stays readable but dimmed; the run bar's Recompute is the single recompute action.
     assert page.count('<div class="result is-stale" role="tabpanel"') == 2

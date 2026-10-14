@@ -71,6 +71,16 @@ def _current_values(project: Project) -> dict[str, Any]:
         return PipelineConfig().model_dump()
 
 
+def _applied_values(result: AnalysisResult | None) -> dict[str, Any] | None:
+    """The settings a stored result was computed with, or None without a result."""
+    if result is None:
+        return None
+    try:
+        return PipelineConfig.from_dict(result.config).model_dump()
+    except ValueError:
+        return None
+
+
 def _steps(project: Project, current: str) -> list[dict[str, Any]]:
     """The project steps for the left rail, each with a one-line text status (not only a colour)."""
     labels = {"upload": _("Import"), "cleaning": _("Cleaning"), "analysis": _("Analysis"), "export": _("Export")}
@@ -385,7 +395,11 @@ def _cleaning_context(project: Project, error: UserError | None = None) -> dict[
         "reset_action": reverse("gsr:cleaning_reset", args=[project.pk]),
         "changed_label": params.changed_label(params.cleaning_params(), values),
         "groups": groups,
-        "settings_summary": params.cleaning_summary(values, included_count, len(datasets)),
+        "settings_summary": params.cleaning_summary(
+            values, included_count, len(datasets), _applied_values(result),
+            result is not None and set(result.dataset_ids) != {str(row["dataset"].id) for row in datasets
+                                                                if row["dataset"].included},
+        ),
         "datasets": datasets,
         "result": result,
         "stale": is_stale(project, result),
@@ -534,7 +548,7 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         "coarousal_essential": params.field_rows(params.COAROUSAL_ESSENTIAL, values),
         "coarousal_advanced": coarousal_advanced,
         "coarousal_advanced_changed": any(row["modified"] for row in coarousal_advanced),
-        "settings_summary": params.analysis_summary(values),
+        "settings_summary": params.analysis_summary(values, _applied_values(result)),
         "result": result,
         "stale": is_stale(project, result),
         "error": error,

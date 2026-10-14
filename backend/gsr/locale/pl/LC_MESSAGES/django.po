@@ -540,61 +540,76 @@ msgstr[0] "%(count)d zmieniony"
 msgstr[1] "%(count)d zmienione"
 msgstr[2] "%(count)d zmienionych"
 
-#: gsr/params.py:312
+#: gsr/params.py:313 gsr/params.py:410
+msgid "on"
+msgstr "wł."
+
+#: gsr/params.py:313 gsr/params.py:361 gsr/params.py:410
+msgid "off"
+msgstr "wył."
+
+#: gsr/params.py:334
+#, python-format
+msgid "%(section)s · %(label)s: %(value)s"
+msgstr "%(section)s · %(label)s: %(value)s"
+
+#: gsr/params.py:339
 msgid "defaults"
 msgstr "domyślne"
 
-#: gsr/params.py:319 gsr/templates/gsr/partials/param_field.html:14
+#: gsr/params.py:350 gsr/templates/gsr/partials/param_field.html:14
 msgid "full range"
 msgstr "pełny zakres"
 
-#: gsr/params.py:325
+#: gsr/params.py:357
 #, python-format
 msgid "Signals: %(included)d/%(total)d"
 msgstr "Sygnały: %(included)d/%(total)d"
 
-#: gsr/params.py:326
+#: gsr/params.py:358
 #, python-format
 msgid "Window: %(window)s"
 msgstr "Okno: %(window)s"
 
-#: gsr/params.py:327
+#: gsr/params.py:359
 #, python-format
 msgid "Filters: %(enabled)d/%(total)d"
 msgstr "Filtry: %(enabled)d/%(total)d"
 
-#: gsr/params.py:328
+#: gsr/params.py:361
 #, python-format
 msgid "Median: %(value)s"
 msgstr "Mediana: %(value)s"
 
-#: gsr/params.py:328 gsr/params.py:363
-msgid "off"
-msgstr "wył."
-
-#: gsr/params.py:340
+#: gsr/params.py:380
 #, python-format
 msgid "Threshold: %(value)s"
 msgstr "Próg: %(value)s"
 
-#: gsr/params.py:341
+#: gsr/params.py:381
 #, python-format
 msgid "Window: %(value)s s"
 msgstr "Okno: %(value)s s"
 
-#: gsr/params.py:342
+#: gsr/params.py:383
 #, python-format
 msgid "High/Low z: %(high)s/%(low)s"
 msgstr "Próg wysoki/niski z: %(high)s/%(low)s"
 
-#: gsr/params.py:343
+#: gsr/params.py:386
 #, python-format
 msgid "Min. participants: %(value)s"
 msgstr "Min. uczestników: %(value)s"
 
-#: gsr/params.py:363
-msgid "on"
-msgstr "wł."
+#: gsr/params.py:390 gsr/templates/gsr/partials/analysis_main.html:21
+#: gsr/views.py:710 gsr/views.py:733
+msgid "Synchronization"
+msgstr "Synchronizacja"
+
+#: gsr/params.py:391 gsr/templates/gsr/partials/analysis_main.html:22
+#: gsr/views.py:715 gsr/views.py:735
+msgid "Co-arousal"
+msgstr "Ko-pobudzenie"
 
 #: gsr/services/results.py:229
 msgid "The file is missing. Upload it again."
@@ -646,7 +661,7 @@ msgid "No results for this step yet. Set the parameters and run the analysis."
 msgstr "Brak wyników dla tego kroku. Ustaw parametry i uruchom analizę."
 
 #: gsr/templates/gsr/partials/analysis_main.html:14
-#: gsr/tests/test_views.py:1054
+#: gsr/tests/test_views.py:1069
 msgid "Run analysis"
 msgstr "Uruchom analizę"
 
@@ -655,16 +670,6 @@ msgid "Settings or signals changed since this run. Run the analysis again."
 msgstr ""
 "Ustawienia lub sygnały zmieniły się od tego obliczenia. Uruchom analizę "
 "ponownie."
-
-#: gsr/templates/gsr/partials/analysis_main.html:21 gsr/views.py:696
-#: gsr/views.py:719
-msgid "Synchronization"
-msgstr "Synchronizacja"
-
-#: gsr/templates/gsr/partials/analysis_main.html:22 gsr/views.py:701
-#: gsr/views.py:721
-msgid "Co-arousal"
-msgstr "Ko-pobudzenie"
 
 #: gsr/templates/gsr/partials/analysis_main.html:27
 msgid ""
@@ -1315,6 +1320,10 @@ msgstr "zmienione (domyślnie %(value)s)"
 msgid "Current settings"
 msgstr "Bieżące ustawienia"
 
+#: gsr/templates/gsr/partials/run_bar.html:7
+msgid "changed since the last run"
+msgstr "zmienione od ostatniego uruchomienia"
+
 #: gsr/templates/gsr/partials/run_bar.html:10
 msgid "Outdated result"
 msgstr "Wynik nieaktualny"
@@ -1549,7 +1558,7 @@ msgstr "Zapisano"
 msgid "Loaded"
 msgstr "Wczytany"
 
-#: gsr/templates/gsr/partials/upload_row.html:25 gsr/tests/test_views.py:1055
+#: gsr/templates/gsr/partials/upload_row.html:25 gsr/tests/test_views.py:1070
 #, python-format
 msgid "%(counter)s Excel fix"
 msgid_plural "%(counter)s Excel fixes"
@@ -1630,48 +1639,48 @@ msgstr "Czy na pewno usunąć projekt?"
 msgid "No saved projects yet. Create one to get started."
 msgstr "Brak zapisanych projektów. Utwórz pierwszy projekt, aby zacząć."
 
-#: gsr/views.py:76 gsr/views.py:717
+#: gsr/views.py:86 gsr/views.py:731
 msgid "Import"
 msgstr "Import"
 
-#: gsr/views.py:76 gsr/views.py:717
+#: gsr/views.py:86 gsr/views.py:731
 msgid "Cleaning"
 msgstr "Czyszczenie"
 
-#: gsr/views.py:76
+#: gsr/views.py:86
 msgid "Analysis"
 msgstr "Analiza"
 
-#: gsr/views.py:76
+#: gsr/views.py:86
 msgid "Export"
 msgstr "Eksport"
 
-#: gsr/views.py:89
+#: gsr/views.py:99
 msgid "no recordings"
 msgstr "brak nagrań"
 
-#: gsr/views.py:91
+#: gsr/views.py:101
 #, python-format
 msgid "computed %(time)s"
 msgstr "obliczono %(time)s"
 
-#: gsr/views.py:91 gsr/views.py:111
+#: gsr/views.py:101 gsr/views.py:121
 msgid "not run"
 msgstr "nie uruchomiono"
 
-#: gsr/views.py:92
+#: gsr/views.py:102
 msgid "ready"
 msgstr "gotowy"
 
-#: gsr/views.py:92
+#: gsr/views.py:102
 msgid "needs analysis"
 msgstr "wymaga analizy"
 
-#: gsr/views.py:103
+#: gsr/views.py:113
 msgid "outdated"
 msgstr "nieaktualne"
 
-#: gsr/views.py:116
+#: gsr/views.py:126
 #, python-format
 msgid "%(count)s recording"
 msgid_plural "%(count)s recordings"
@@ -1679,7 +1688,7 @@ msgstr[0] "%(count)s nagranie"
 msgstr[1] "%(count)s nagrania"
 msgstr[2] "%(count)s nagrań"
 
-#: gsr/views.py:121
+#: gsr/views.py:131
 #, python-format
 msgid "%(count)s rejected sample"
 msgid_plural "%(count)s rejected samples"
@@ -1687,146 +1696,146 @@ msgstr[0] "%(count)s odrzucona próbka"
 msgstr[1] "%(count)s odrzucone próbki"
 msgstr[2] "%(count)s odrzuconych próbek"
 
-#: gsr/views.py:151
+#: gsr/views.py:161
 msgid "Project name is required."
 msgstr "Nazwa projektu jest wymagana."
 
-#: gsr/views.py:153
+#: gsr/views.py:163
 msgid "Project name cannot exceed 200 characters."
 msgstr "Nazwa projektu nie może przekraczać 200 znaków."
 
-#: gsr/views.py:171
+#: gsr/views.py:181
 msgid "Project name is required (up to 200 characters)."
 msgstr "Nazwa projektu jest wymagana (do 200 znaków)."
 
-#: gsr/views.py:176
+#: gsr/views.py:186
 msgid "Project details saved."
 msgstr "Zapisano dane projektu."
 
-#: gsr/views.py:184
+#: gsr/views.py:194
 msgid "Project deleted."
 msgstr "Projekt usunięty."
 
-#: gsr/views.py:196
+#: gsr/views.py:206
 msgid "Choose at least one CSV file."
 msgstr "Wybierz co najmniej jeden plik CSV."
 
-#: gsr/views.py:203
+#: gsr/views.py:213
 #, python-format
 msgid "Uploaded %(file)s as %(alias)s."
 msgstr "Wgrano %(file)s jako %(alias)s."
 
-#: gsr/views.py:219
+#: gsr/views.py:229
 #, python-format
 msgid "%(recordings)s · common window %(minutes)s min"
 msgstr "%(recordings)s · wspólne okno %(minutes)s min"
 
-#: gsr/views.py:290
+#: gsr/views.py:300
 msgid "Alias cannot be empty"
 msgstr "Alias nie może być pusty"
 
-#: gsr/views.py:293
+#: gsr/views.py:303
 #, python-format
 msgid "Alias already exists in project: %(alias)s"
 msgstr "Alias już istnieje w projekcie: %(alias)s"
 
-#: gsr/views.py:319
+#: gsr/views.py:329
 #, python-format
 msgid "Signal renamed to %(alias)s."
 msgstr "Zmieniono nazwę sygnału na %(alias)s."
 
-#: gsr/views.py:332
+#: gsr/views.py:342
 #, python-format
 msgid "Signal %(alias)s excluded from cleaning and analysis."
 msgstr "Sygnał %(alias)s wykluczono z czyszczenia i analizy."
 
-#: gsr/views.py:358
+#: gsr/views.py:368
 #, python-format
 msgid "Signal %(alias)s deleted."
 msgstr "Usunięto sygnał %(alias)s."
 
-#: gsr/views.py:405
+#: gsr/views.py:419
 #, python-format
 msgid "rejected %(rejected)s of %(total)s samples"
 msgstr "odrzucono %(rejected)s z %(total)s próbek"
 
-#: gsr/views.py:566
+#: gsr/views.py:580
 #, python-format
 msgid "subgroups of ≥ %(size)s people above %(threshold)s"
 msgstr "podgrupy ≥ %(size)s osób powyżej %(threshold)s"
 
-#: gsr/views.py:673
+#: gsr/views.py:687
 #, python-format
 msgid "Signals added: %(aliases)s"
 msgstr "Dodane sygnały: %(aliases)s"
 
-#: gsr/views.py:675
+#: gsr/views.py:689
 #, python-format
 msgid "Signals removed: %(aliases)s"
 msgstr "Usunięte sygnały: %(aliases)s"
 
-#: gsr/views.py:676
+#: gsr/views.py:690
 #, python-format
 msgid "Signal renamed: %(old)s → %(new)s"
 msgstr "Zmieniona nazwa sygnału: %(old)s → %(new)s"
 
-#: gsr/views.py:692
+#: gsr/views.py:706
 msgid "Cleaned signals"
 msgstr "Sygnały po czyszczeniu"
 
-#: gsr/views.py:692
+#: gsr/views.py:706
 msgid "per participant, relative time, full resolution"
 msgstr "per uczestnik, czas względny, pełna rozdzielczość"
 
-#: gsr/views.py:694
+#: gsr/views.py:708
 msgid "Analysis-ready merged file"
 msgstr "Połączony plik do analizy"
 
-#: gsr/views.py:694
+#: gsr/views.py:708
 msgid "scaled, downsampled, shared time axis"
 msgstr "skalowany, po downsamplingu, wspólna oś czasu"
 
-#: gsr/views.py:696
+#: gsr/views.py:710
 msgid "episodes, pairs, windows"
 msgstr "epizody, pary, okna"
 
-#: gsr/views.py:697 gsr/views.py:702
+#: gsr/views.py:711 gsr/views.py:716
 msgid "episodes"
 msgstr "epizody"
 
-#: gsr/views.py:698
+#: gsr/views.py:712
 msgid "pairs"
 msgstr "pary"
 
-#: gsr/views.py:699
+#: gsr/views.py:713
 msgid "windows"
 msgstr "okna"
 
-#: gsr/views.py:701
+#: gsr/views.py:715
 msgid "episodes, state timeline, time in states"
 msgstr "epizody, stany w czasie, udział czasu w stanach"
 
-#: gsr/views.py:703
+#: gsr/views.py:717
 msgid "state timeline"
 msgstr "oś stanów"
 
-#: gsr/views.py:704
+#: gsr/views.py:718
 msgid "time in states"
 msgstr "udział czasu w stanach"
 
-#: gsr/views.py:706
+#: gsr/views.py:720
 msgid "Run settings and results"
 msgstr "Ustawienia i wyniki obliczenia"
 
-#: gsr/views.py:706
+#: gsr/views.py:720
 msgid "for reproducibility: settings, library versions, file SHA-256"
 msgstr "dla odtwarzalności: ustawienia, wersje bibliotek, SHA-256 plików"
 
-#: gsr/views.py:708
+#: gsr/views.py:722
 msgid "Charts"
 msgstr "Wykresy"
 
-#: gsr/views.py:708
+#: gsr/views.py:722
 #, python-format
 msgid "%(count)d report chart, 2× resolution, white background, in the ZIP"
 msgid_plural ""
@@ -1838,19 +1847,19 @@ msgstr[1] ""
 msgstr[2] ""
 "%(count)d wykresów raportu, rozdzielczość 2×, białe tło, w archiwum ZIP"
 
-#: gsr/views.py:717
+#: gsr/views.py:731
 msgid "Summary page"
 msgstr "Strona podsumowania"
 
-#: gsr/views.py:722
+#: gsr/views.py:736
 msgid "Methodology"
 msgstr "Metodologia"
 
-#: gsr/views.py:722
+#: gsr/views.py:736
 msgid "Reproducibility"
 msgstr "Odtwarzalność"
 
-#: gsr/views.py:723
+#: gsr/views.py:737
 #, python-format
 msgid "%(count)d chart"
 msgid_plural "%(count)d charts"
