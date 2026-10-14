@@ -200,6 +200,22 @@ def test_invalid_roles_show_the_error_and_keep_the_posted_rows(client, lesson) -
 
 
 @pytest.mark.django_db
+def test_invalid_video_start_shows_a_translated_error(client, lesson) -> None:
+    compute_analysis(lesson)
+    with translation.override("pl"):
+        response = client.post(
+            reverse("gsr:interviews", args=[lesson.pk]),
+            _roles(video_start_time="25:99:00"),
+            HTTP_ACCEPT_LANGUAGE="pl",
+            **HTMX,
+        )
+    html = response.content.decode()
+    assert "Początek nagrania wideo musi być godziną w formacie HH:MM:SS" in html
+    assert "video_start_time must be" not in html
+    assert get_result(lesson, AnalysisResult.KIND_VSR) is None
+
+
+@pytest.mark.django_db
 def test_settings_drawer_applies_vsr_parameters_and_reset_restores_the_document(client, lesson) -> None:
     compute_analysis(lesson)
     lesson.interview_config = apply_interview_config(lesson, {"student_pairs": [["S1", "S2"]]})

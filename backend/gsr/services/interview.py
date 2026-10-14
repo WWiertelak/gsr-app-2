@@ -77,7 +77,10 @@ def validate_roles(roles: dict[str, Any], aliases: set[str]) -> InterviewRoles:
             raise ValueError(gettext("The teacher recording cannot be in a student pair"))
         pairs.append((left, right))
 
-    video_start = parse_video_start_time(roles.get("video_start_time"))
+    try:
+        video_start = parse_video_start_time(roles.get("video_start_time"))
+    except ValueError:
+        raise ValueError(gettext("Video start must be a clock time HH:MM:SS")) from None
     return InterviewRoles(teacher_alias=teacher, student_pairs=tuple(pairs), video_start_time=video_start)
 
 

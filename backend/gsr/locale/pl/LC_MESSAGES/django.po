@@ -631,6 +631,10 @@ msgstr "Każde nagranie ucznia może należeć tylko do jednej pary"
 msgid "The teacher recording cannot be in a student pair"
 msgstr "Nagranie nauczyciela nie może należeć do pary uczniów"
 
+#: gsr/services/interview.py:83
+msgid "Video start must be a clock time HH:MM:SS"
+msgstr "Początek nagrania wideo musi być godziną w formacie HH:MM:SS"
+
 #: gsr/services/interview.py:164 gsr/views.py:799
 #, python-format
 msgid "Pair %(left)s + %(right)s"
