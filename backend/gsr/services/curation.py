@@ -70,7 +70,7 @@ def _row_identity(row: InterviewMoment) -> tuple[int, float, float] | None:
     return _identity(row.proposal.get("step", 0), row.original_start_seconds, row.original_end_seconds)
 
 
-def _is_decided(row: InterviewMoment) -> bool:
+def is_decided(row: InterviewMoment) -> bool:
     return row.status != InterviewMoment.STATUS_PENDING or bool(row.note.strip()) or row.time_changed
 
 
@@ -134,7 +134,7 @@ def sync_interview_moments(project: Project, result: AnalysisResult) -> None:
         for row in rows:
             if row.is_manual or id(row) in matched:
                 survivors.append(row)
-            elif _is_decided(row):
+            elif is_decided(row):
                 row.needs_check = True
                 survivors.append(row)
             else:

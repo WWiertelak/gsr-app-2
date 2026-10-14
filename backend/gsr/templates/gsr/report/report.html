@@ -24,6 +24,8 @@
       {% for block in section.blocks %}
         {% if block.type == "h2" %}
           <h2>{{ block.text }}</h2>
+        {% elif block.type == "h3" %}
+          <h3>{{ block.text }}</h3>
         {% elif block.type == "p" %}
           <p{% if block.style %} class="{{ block.style }}"{% endif %}>{{ block.text }}</p>
         {% elif block.type == "note" %}
@@ -36,6 +38,10 @@
           {% include "gsr/report/table.html" with table=block %}
         {% elif block.type == "chart" %}
           {% include "gsr/report/chart.html" with chart=block %}
+        {% elif block.type == "svg" %}
+          <div class="svg-figure">{{ block.markup }}</div>
+        {% elif block.type == "moment_cards" %}
+          {% include "gsr/report/moment_cards.html" with cards=block.items %}
         {% elif block.type == "kpis" %}
           <div class="kpis">
             {% for kpi in block.items %}

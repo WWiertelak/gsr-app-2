@@ -17,10 +17,11 @@ from django.utils.translation import gettext
 from ..models import AnalysisResult, Project
 from ..pipeline.common import PipelineError
 from ..pipeline.preprocessing import _signal_quality_level
-from ..pipeline.vsr import _clock_start, compute_vsr
+from ..pipeline.vsr import PRIMARY, _clock_start, compute_vsr, interview_signals
+from ..pipeline.vsr_config import VsrConfig
 from .analysis import AnalysisError
 from .interview import InterviewRoles, compute_vsr_signature, load_interview_config
-from .results import get_result, stored_pipeline_result
+from .results import FALLBACK_SIGNAL_COLOR, get_result, is_stale, signal_colors, stored_pipeline_result
 
 SECONDS_PER_DAY = 24 * 3600
 
@@ -145,3 +146,148 @@ def compute_interviews(project: Project) -> AnalysisResult:
 
     sync_interview_moments(project, stored)
     return stored
+
+
+PROPOSAL_FIELDS = (
+    "step", "synchrony_type", "pass_number", "correlation", "shared_state", "shared_state_fraction",
+    "asynchrony_subtype", "candidate_rank", "candidate_count", "justification", "justification_text",
+)
+
+
+def _report_moment(number: int, role: str, decision: str, source: dict[str, Any]) -> dict[str, Any]:
+    """One moment as the report and the CSV read it; ``source`` holds the fields the moment's origin knows."""
+    base = {field: None for field in PROPOSAL_FIELDS}
+    base.update(
+        number=number, status=role, decision=decision, source="proposed", time_changed=False, reason="", note="",
+        needs_check=False, original_start_seconds=None, original_end_seconds=None,
+    )
+    return {**base, **source}
+
+
+def _proposal_moments(interview: dict[str, Any]) -> list[dict[str, Any]]:
+    """The engine's proposals in their order, none of them decided."""
+    return [
+        _report_moment(moment["number"], moment["status"], "undecided", moment)
+        for moment in interview["moments"]
+    ]
+
+
+def _curated_moments(items: list[Any]) -> list[dict[str, Any]]:
+    """The researcher's list without its rejected moments: roles and numbers from the list order, the researcher's
+    times, reasons and notes, and each proposed moment's measurements and justification."""
+    moments = []
+    for item in items:
+        row = item.row
+        if item.number is None:  # rejected
+            continue
+        decision = "manual" if row.is_manual else ("accepted" if row.status == row.STATUS_ACCEPTED else "undecided")
+        source = {
+            **({} if row.is_manual else {field: row.proposal.get(field) for field in PROPOSAL_FIELDS}),
+            "source": row.source,
+            "start_seconds": row.start_seconds,
+            "end_seconds": row.end_seconds,
+            "duration_seconds": row.end_seconds - row.start_seconds,
+            "start_clock": item.start_clock,
+            "end_clock": item.end_clock,
+            "start_video": item.start_video,
+            "end_video": item.end_video,
+            "time_changed": row.time_changed,
+            "original_start_seconds": row.original_start_seconds,
+            "original_end_seconds": row.original_end_seconds,
+            "reason": row.reason,
+            "note": row.note,
+            "needs_check": row.needs_check,
+        }
+        moments.append(_report_moment(item.number, item.role, decision, source))
+    return moments
+
+
+def moments_for_report(interview: dict[str, Any], curated: list[Any] | None) -> list[dict[str, Any]]:
+    """The moments the report and the CSV list for one interview.
+
+    The researcher's list from the Interviews step (accepted, undecided, retimed and manually added moments, with
+    their notes and reasons; rejected ones left out) once the interview has one, otherwise the engine's proposals.
+    """
+    return _curated_moments(curated) if curated else _proposal_moments(interview)
+
+
+def _stats(moments: list[dict[str, Any]], target: int, reserve_target: int) -> dict[str, Any]:
+    primary = sum(1 for moment in moments if moment["status"] == PRIMARY)
+    return {
+        "primary_count": primary,
+        "reserve_count": len(moments) - primary,
+        "primary_target": target,
+        "reserve_target": reserve_target,
+        "complete": primary >= target,
+    }
+
+
+def _interview_traces(project: Project, vsr: AnalysisResult, analysis: AnalysisResult) -> dict[str, dict[str, Any]]:
+    """Per interview key the two z-scored signals the proposals compare, for the report's mini-charts.
+
+    Empty when the proposals were computed from another analysis run than the stored one (the signals would not
+    match the moments) or when the run's recordings are gone.
+    """
+    if vsr.payload.get("analysis_computed_at") != analysis.computed_at.isoformat():
+        return {}
+    try:
+        result, _config = stored_pipeline_result(project, analysis)
+    except AnalysisError:
+        return {}
+    frame = result.merged_decimated
+    seconds = frame["time"].to_numpy(dtype=float) * 60.0
+    traces = {}
+    for interview in vsr.payload.get("interviews", []):
+        a, b = interview_signals(frame, interview["kind"], interview["participants"])
+        traces[interview["key"]] = {"seconds": seconds, "a": a, "b": b}
+    return traces
+
+
+def report_data(project: Project, with_traces: bool = True) -> dict[str, Any] | None:
+    """What the PDF report and the exports need of the stored VSR proposals, or None when none were proposed.
+
+    ``with_traces`` adds the signals for the report's mini-charts, which re-runs the analysis run's pipeline;
+    the CSV does not need them.
+    """
+    vsr = get_result(project, AnalysisResult.KIND_VSR)
+    analysis = get_result(project, AnalysisResult.KIND_ANALYSIS)
+    if vsr is None or analysis is None or not vsr.payload.get("interviews"):
+        return None
+    payload = vsr.payload
+    colors = signal_colors(project)
+    traces = _interview_traces(project, vsr, analysis) if with_traces else {}
+    from .curation import curated_interviews, is_decided  # curation imports this module
+
+    curated = curated_interviews(project, vsr)
+    config = VsrConfig.from_dict(payload["config"])
+    interviews = []
+    for interview in payload["interviews"]:
+        participants = interview["participants"]
+        items = curated.get(interview["key"])
+        moments = moments_for_report(interview, items)
+        interviews.append({
+            **interview,
+            "moments": moments,
+            "curated": any(is_decided(item.row) for item in items or []),
+            "rejected_count": sum(1 for item in items or [] if item.number is None),
+            "stats": {**interview["stats"], **_stats(moments, config.vsr_primary_moment_count,
+                                                     config.vsr_reserve_moment_count)},
+            "trace": traces.get(interview["key"]),
+            "colors": [colors.get(participants[0], FALLBACK_SIGNAL_COLOR),
+                       colors.get(participants[1], FALLBACK_SIGNAL_COLOR) if interview["kind"] == "dyad" else None],
+        })
+    return {
+        "config": payload["config"],
+        "criteria": payload["criteria"],
+        "roles": payload["roles"],
+        "lesson": payload["lesson"],
+        "quality": payload["quality"],
+        "stats": {
+            **payload["stats"],
+            "primary_total": sum(item["stats"]["primary_count"] for item in interviews),
+            "reserve_total": sum(item["stats"]["reserve_count"] for item in interviews),
+        },
+        "curated": any(item["curated"] for item in interviews),
+        "stale": is_stale(project, vsr),
+        "interviews": interviews,
+    }

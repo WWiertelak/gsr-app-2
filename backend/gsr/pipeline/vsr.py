@@ -730,6 +730,20 @@ def _interview_payload(
     }
 
 
+def interview_signals(frame: Any, kind: str, participants: Sequence[str]) -> tuple[np.ndarray, np.ndarray]:
+    """The two z-scored signals an interview compares: a pair's two, or the teacher and the students' average.
+
+    ``participants`` is the interview payload's list: the two pair members, or the teacher followed by the students.
+    """
+
+    def signal(alias: str) -> np.ndarray:
+        return _zscore(frame[f"microsiemens_{alias}"].to_numpy(dtype=float))
+
+    if kind == "teacher":
+        return signal(participants[0]), aggregate_student_signal([signal(alias) for alias in participants[1:]])
+    return signal(participants[0]), signal(participants[1])
+
+
 def compute_vsr(
     result: PipelineResult,
     dyads: Sequence[Sequence[str]],
@@ -754,14 +768,12 @@ def compute_vsr(
         requested += [teacher_alias, *(student_aliases or ())]
     _resolve_aliases(result.aliases, requested or None)
 
-    def signal(alias: str) -> np.ndarray:
-        return _zscore(frame[f"microsiemens_{alias}"].to_numpy(dtype=float))
-
     interviews: list[dict[str, Any]] = []
     for dyad in dyads:
         if len(dyad) != 2 or dyad[0] == dyad[1]:
             raise PipelineError(f"A dyad must name two different participants, got: {', '.join(dyad) or 'none'}")
         alias_a, alias_b = dyad[0], dyad[1]
+        signal_a, signal_b = interview_signals(frame, "dyad", dyad)
         interviews.append(
             _interview_payload(
                 key=f"{alias_a}+{alias_b}",
@@ -769,8 +781,8 @@ def compute_vsr(
                 participants=[alias_a, alias_b],
                 data_basis=QUOTE_DYAD_DATA,
                 basis_notes=[],
-                signal_a=signal(alias_a),
-                signal_b=signal(alias_b),
+                signal_a=signal_a,
+                signal_b=signal_b,
                 relative_minutes=relative_minutes,
                 clock_start=clock_start,
                 config=cfg,
@@ -781,6 +793,7 @@ def compute_vsr(
         students = [alias for alias in (student_aliases or ()) if alias != teacher_alias]
         if not students:
             raise PipelineError("The teacher interview needs at least one student recording to aggregate")
+        signal_a, signal_b = interview_signals(frame, "teacher", [teacher_alias, *students])
         interviews.append(
             _interview_payload(
                 key=teacher_alias,
@@ -788,8 +801,8 @@ def compute_vsr(
                 participants=[teacher_alias, *students],
                 data_basis=QUOTE_TEACHER_DATA,
                 basis_notes=[QUOTE_TEACHER_AGGREGATION],
-                signal_a=signal(teacher_alias),
-                signal_b=aggregate_student_signal([signal(alias) for alias in students]),
+                signal_a=signal_a,
+                signal_b=signal_b,
                 relative_minutes=relative_minutes,
                 clock_start=clock_start,
                 config=cfg,
