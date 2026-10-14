@@ -411,6 +411,7 @@ table.data tr.nsig td { color: var(--ink-3); }
   margin: 0; padding: 0; transform: translateY(-50%); border: 0; background: transparent; pointer-events: none;
   -webkit-appearance: none; appearance: none;
 }
+.tl-handles input[type="range"].raised { z-index: 1; }
 .tl-handles input[type="range"]:focus-visible { outline: none; }
 .tl-handles input[type="range"]::-webkit-slider-runnable-track { height: 28px; background: transparent; border: 0; }
 .tl-handles input[type="range"]::-moz-range-track { height: 28px; background: transparent; border: 0; }

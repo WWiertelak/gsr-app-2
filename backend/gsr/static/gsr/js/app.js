@@ -306,6 +306,7 @@
     }
     var start = Number(from.value);
     var end = Number(to.value);
+    from.classList.toggle("raised", start > max / 2);
     var offset = Number(form.dataset.clockOffset);
     from.setAttribute("aria-valuetext", clockText(offset + start));
     to.setAttribute("aria-valuetext", clockText(offset + end));

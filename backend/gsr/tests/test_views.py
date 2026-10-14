@@ -367,6 +367,21 @@ def test_upload_window_handles_set_the_cleaning_time_range(client, project) -> N
 
 
 @pytest.mark.django_db
+def test_upload_window_start_handle_stays_grabbable_on_the_end_handle(client, project) -> None:
+    overview_url = reverse("gsr:upload_overview", args=[project.pk])
+    window_url = reverse("gsr:upload_window", args=[project.pk])
+    overview = client.get(overview_url).content.decode()
+    max_seconds = int(re.search(r'id="window-to" name="window_to" min="0" max="(\d+)"', overview).group(1))
+    start_handle = re.compile(r'<input type="range" id="window-from"[^>]*>')
+    assert "raised" not in start_handle.search(overview).group(0)
+
+    # Dragged onto the end handle at the right edge, the start handle paints above it so the pointer can move it back.
+    client.post(window_url, {"window_from": str(max_seconds - 1), "window_to": str(max_seconds)}, **HTMX)
+    overview = client.get(overview_url).content.decode()
+    assert 'class="raised"' in start_handle.search(overview).group(0)
+
+
+@pytest.mark.django_db
 def test_inline_alias_save_refreshes_the_action_bar(client, late_project) -> None:
     project = late_project
     client.post(reverse("set_language"), {"language": "en", "next": "/"})

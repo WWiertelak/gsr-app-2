@@ -26,7 +26,7 @@
                 data-label-full="{% translate 'Analysed period: the whole common window.' %}"
                 data-label-part="{% blocktranslate with start='{start}' end='{end}' duration='{duration}' %}Analysed period {{ start }}–{{ end }} · {{ duration }} min{% endblocktranslate %}">
             {% csrf_token %}
-            <input type="range" id="window-from" name="window_from" min="0" max="{{ window.max }}" step="1" value="{{ window.from }}"
+            <input type="range" id="window-from" name="window_from" min="0" max="{{ window.max }}" step="1" value="{{ window.from }}"{% if window.from_pct > 50 %} class="raised"{% endif %}
                    aria-label="{% translate 'Start of the analysed period' %}" aria-valuetext="{{ window.from_clock }}">
             <input type="range" id="window-to" name="window_to" min="0" max="{{ window.max }}" step="1" value="{{ window.to }}"
                    aria-label="{% translate 'End of the analysed period' %}" aria-valuetext="{{ window.to_clock }}">
