@@ -7,12 +7,17 @@
       <strong>{{ card.step }}</strong>
       <span class="step-type">{{ card.type }}</span>
       {% if card.pass %}<span class="muted">{{ card.pass }}</span>{% endif %}
+      <span class="muted">{{ card.decision }}</span>
     </div>
+    {% if card.check %}<p class="moment-check">{{ card.check }}</p>{% endif %}
     <dl class="moment-times">{% for label, value in card.times %}<div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl>
     <div class="moment-body">
       {% if card.chart %}<div class="moment-chart">{{ card.chart }}<p class="chart-note">{{ card.chart_note }}</p></div>{% endif %}
-      <ul class="justification">{% for sentence in card.sentences %}<li>{{ sentence }}</li>{% endfor %}</ul>
+      <div class="moment-text">
+        {% for line in card.change %}<p class="moment-change">{{ line }}</p>{% endfor %}
+        <ul class="justification">{% for sentence in card.sentences %}<li>{{ sentence }}</li>{% endfor %}</ul>
+      </div>
     </div>
-    {% if card.note %}<p class="moment-note">{{ card.note }}</p>{% endif %}
+    {% if card.note %}<p class="moment-note"><strong>{{ card.note_label }}</strong> {{ card.note|linebreaksbr }}</p>{% endif %}
   </div>
 {% endfor %}

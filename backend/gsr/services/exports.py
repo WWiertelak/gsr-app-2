@@ -142,17 +142,29 @@ def coarousal_state_percentages_csv(coarousal: dict[str, Any]) -> bytes:
 
 
 VSR_MOMENT_COLUMNS = (
-    "interview", "interview_type", "participants", "number", "status", "step", "synchrony_type", "pass",
-    "lesson_start_s", "lesson_end_s", "clock_start", "clock_end", "video_start", "video_end", "correlation",
-    "shared_state", "shared_state_fraction", "asynchrony_subtype", "candidate_rank", "candidate_count",
-    "justification", "note", "stale",
+    "interview", "interview_type", "participants", "number", "status", "decision", "source", "step",
+    "synchrony_type", "pass", "lesson_start_s", "lesson_end_s", "time_changed", "proposed_start_s",
+    "proposed_end_s", "clock_start", "clock_end", "video_start", "video_end", "correlation", "shared_state",
+    "shared_state_fraction", "asynchrony_subtype", "candidate_rank", "candidate_count", "justification", "reason",
+    "note", "stale",
 )
+
+
+def _vsr_justification(moment: dict[str, Any]) -> str:
+    """A proposed moment's justification (it describes the proposed time); a manual moment's is the researcher's reason."""
+    if moment["source"] == "manual":
+        return f"Added by the researcher: {moment['reason']}"
+    return moment["justification_text"]
 
 
 def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
     """The VSR interview moments of every interview, one row each, with the justification in English.
 
-    ``stale`` is True on every row when the participants, the parameters or the analysis changed after the proposals.
+    The rows are the researcher's list from the Interviews step without its rejected moments (the engine's proposals
+    for an interview nobody has curated): ``decision`` is accepted, undecided or manual; ``status`` is primary or
+    reserve by the place on the list; a retimed moment (``time_changed``) keeps the proposed times and the
+    ``reason``. ``stale`` is True on every row when the participants, the parameters or the analysis changed after
+    the proposals.
     """
     rows = [
         {
@@ -161,11 +173,16 @@ def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
             "participants": _join(interview["participants"]),
             "number": moment["number"],
             "status": moment["status"],
+            "decision": moment["decision"],
+            "source": moment["source"],
             "step": moment["step"],
-            "synchrony_type": moment["synchrony_type"]["text"],
+            "synchrony_type": moment["synchrony_type"]["text"] if moment["synchrony_type"] else None,
             "pass": moment["pass_number"],
             "lesson_start_s": moment["start_seconds"],
             "lesson_end_s": moment["end_seconds"],
+            "time_changed": moment["time_changed"],
+            "proposed_start_s": moment["original_start_seconds"],
+            "proposed_end_s": moment["original_end_seconds"],
             "clock_start": moment["start_clock"],
             "clock_end": moment["end_clock"],
             "video_start": moment["start_video"],
@@ -176,14 +193,16 @@ def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
             "asynchrony_subtype": moment["asynchrony_subtype"],
             "candidate_rank": moment["candidate_rank"],
             "candidate_count": moment["candidate_count"],
-            "justification": moment["justification_text"],
+            "justification": _vsr_justification(moment),
+            "reason": moment["reason"],
             "note": moment["note"],
             "stale": vsr["stale"],
         }
         for interview in vsr["interviews"]
         for moment in interview["moments"]
     ]
-    return _csv(pd.DataFrame(rows, columns=list(VSR_MOMENT_COLUMNS)))
+    # Object columns keep a whole number whole when a manual moment leaves the cell empty.
+    return _csv(pd.DataFrame(rows, columns=list(VSR_MOMENT_COLUMNS), dtype=object))
 
 
 def versions() -> dict[str, str]:

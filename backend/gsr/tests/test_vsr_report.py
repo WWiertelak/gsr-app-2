@@ -13,10 +13,11 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from gsr.models import AnalysisResult, Project
+from gsr.models import AnalysisResult, InterviewMoment, Project
 from gsr.pipeline.vsr import aggregate_student_signal
 from gsr.reporting.report import render_report_html, render_report_pdf
 from gsr.reporting.vsr_charts import lesson_timeline_svg, moment_chart_svg
+from gsr.services import curation
 from gsr.services.datasets import add_dataset
 from gsr.services.exports import VSR_MOMENT_COLUMNS, vsr_moments_csv
 from gsr.services.interview import apply_interview_config
@@ -277,3 +278,112 @@ def test_pdf_with_the_interview_section_renders_in_both_languages(client, propos
 
     payload = report_payload(proposed, get_result(proposed, AnalysisResult.KIND_ANALYSIS), {}, "pl")
     assert _page_count(render_report_pdf(payload)) > _page_count(render_report_pdf({**payload, "vsr": None}))
+
+
+def _free_window(rows, length: float = 20.0) -> tuple[float, float]:
+    """A stretch of the lesson no kept moment of the interview covers."""
+    kept = [row for row in rows if row.status != InterviewMoment.STATUS_REJECTED]
+    for start in np.arange(10.0, 560.0, 10.0):
+        if all(start + length <= row.start_seconds or row.end_seconds <= start for row in kept):
+            return float(start), float(start + length)
+    raise AssertionError("the lesson has no free stretch")
+
+
+@pytest.fixture()
+def curated(proposed: Project) -> Project:
+    """S1+S2 after the researcher rejected a moment, accepted one, retimed one, added one and wrote a note."""
+    rows = list(proposed.interview_moments.filter(interview_key="S1+S2").order_by("position"))
+    assert len(rows) >= 3
+    curation.set_status(rows[0], InterviewMoment.STATUS_REJECTED)
+    curation.set_status(rows[1], InterviewMoment.STATUS_ACCEPTED)
+    result = get_result(proposed, AnalysisResult.KIND_VSR)
+    start, end = rows[2].start_seconds, rows[2].end_seconds
+    curation.change_time(rows[2], result, start + 5.0, end - 2.0, "the exchange starts a little later")
+    curation.set_note(rows[2], "Ask about the group task")
+    window = _free_window(proposed.interview_moments.filter(interview_key="S1+S2"))
+    curation.add_manual(proposed, result, "S1+S2", *window, "the teacher stood next to the pair")
+    return proposed
+
+
+def _s1_s2(project: Project) -> list[dict]:
+    interview = next(i for i in report_data(project, with_traces=False)["interviews"] if i["key"] == "S1+S2")
+    return interview["moments"]
+
+
+@pytest.mark.django_db
+def test_report_data_follows_the_researchers_list_without_rejected_moments(curated) -> None:
+    proposals = next(i for i in get_result(curated, AnalysisResult.KIND_VSR).payload["interviews"]
+                     if i["key"] == "S1+S2")["moments"]
+    moments = _s1_s2(curated)
+    assert len(moments) == len(proposals)  # one rejected, one added
+    assert [moment["number"] for moment in moments] == list(range(1, len(moments) + 1))
+    assert [moment["status"] for moment in moments] == ["primary"] * min(5, len(moments)) + ["reserve"] * max(
+        len(moments) - 5, 0)
+    assert proposals[0]["start_seconds"] not in [m["start_seconds"] for m in moments if m["source"] == "proposed"]
+    by_decision = {moment["decision"]: moment for moment in moments if moment["source"] == "proposed"}
+    assert by_decision["accepted"]["start_seconds"] == proposals[1]["start_seconds"]
+    retimed = next(moment for moment in moments if moment["time_changed"])
+    assert retimed["reason"] == "the exchange starts a little later" and retimed["note"] == "Ask about the group task"
+    assert retimed["original_start_seconds"] == proposals[2]["start_seconds"]
+    assert retimed["start_seconds"] == proposals[2]["start_seconds"] + 5.0
+    assert retimed["start_clock"] and retimed["justification"] == proposals[2]["justification"]
+    manual = next(moment for moment in moments if moment["source"] == "manual")
+    assert manual["decision"] == "manual" and manual["step"] is None and manual["correlation"] is None
+    assert manual["reason"] == "the teacher stood next to the pair" and manual["start_clock"]
+    interview = next(i for i in report_data(curated, with_traces=False)["interviews"] if i["key"] == "S1+S2")
+    assert interview["rejected_count"] == 1 and interview["stats"]["primary_count"] == min(5, len(moments))
+
+
+@pytest.mark.django_db
+def test_csv_lists_accepted_retimed_and_manual_moments_with_reasons_and_notes(curated) -> None:
+    rows = list(csv.DictReader(io.StringIO(vsr_moments_csv(report_data(curated, with_traces=False)).decode())))
+    own = [row for row in rows if row["interview"] == "S1+S2"]
+    assert [row["number"] for row in own] == [str(n) for n in range(1, len(own) + 1)]
+    assert {row["decision"] for row in own} == {"undecided", "accepted", "manual"}
+    retimed = next(row for row in own if row["time_changed"] == "True")
+    assert retimed["reason"] == "the exchange starts a little later" and retimed["note"] == "Ask about the group task"
+    assert float(retimed["lesson_start_s"]) == float(retimed["proposed_start_s"]) + 5.0
+    manual = next(row for row in own if row["source"] == "manual")
+    assert manual["justification"] == "Added by the researcher: the teacher stood next to the pair"
+    assert manual["step"] == "" and manual["correlation"] == "" and manual["proposed_start_s"] == ""
+    assert manual["clock_start"] and manual["video_start"]
+    # A proposed moment's step stays a whole number although a manual row leaves the column empty there.
+    assert {row["step"] for row in own if row["source"] == "proposed"} <= {"1", "2", "3", "4", "5"}
+    assert {row["interview"] for row in rows} == {"S1+S2", "S3+S4", "T"}  # the others are not curated: proposals
+
+
+@pytest.mark.django_db
+def test_report_shows_the_curated_list_in_both_languages(curated) -> None:
+    pl = _page(curated, "pl")
+    texts = _texts(pl)
+    assert "the teacher stood next to the pair" in pl and "Ask about the group task" in pl
+    assert "Dodany ręcznie" in texts and "Dodany przez badacza:" in pl
+    assert "Odrzucone przez badacza i pominięte w raporcie: 1." in texts
+    assert any(text.startswith("Zaproponowano ") and "czas zmieniony przez badacza:" in text for text in texts)
+    assert any(text.startswith("Lista momentów to lista badacza") for text in texts)
+    assert "zaakceptowany" in texts and "zaakceptowany, czas zmieniony" not in texts
+    assert "zaakceptowany" in pl and "czas zmieniony" in pl
+    en = _page(curated, "en")
+    assert "Added by the researcher:" in en and "Rejected by the researcher and left out of the report: 1." in _texts(en)
+    assert pl.count('class="moment-card') == _moment_count(curated)
+
+
+@pytest.mark.django_db
+def test_report_falls_back_to_the_proposals_until_the_researcher_has_a_list(proposed) -> None:
+    InterviewMoment.objects.filter(project=proposed).delete()
+    data = report_data(proposed, with_traces=False)
+    assert not data["curated"]
+    for interview, original in zip(data["interviews"], get_result(proposed, AnalysisResult.KIND_VSR).payload["interviews"]):
+        assert [(m["start_seconds"], m["end_seconds"], m["status"]) for m in interview["moments"]] == [
+            (m["start_seconds"], m["end_seconds"], m["status"]) for m in original["moments"]]
+        assert {m["decision"] for m in interview["moments"]} == {"undecided"} and interview["rejected_count"] == 0
+    assert "Lista momentów to lista badacza" not in "".join(_texts(_page(proposed, "pl")))
+
+
+@pytest.mark.django_db
+def test_summary_tile_counts_the_researchers_list(curated) -> None:
+    stats = report_data(curated, with_traces=False)["stats"]
+    own = next(i for i in report_data(curated, with_traces=False)["interviews"] if i["key"] == "S1+S2")
+    assert stats["primary_total"] + stats["reserve_total"] == sum(
+        len(i["moments"]) for i in report_data(curated, with_traces=False)["interviews"])
+    assert own["stats"]["primary_count"] + own["stats"]["reserve_count"] == len(own["moments"])

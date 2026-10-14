@@ -59,6 +59,23 @@ _TEXT: dict[str, dict[str, str]] = {
         "col_clock": "Zegar czujnika",
         "col_video": "Wideo",
         "col_shared": "Wspólny stan",
+        "decision": "Decyzja",
+        "accepted": "zaakceptowany",
+        "undecided": "bez decyzji",
+        "manual": "dodany ręcznie",
+        "time_changed": "czas zmieniony",
+        "curated_note": "Lista momentów to lista badacza z kroku 4 Wywiady: kolejność decyduje o roli (pierwsze "
+                        "momenty niewykluczone są główne, reszta rezerwowa), a uwzględnione są zaakceptowane, "
+                        "przesunięte i dodane ręcznie momenty wraz z powodami i notatkami. Momenty odrzucone "
+                        "przez badacza pominięto.",
+        "rejected": "Odrzucone przez badacza i pominięte w raporcie: {count}.",
+        "added_by": "Dodany przez badacza:",
+        "retimed": "Zaproponowano {start}–{end}; czas zmieniony przez badacza:",
+        "retimed_note": "Uzasadnienie i pomiary r oraz wspólnego stanu dotyczą zaproponowanego czasu.",
+        "needs_check": "Ostatnie wyznaczenie propozycji już nie zawiera tego momentu; decyzja badacza została "
+                       "zachowana. Sprawdź go.",
+        "note_label": "Notatka:",
+        "manual_heading": "Dodany ręcznie",
         "primary": "główny",
         "reserve": "rezerwowy",
         "high": "Wysoki",
@@ -69,8 +86,8 @@ _TEXT: dict[str, dict[str, str]] = {
         "before_video": "przed startem wideo",
         "chart_note": "Sygnały z-score obu osób wokół momentu (zacieniony).",
         "chart_label": "Sygnały obu osób wokół momentu {number}",
-        "no_moments": "Żaden moment nie odpowiada na krok protokołu.",
-        "incomplete": "Tylko {count} z {target} momentów odpowiada na któryś krok protokołu.",
+        "no_moments": "Brak momentów na liście.",
+        "incomplete": "Wybrano tylko {count} z {target} momentów głównych.",
         "poor_signal": "Sygnał GSR {alias} ma słabą jakość ({pct}% próbek odrzucono przy czyszczeniu). "
                        "Dokument (s. 1):",
         "check_recording": "Sprawdź nagranie przed omówieniem tych momentów.",
@@ -133,6 +150,24 @@ _TEXT: dict[str, dict[str, str]] = {
         "col_clock": "Sensor clock",
         "col_video": "Video",
         "col_shared": "Shared state",
+        "decision": "Decision",
+        "accepted": "accepted",
+        "undecided": "undecided",
+        "manual": "added manually",
+        "time_changed": "time changed",
+        "curated_note": "The list of moments is the researcher's list from the Interviews step: its order decides "
+                        "the role (the first moments not rejected are primary, the rest reserve), and it holds the "
+                        "accepted, retimed and manually added moments with their reasons and notes. Moments the "
+                        "researcher rejected are left out.",
+        "rejected": "Rejected by the researcher and left out of the report: {count}.",
+        "added_by": "Added by the researcher:",
+        "retimed": "Proposed as {start}\u2013{end}; time changed by the researcher:",
+        "retimed_note": "The justification and the measurements of r and of the shared state describe the "
+                        "proposed time.",
+        "needs_check": "The last proposal run no longer proposes this moment; the researcher's decision was kept. "
+                       "Check it.",
+        "note_label": "Note:",
+        "manual_heading": "Added manually",
         "primary": "primary",
         "reserve": "reserve",
         "high": "High",
@@ -143,8 +178,8 @@ _TEXT: dict[str, dict[str, str]] = {
         "before_video": "before the video starts",
         "chart_note": "Z-scored signals of both people around the moment (shaded).",
         "chart_label": "Signals of both people around moment {number}",
-        "no_moments": "No moment answers a step of the protocol.",
-        "incomplete": "Only {count} of {target} moments answer a step of the protocol.",
+        "no_moments": "There are no moments on the list.",
+        "incomplete": "Only {count} of {target} primary moments were selected.",
         "poor_signal": "The GSR signal of {alias} has poor quality ({pct}% of its samples were rejected on the "
                        "Cleaning step). The document (page 1):",
         "check_recording": "Check the recording before discussing these moments.",
@@ -196,6 +231,15 @@ def _interview_label(lang: str, interview: dict[str, Any]) -> str:
     return _t(lang, "pair", left=participants[0], right=participants[1])
 
 
+def _decision(lang: str, moment: dict[str, Any]) -> str:
+    text = _t(lang, moment["decision"])
+    return f"{text}, {_t(lang, 'time_changed')}" if moment["time_changed"] else text
+
+
+def _correlation(moment: dict[str, Any]) -> str:
+    return "\u2014" if moment["correlation"] is None else vsr_text.correlation(moment["correlation"])
+
+
 def _shared_state(lang: str, moment: dict[str, Any]) -> str:
     if not moment["shared_state"]:
         return "—"
@@ -221,8 +265,13 @@ def _status(lang: str, moment: dict[str, Any]) -> str:
     return _t(lang, "primary" if moment["status"] == PRIMARY else "reserve")
 
 
-def _step_heading(lang: str, number: int) -> str:
+def _step_label(lang: str, number: int) -> str:
     return f"{_t(lang, 'step')} {number}"
+
+
+def _step_heading(lang: str, moment: dict[str, Any]) -> str:
+    """The step the moment answers; a manual moment answers none."""
+    return "\u2014" if moment["step"] is None else _step_label(lang, moment["step"])
 
 
 def _settings_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
@@ -267,7 +316,7 @@ def _warnings(vsr: dict[str, Any], interview: dict[str, Any], lang: str) -> list
 
 def _step_blocks(interview: dict[str, Any], lang: str) -> list[dict[str, Any]]:
     rows = [
-        [_step_heading(lang, number), vsr_text.quote(step.synchrony_type.as_dict()),
+        [_step_label(lang, number), vsr_text.quote(step.synchrony_type.as_dict()),
          str(interview["candidate_counts"].get(str(number), 0))]
         for number, step in STEPS.items()
     ]
@@ -287,6 +336,22 @@ def _names(interview: dict[str, Any], lang: str) -> list[str]:
     return [first, _t(lang, "students_average") if interview["kind"] == "teacher" else interview["participants"][1]]
 
 
+def _sentences(lang: str, moment: dict[str, Any]) -> list[Any]:
+    """A proposed moment's justification from the document; a manual moment's is the researcher's reason."""
+    if moment["source"] == "manual":
+        return [f"{_t(lang, 'added_by')} {moment['reason']}"]
+    return vsr_text.justification(moment["justification"])
+
+
+def _change(lang: str, moment: dict[str, Any]) -> list[str]:
+    """What the researcher changed about a proposed moment's time, and why."""
+    if not moment["time_changed"]:
+        return []
+    proposed = _t(lang, "retimed", start=seconds_mmss(moment["original_start_seconds"]),
+                  end=seconds_mmss(moment["original_end_seconds"]))
+    return [f"{proposed} {moment['reason']}", _t(lang, "retimed_note")]
+
+
 def _moment_cards(interview: dict[str, Any], vsr: dict[str, Any], lang: str) -> dict[str, Any]:
     video_start = (vsr["roles"] or {}).get("video_start_time")
     names, colors, trace = _names(interview, lang), interview["colors"], interview["trace"]
@@ -301,20 +366,24 @@ def _moment_cards(interview: dict[str, Any], vsr: dict[str, Any], lang: str) -> 
             "number": moment["number"],
             "primary": moment["status"] == PRIMARY,
             "status": _status(lang, moment),
-            "step": _step_heading(lang, moment["step"]),
-            "type": vsr_text.quote(moment["synchrony_type"]),
-            "pass": _t(lang, "pass", number=moment["pass_number"]) if moment["pass_number"] > 1 else "",
+            "step": _t(lang, "manual_heading") if moment["source"] == "manual" else _step_heading(lang, moment),
+            "type": vsr_text.quote(moment["synchrony_type"]) if moment["synchrony_type"] else "",
+            "pass": _t(lang, "pass", number=moment["pass_number"]) if (moment["pass_number"] or 0) > 1 else "",
+            "decision": _decision(lang, moment),
+            "check": _t(lang, "needs_check") if moment["needs_check"] else "",
             "times": [
                 (_t(lang, "lesson"), _lesson(moment)),
                 (_t(lang, "col_clock"), _clock(moment)),
                 (_t(lang, "col_video"), _video(lang, moment, video_start)),
-                ("r", vsr_text.correlation(moment["correlation"])),
-                (_t(lang, "col_shared"), _shared_state(lang, moment)),
+                *((("r", _correlation(moment)), (_t(lang, "col_shared"), _shared_state(lang, moment)))
+                  if moment["source"] != "manual" else ()),
             ],
             "chart": chart,
             "chart_note": _t(lang, "chart_note"),
-            "sentences": vsr_text.justification(moment["justification"]),
+            "sentences": _sentences(lang, moment),
+            "change": _change(lang, moment),
             "note": moment["note"],
+            "note_label": _t(lang, "note_label"),
         })
     return {"type": "moment_cards", "items": cards}
 
@@ -333,6 +402,8 @@ def _interview_blocks(interview: dict[str, Any], vsr: dict[str, Any], lang: str)
                             students=", ".join(interview["participants"][1:])), style="muted"))
     blocks += _warnings(vsr, interview, lang)
     blocks += _step_blocks(interview, lang)
+    if interview["rejected_count"]:
+        blocks.append(_p(_t(lang, "rejected", count=interview["rejected_count"]), style="muted"))
     if not moments:
         return blocks + [_p(_t(lang, "no_moments"), style="muted")]
     blocks += [
@@ -341,12 +412,13 @@ def _interview_blocks(interview: dict[str, Any], vsr: dict[str, Any], lang: str)
             moments, lesson["start_seconds"], lesson["end_seconds"], _t(lang, "timeline_label")))},
         {"type": "h3", "text": _t(lang, "moments_heading")},
         _table(
-            [_t(lang, key) for key in ("col_number", "col_status", "col_step", "col_lesson", "col_clock", "col_video")]
+            [_t(lang, key) for key in ("col_number", "col_status", "decision", "col_step", "col_lesson", "col_clock",
+                                       "col_video")]
             + ["r", _t(lang, "col_shared")],
-            [[str(moment["number"]), _status(lang, moment), _step_heading(lang, moment["step"]), _lesson(moment),
-              _clock(moment), _video(lang, moment, video_start), vsr_text.correlation(moment["correlation"]),
+            [[str(moment["number"]), _status(lang, moment), _decision(lang, moment), _step_heading(lang, moment),
+              _lesson(moment), _clock(moment), _video(lang, moment, video_start), _correlation(moment),
               _shared_state(lang, moment)] for moment in moments],
-            numeric=(0, 6),
+            numeric=(0, 7),
         ),
         {"type": "h3", "text": _t(lang, "justification_heading")},
         _moment_cards(interview, vsr, lang),
@@ -364,6 +436,7 @@ def build_section(vsr: dict[str, Any] | None, lang: str) -> dict[str, Any] | Non
             blocks.append({"type": "note", "label": _t(lang, "warning"), "text": _t(lang, "stale"), "style": "warning"})
         blocks += [
             _p(_t(lang, "lead"), style="lead"),
+            *([_p(_t(lang, "curated_note"))] if vsr["curated"] else []),
             {"type": "h2", "text": _t(lang, "criteria_heading")},
             {"type": "list", "items": [vsr_text.quote(item) for item in vsr["criteria"].values()]},
             *_settings_blocks(vsr, lang),

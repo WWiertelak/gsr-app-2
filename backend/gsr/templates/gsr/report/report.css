@@ -254,5 +254,7 @@ q.doc-quote { font-style: italic; color: var(--ink); }
 .moment-body { display: flex; gap: var(--s3); align-items: flex-start; }
 .moment-chart { flex: 0 0 46%; }
 .moment-chart .chart-note { margin: 2px 0 0; font-size: 6.5pt; color: var(--ink-3); }
-.justification { flex: 1 1 0; margin: 0; padding-left: var(--s3); font-size: 7.5pt; color: var(--ink-2); }
+.moment-text { flex: 1 1 0; }
+.moment-change, .moment-check { margin: 0 0 var(--s1); font-size: 7.5pt; color: var(--warn); }
+.moment-card .justification { margin: 0; padding-left: var(--s3); font-size: 7.5pt; color: var(--ink-2); }
 .moment-note { margin: var(--s2) 0 0; font-size: 7.5pt; color: var(--ink-2); }
