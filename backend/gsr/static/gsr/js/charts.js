@@ -1,8 +1,8 @@
 /*
  * ECharts option builders, ported from GSRv2 (frontend/src/App.tsx
- * buildSynchronyTimelineOption / buildEpisodeSignalsOption /
- * buildContagionStateHeatmapOption, renderRawPlots / renderProcessedPlots, and
- * charts/options.ts buildHeatmapOption). The segment-coverage chart is not ported.
+ * buildEpisodeSignalsOption / buildContagionStateHeatmapOption, renderRawPlots /
+ * renderProcessedPlots, and charts/options.ts buildHeatmapOption). The
+ * segment-coverage and synchronization-timeline charts are not ported.
  *
  * GSRCharts.build(kind, data, labels, opts) returns an ECharts option; `data`
  * comes from gsr/charts.py, `labels` from chart_labels() (current UI language).
@@ -18,12 +18,10 @@
     ink3: "#617080",
     line: "#cfd6dd",
     grid: "#eef1f4",
-    accent: "#0b6e74",
     raw: "#c3cbd3",
     error: "#b42318",
     episode: "rgba(20,33,43,0.07)",
-    episodeEdge: "rgba(20,33,43,0.28)",
-    activeCount: "#3f4b57"
+    episodeEdge: "rgba(20,33,43,0.28)"
   };
   // Reserved science colours (services/results.py RESERVED_SCIENCE_COLORS, app.css
   // --high/--low/--comove/--threshold/--episode); participant colours come from
@@ -31,7 +29,6 @@
   var HIGH = "#b2182b";
   var LOW = "#2166ac";
   var NEUTRAL_STATE = "#f7f7f7";
-  var THRESHOLD = "#9f1239";
   var COMOVE = "#3f4b57";
   var FONT = '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
   var THEME = "gsr";
@@ -58,13 +55,6 @@
       tooltip: { textStyle: { color: T.ink, fontSize: 12 } },
       visualMap: { textStyle: { color: T.ink3, fontSize: 11 } }
     });
-  }
-
-  // Pair curves are pairs, not participants: neutral greys.
-  var PAIR_COLORS = ["#9aa5b1", "#aab4bf", "#8996a3", "#b7c0c9", "#7f8c99", "#a3adb8"];
-
-  function pairColor(index) {
-    return PAIR_COLORS[index % PAIR_COLORS.length];
   }
 
   // The participant palette repeats from the 9th signal; dash a colour already used in this chart.
@@ -319,25 +309,18 @@
     };
   }
 
-  // New in 2.0: raw (synced) trace in grey, cleaned trace in the signal colour, rejected samples as crosses.
+  // New in 2.0: raw (synced) trace in grey, cleaned trace in the signal colour.
   // The y axis fits the cleaned signal, so large raw artifacts don't flatten it (they are clipped at the
   // plot edge, with a triangle marking where).
   function cleanVsRaw(data, labels, opts) {
     var raw = data.raw || [];
-    var rejected = data.rejected || [];
     var range = cleanRange(data.clean || []);
     var yAxis = valueAxis({ name: labels.microsiemens || "µS", scale: true });
     var clipped = { above: [], below: [] };
-    var shownRejected = rejected;
     if (range) {
       yAxis.min = range.min;
       yAxis.max = range.max;
-      clipped = clipMarkers(raw.concat(rejected).sort(function (a, b) {
-        return a[0] - b[0];
-      }), range, xSpan(raw) / 150);
-      shownRejected = rejected.filter(function (point) {
-        return point[1] >= range.min && point[1] <= range.max;
-      });
+      clipped = clipMarkers(raw, range, xSpan(raw) / 150);
     }
     var series = [
       {
@@ -358,14 +341,6 @@
         itemStyle: { color: data.color },
         data: data.clean || [],
         markLine: windowMarkLine(data.window, labels)
-      },
-      {
-        type: "scatter",
-        name: labels.rejected || "rejected",
-        symbol: "path://M0,0 L10,10 M10,0 L0,10",
-        symbolSize: 7,
-        itemStyle: { color: T.error, borderColor: T.error, borderWidth: 1.4 },
-        data: shownRejected
       }
     ];
     var clippedName = labels.clipped || "clipped";
@@ -427,107 +402,6 @@
             ]
           : [{ xAxis: episode.start }, { xAxis: episode.end }];
       })
-    };
-  }
-
-  // Two panels on one time axis (G1): the group mean, the threshold and the labelled episodes above, the number of
-  // participants in sync below. The pair curves are hidden unless `opts.pairs` (the "Pair curves" switch).
-  function syncTimeline(data, labels, opts) {
-    var centers = data.centers || [];
-    var span = data.span || [centers[0], centers[centers.length - 1]];
-    var showPairs = Boolean(opts && opts.pairs);
-    var pairSeries = (showPairs ? data.pairs || [] : []).map(function (pair, index) {
-      return {
-        name: pair.name,
-        type: "line",
-        showSymbol: false,
-        smooth: true,
-        lineStyle: { width: 1, color: pairColor(index) },
-        itemStyle: { color: pairColor(index) },
-        data: centers.map(function (center, i) {
-          return [center, pair.values[i]];
-        })
-      };
-    });
-    var threshold = data.threshold;
-    var groupSeries = {
-      name: labels.groupMean,
-      type: "line",
-      showSymbol: false,
-      smooth: true,
-      z: 5,
-      lineStyle: { width: 2.6, color: T.accent },
-      itemStyle: { color: T.accent },
-      data: centers.map(function (center, i) {
-        return [center, data.groupMean[i]];
-      }),
-      markArea: episodeMarkArea(data.episodes, span[1] - span[0]),
-      // The label sits inside the plot, above the line's right end, so it is never cut off.
-      markLine: {
-        silent: true,
-        symbol: "none",
-        lineStyle: { type: [4, 4], width: 1, color: THRESHOLD },
-        label: {
-          position: "insideEndTop",
-          formatter: labels.threshold || "",
-          color: THRESHOLD,
-          fontSize: 11
-        },
-        data: [{ yAxis: threshold }]
-      }
-    };
-    var activeCounts = data.activeCounts || [];
-    var activeCountSeries = {
-      name: labels.activeCount,
-      type: "line",
-      step: "middle",
-      showSymbol: false,
-      xAxisIndex: 1,
-      yAxisIndex: 1,
-      lineStyle: { width: 1, color: T.activeCount },
-      itemStyle: { color: T.activeCount },
-      areaStyle: { color: T.activeCount, opacity: 0.18 },
-      data: centers.map(function (center, i) {
-        return [center, activeCounts[i] || 0];
-      })
-    };
-    var timeAxis = { min: span[0], max: span[1] };
-    return {
-      animation: false,
-      toolbox: toolbox(labels, opts),
-      tooltip: { trigger: "axis", valueFormatter: fixed(3) },
-      axisPointer: { link: [{ xAxisIndex: "all" }] },
-      legend: {
-        type: "scroll",
-        top: 6,
-        left: 10,
-        right: 72,
-        data: [labels.groupMean, labels.activeCount].concat(pairSeries.map(function (series) {
-          return series.name;
-        }))
-      },
-      grid: [
-        { left: 52, right: 22, top: 40, height: "58%" },
-        { left: 52, right: 22, top: "76%", bottom: 44 }
-      ],
-      xAxis: [
-        valueAxis(Object.assign({ gridIndex: 0, axisLabel: { show: false } }, timeAxis)),
-        valueAxis(Object.assign({ gridIndex: 1, name: labels.minutes || "min", nameLocation: "middle", nameGap: 28 }, timeAxis))
-      ],
-      yAxis: [
-        valueAxis({ gridIndex: 0, min: -1, max: 1, interval: 0.5 }),
-        valueAxis({
-          gridIndex: 1,
-          min: 0,
-          max: Math.max(data.aliasCount || 0, 2),
-          minInterval: 1,
-          splitNumber: 2,
-          name: labels.inSync || "",
-          nameLocation: "middle",
-          nameGap: 30
-        })
-      ],
-      series: pairSeries.concat([groupSeries, activeCountSeries])
     };
   }
 
@@ -836,7 +710,6 @@
     rawSignal: rawSignal,
     overlay: overlay,
     cleanVsRaw: cleanVsRaw,
-    syncTimeline: syncTimeline,
     episodeSignals: episodeSignals,
     heatmap: heatmap,
     coarousalStates: coarousalStates

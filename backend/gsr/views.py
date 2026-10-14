@@ -634,18 +634,17 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         synchrony = payload.get("synchrony", {})
         coarousal = payload.get("coarousal", {})
         config = PipelineConfig.from_dict(result.config)
-        timeline = charts.sync_timeline(synchrony)
+        span = charts.timeline_span(synchrony)
         coarousal_chart = charts.coarousal_states(coarousal)
         sync_episodes = [
             {**episode, "number": index + 1,
              "duration": episode["end_relative"] - episode["start_relative"],
-             "bar": _mini_bar(episode["start_relative"], episode["end_relative"], timeline["span"])}
+             "bar": _mini_bar(episode["start_relative"], episode["end_relative"], span)}
             for index, episode in enumerate(synchrony.get("episodes", []))
         ]
         context.update(
             synchrony=synchrony,
             coarousal=coarousal,
-            sync_timeline=timeline,
             sync_signals=charts.sync_signals(synchrony, payload.get("preview", {}), colors),
             sync_matrix=charts.sync_matrix(synchrony),
             coarousal_states=coarousal_chart,

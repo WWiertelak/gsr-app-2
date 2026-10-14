@@ -142,16 +142,17 @@ def test_methodology_drops_segment_analyses() -> None:
 
 def test_report_embeds_charts_in_their_sections(payload) -> None:
     page = render_report_html({**payload, "lang": "pl", "chart_images": {
-        "sync_timeline": _png(), "sync_matrix": _png(), "raw_overlay": _png(), "sync_signals": _png()}})
-    assert page.count('src="data:image/png;base64,') == 4
+        "sync_matrix": _png(), "raw_overlay": _png(), "sync_signals": _png()}})
+    assert page.count('src="data:image/png;base64,') == 3
     texts = _texts(page)
-    assert {"Oś czasu synchronizacji", "Macierz synchronizacji", "Sygnały RAW (nałożenie)"} <= set(texts)
-    # The timeline (with its pair curves) and the matrix are on the summary page; the others in their sections.
+    assert {"Sygnały z zaznaczonymi epizodami", "Macierz synchronizacji", "Sygnały RAW (nałożenie)"} <= set(texts)
+    # The signals with marked episodes and the matrix are on the summary page; the others in their sections.
     body = page[page.index("<body"):]
     order = [body.index(marker) for marker in (
-        'id="summary"', "chart-sync_timeline", "chart-sync_matrix", 'id="import"', "chart-raw_overlay",
-        'id="cleaning"', 'id="synchrony"', "chart-sync_signals", 'id="coarousal"')]
+        'id="summary"', "chart-sync_signals", "chart-sync_matrix", 'id="import"', "chart-raw_overlay",
+        'id="cleaning"', 'id="synchrony"', 'id="coarousal"')]
     assert order == sorted(order)
+    assert "chart-sync_signals" not in body[body.index('id="synchrony"'):]
 
 
 def test_summary_page_has_key_figures_and_contents(payload) -> None:
@@ -219,12 +220,12 @@ def test_render_report_pdf_embeds_plex_fonts_and_charts(payload) -> None:
     assert pdf.startswith(b"%PDF") and {b"Plex-Sans-Latin", b"Plex-Sans-Latin-Semi-Bold", b"Plex-Sans-Ext"} <= fonts
     assert fonts <= {b"Plex-Sans-Latin", b"Plex-Sans-Latin-Semi-Bold", b"Plex-Sans-Ext", b"Plex-Sans-Ext-Semi-Bold",
                      b"Plex-Mono-Latin", b"Plex-Mono-Ext", b"DejaVu-Sans", b"DejaVu-Sans-Bold"}
-    with_chart = render_report_pdf({**payload, "lang": "pl", "chart_images": {"sync_timeline": _png()}})
+    with_chart = render_report_pdf({**payload, "lang": "pl", "chart_images": {"sync_signals": _png()}})
     assert b"/Subtype /Image" in _pdf_objects(with_chart) and b"/Subtype /Image" not in _pdf_objects(pdf)
 
 
 def test_report_sections_flow_on_after_the_summary_page(payload) -> None:
-    charts = {key: _png() for key in ("raw_overlay", "clean_overlay", "sync_timeline", "sync_signals", "sync_matrix",
+    charts = {key: _png() for key in ("raw_overlay", "clean_overlay", "sync_signals", "sync_matrix",
                                       "coarousal_states")}
     pages = _page_count(render_report_pdf({**payload, "lang": "en", "chart_images": charts}))
     # With every section on a new page this payload took 15 pages; the summary page plus flowing sections take 8.
@@ -244,7 +245,7 @@ def _section_starts(payload: dict[str, Any]) -> tuple[int, dict[str, tuple[int, 
 
 
 def test_outdated_run_with_a_long_description_does_not_leave_an_empty_page(payload) -> None:
-    charts = {key: _png() for key in ("raw_overlay", "clean_overlay", "sync_timeline", "sync_signals", "sync_matrix",
+    charts = {key: _png() for key in ("raw_overlay", "clean_overlay", "sync_signals", "sync_matrix",
                                       "coarousal_states")}
     def notes(count: int) -> str:
         return "\n".join(f"Session note {line}: the group worked on a shared task in the lab." for line in range(count))

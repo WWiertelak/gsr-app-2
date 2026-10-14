@@ -25,7 +25,6 @@ from ..pipeline.config import PipelineConfig
 from ..pipeline.parser import ParseError, load_esense_csv
 from ..pipeline.preprocessing import (
     PipelineResult,
-    _detect_outliers_pilot,
     _should_use_legacy_downsample_factor,
     serialize_preview,
 )
@@ -35,7 +34,6 @@ from .datasets import recording_range
 # Samples per chart series sent to the browser. The unsampled preview of a
 # 10 x 90 min session is ~27 MB; 3000 points per series keeps a page small.
 PREVIEW_MAX_POINTS = 3000
-REJECTED_MAX_POINTS = 2000
 
 # One colour per dataset, by upload order: Dark2 with two colours darkened so each
 # reaches 3:1 on white. RESERVED_SCIENCE_COLORS are never a participant colour:
@@ -111,23 +109,15 @@ def _sample_xy(times: np.ndarray, values: np.ndarray, max_points: int) -> list[l
     return [[float(x), float(y)] for x, y in zip(times[::stride], values[::stride])]
 
 
-def _cleaning_overlays(result: PipelineResult, config: PipelineConfig) -> dict[str, dict[str, Any]]:
-    """Synced raw trace and the samples the artifact filters rejected, in relative minutes.
-
-    The rejection mask is recomputed with the pipeline's own detector and the same
-    config, so its count equals the cleaning summary's ``artifact_rejected_points``.
-    """
+def _cleaning_overlays(result: PipelineResult) -> dict[str, dict[str, Any]]:
+    """Synced raw trace, in relative minutes, drawn under the cleaned signal."""
     overlays: dict[str, dict[str, Any]] = {}
     for alias in result.aliases:
         synced = result.dataset_states[alias].synced
         times = synced["relative_time"].to_numpy(dtype=float)
         values = synced["microsiemens"].to_numpy(dtype=float)
-        mask = _detect_outliers_pilot(values, config)
         finite = np.isfinite(values)
-        overlays[alias] = {
-            "synced": _sample_xy(times[finite], values[finite], PREVIEW_MAX_POINTS),
-            "rejected": _sample_xy(times[mask & finite], values[mask & finite], REJECTED_MAX_POINTS),
-        }
+        overlays[alias] = {"synced": _sample_xy(times[finite], values[finite], PREVIEW_MAX_POINTS)}
     return overlays
 
 
@@ -182,7 +172,7 @@ def compute_cleaning(project: Project) -> AnalysisResult:
     config = run_config(project)
     result = run_cleaning_pipeline(_dataset_files(datasets), config)
     preview = serialize_preview(result, PREVIEW_MAX_POINTS)
-    overlays = _cleaning_overlays(result, config)
+    overlays = _cleaning_overlays(result)
     for entry in preview["datasets"]:
         entry.update(overlays[entry["alias"]])
     payload = {"preview": preview, "datasets": _dataset_summary(result, datasets)}

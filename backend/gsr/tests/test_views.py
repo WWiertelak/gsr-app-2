@@ -6,7 +6,6 @@ import base64
 import csv
 import io
 import json
-import math
 import re
 import zipfile
 from pathlib import Path
@@ -483,7 +482,7 @@ def test_action_bar_counts_match_the_rail_status(client, project) -> None:
 
 
 @pytest.mark.django_db
-def test_cleaning_preview_matches_pipeline_and_marks_rejected_samples(client, project) -> None:
+def test_cleaning_preview_matches_pipeline_and_carries_the_raw_trace(client, project) -> None:
     client.post(reverse("gsr:cleaning_refresh", args=[project.pk]), **HTMX)
     stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_CLEANING)
 
@@ -495,10 +494,9 @@ def test_cleaning_preview_matches_pipeline_and_marks_rejected_samples(client, pr
     assert preview["alignment"] == expected["alignment"]
     for entry, expected_entry in zip(preview["datasets"], expected["datasets"]):
         assert entry["clean"] == expected_entry["clean"]
-    # B carries one injected 45 µS artifact: the rejected overlay counts the same samples as the summary.
-    for entry, summary in zip(preview["datasets"], preview["cleaning_summary"]["per_alias"]):
-        assert len(entry["rejected"]) == summary["artifact_rejected_points"]
-    assert any(value > 40 for _, value in preview["datasets"][1]["rejected"])
+    # B carries one injected 45 µS artifact: the raw trace under the cleaned one keeps it; no separate rejected marks.
+    assert any(value > 40 for _, value in preview["datasets"][1]["synced"])
+    assert all("rejected" not in entry for entry in preview["datasets"])
 
 
 @pytest.mark.django_db
@@ -653,8 +651,10 @@ def test_analysis_run_stores_both_results_in_two_tabs(client, project) -> None:
     assert 'data-tab-panel="coarousal" hidden' in page and 'data-chart="syncTimeline"' not in page
 
     fragment = _run_analysis(client, project).content.decode()
-    for kind in ("syncTimeline", "episodeSignals", "heatmap", "coarousalStates"):
+    for kind in ("episodeSignals", "heatmap", "coarousalStates"):
         assert f'data-chart="{kind}"' in fragment
+    # The signals with marked episodes replace the synchronization timeline.
+    assert 'data-chart="syncTimeline"' not in fragment and "data-pairs-for" not in fragment
     assert 'hx-swap-oob="true"' in fragment and "run-status fresh" in fragment
 
     stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
@@ -673,9 +673,11 @@ def test_analysis_screen_has_landmarks_aria_tabs_and_labelled_charts(client, pro
     assert page.count("<main") == 1 and "<h4" not in page
     assert '<h2 class="sr-only" id="analysis-results-title">Analysis results</h2>' in page
     # Tabs: each tab controls its panel; only the selected one is in the tab order.
-    assert ('id="tab-synchronization" aria-controls="panel-synchronization"' in page
-            and 'aria-selected="true" tabindex="0">Synchronization' in page
-            and 'aria-selected="false" tabindex="-1">Co-arousal' in page)
+    assert 'id="tab-synchronization" aria-controls="panel-synchronization"' in page
+    assert re.search(r'aria-selected="true" tabindex="0">\s*<span class="tab-title" id="tab-synchronization-title">'
+                     r'Synchronization', page)
+    assert re.search(r'aria-selected="false" tabindex="-1">\s*<span class="tab-title" id="tab-coarousal-title">'
+                     r'Co-arousal', page)
     assert 'role="tabpanel" id="panel-coarousal" aria-labelledby="tab-coarousal"' in page
     # Charts are canvases, so each one carries a text alternative.
     assert 'data-chart="heatmap"' in page and 'role="img" aria-label="Synchronization matrix"' in page
@@ -817,11 +819,16 @@ def test_analysis_results_interpret_figures_and_place_episodes_in_time(client, p
     assert f"{verdict} circular shift × 20" in fragment
     assert "subgroups of ≥ 2 people above 0.6" in fragment
 
-    # Two-panel timeline: the pair curves are behind a switch.
-    assert 'data-pairs-for="sync-timeline"' in fragment and "Pair curves (3)" in fragment
-    timeline = json.loads(re.search(r'id="sync-timeline-data" type="application/json">(.*?)</script>',
-                                    fragment).group(1))
-    assert timeline["span"] == [math.floor(min(timeline["centers"])), math.ceil(max(timeline["centers"]))]
+    # Two large tabs, each with a one-line description of what it shows.
+    assert 'aria-describedby="tab-synchronization-desc"' in fragment
+    assert 'aria-describedby="tab-coarousal-desc"' in fragment
+
+    # The episode and pair tables are collapsible panels (open by default) with their row counts in the heading.
+    assert re.search(r'aria-expanded="true" aria-controls="sync-episodes-body" data-disclosure>Subgroup synchronization '
+                     rf'episodes <span class="count">{len(synchrony["episodes"])}</span>', fragment)
+    assert re.search(r'aria-expanded="true" aria-controls="sync-pairs-body" data-disclosure>Pairwise metrics '
+                     rf'<span class="count">{len(synchrony["pairs"])}</span>', fragment)
+    assert 'id="sync-episodes-body"' in fragment and 'id="sync-pairs-body"' in fragment
 
     # Episode rows: E-numbers as on the chart, with a mini timeline.
     for number, _episode in enumerate(synchrony["episodes"], start=1):
@@ -858,10 +865,10 @@ def test_coarousal_chart_stacks_overlapping_episodes_in_lanes() -> None:
     assert charts.coarousal_states({})["lanes"] == 0
 
 
-def test_sync_timeline_spans_whole_minutes_around_the_windows() -> None:
-    assert charts.sync_timeline({"windows": {"centers": [0.25, 5.5, 11.6]}})["span"] == [0, 12]
-    assert charts.sync_timeline({"windows": {"centers": [3.0]}})["span"] == [3, 4]
-    assert charts.sync_timeline({})["span"] is None
+def test_timeline_span_covers_whole_minutes_around_the_windows() -> None:
+    assert charts.timeline_span({"windows": {"centers": [0.25, 5.5, 11.6]}}) == [0, 12]
+    assert charts.timeline_span({"windows": {"centers": [3.0]}}) == [3, 4]
+    assert charts.timeline_span({}) is None
 
 
 @pytest.mark.django_db
@@ -930,8 +937,9 @@ def test_export_needs_an_analysis_run(client, project) -> None:
 def test_export_screen_offers_report_charts_for_capture(client, project) -> None:
     _run_analysis(client, project)
     page = client.get(reverse("gsr:export", args=[project.pk])).content.decode()
-    for key in ("raw_overlay", "clean_overlay", "sync_timeline", "sync_signals", "sync_matrix", "coarousal_states"):
+    for key in ("raw_overlay", "clean_overlay", "sync_signals", "sync_matrix", "coarousal_states"):
         assert f'data-key="{key}"' in page and f'name="chart_{key}"' in page
+    assert 'data-key="sync_timeline"' not in page
     assert page.count("data-capture-charts") == 2
 
 
@@ -1014,8 +1022,9 @@ def test_export_zip_bundles_tables_json_and_posted_chart_pngs(client, project) -
     response = client.post(
         reverse("gsr:export_zip", args=[project.pk]),
         {
-            "chart_sync_timeline": _png_data_url(),
+            "chart_sync_signals": _png_data_url(),
             "chart_sync_matrix": "data:image/png;base64,bm90IGEgcG5n",  # "not a png"
+            "chart_sync_timeline": _png_data_url(),
             "chart_unknown": _png_data_url(),
         },
     )
@@ -1026,9 +1035,9 @@ def test_export_zip_bundles_tables_json_and_posted_chart_pngs(client, project) -
         "clean_signals.csv", "analysis_input_merged.csv", "synchrony_episodes.csv", "synchrony_pairs.csv",
         "synchrony_windows.csv", "coarousal_episodes.csv", "coarousal_state_timeline.csv",
         "coarousal_state_percentages.csv", "run_settings_and_results.json",
-        "charts/sync_timeline.png",
+        "charts/sync_signals.png",
     } == names
-    assert archive.read("charts/sync_timeline.png").startswith(b"\x89PNG")
+    assert archive.read("charts/sync_signals.png").startswith(b"\x89PNG")
 
 
 @pytest.mark.django_db
@@ -1040,7 +1049,7 @@ def test_export_pdf_follows_ui_language_and_embeds_charts(client, project) -> No
     assert without_charts.status_code == 200 and without_charts["Content-Type"] == "application/pdf"
     assert without_charts.content.startswith(b"%PDF") and "report_pl.pdf" in without_charts["Content-Disposition"]
 
-    with_charts = client.post(url, {"chart_sync_timeline": _png_data_url(), "chart_coarousal_states": _png_data_url()})
+    with_charts = client.post(url, {"chart_sync_signals": _png_data_url(), "chart_coarousal_states": _png_data_url()})
     assert with_charts.content.startswith(b"%PDF") and len(with_charts.content) > len(without_charts.content)
 
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
@@ -1054,7 +1063,7 @@ def test_export_screen_shows_report_card_language_select_and_file_names(client, 
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:export", args=[project.pk])).content.decode()
     assert "Outdated" not in page and "data-stale-banner" not in page and "is-stale" not in page
-    for item in ("Summary page", "Synchronization", "Co-arousal", "Methodology", "Reproducibility", "6 charts"):
+    for item in ("Summary page", "Synchronization", "Co-arousal", "Methodology", "Reproducibility", "5 charts"):
         assert f"</svg>{item}</li>" in page
     assert '<select name="lang" data-report-lang-select>' in page
     assert '<option value="en" selected>English</option>' in page and '<option value="pl">Polski</option>' in page
@@ -1064,8 +1073,8 @@ def test_export_screen_shows_report_card_language_select_and_file_names(client, 
                  "coarousal_state_percentages.csv", "run_settings_and_results.json", "results.zip"):
         assert f"sesja-odzka_{name}" in page
     labels = json.loads(page.split('<script id="report-chart-labels" type="application/json">')[1].split("</script>")[0])
-    assert labels["pl"]["activeCount"] == "Liczba zsynchronizowanych" and labels["pl"]["locale"] == "pl"
-    assert labels["en"]["activeCount"] == "Synchronized count"
+    assert labels["pl"]["timeWindow"] == "Zakres czasu" and labels["pl"]["locale"] == "pl"
+    assert labels["en"]["timeWindow"] == "Time window"
 
 
 @pytest.mark.django_db
@@ -1138,12 +1147,12 @@ def test_export_pdf_uses_the_chosen_report_language(client, project, monkeypatch
 @pytest.mark.django_db
 def test_language_switch_translates_screens_and_chart_labels(client, project) -> None:
     page = client.get(reverse("gsr:projects")).content.decode()
-    assert '<html lang="pl">' in page and "Nowy projekt" in page and "Liczba zsynchronizowanych" in page
+    assert '<html lang="pl">' in page and "Nowy projekt" in page and "Zakres czasu" in page
 
     response = client.post(reverse("set_language"), {"language": "en", "next": reverse("gsr:cleaning", args=[project.pk])})
     assert response.status_code == 302 and response["Location"] == reverse("gsr:cleaning", args=[project.pk])
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
-    assert '<html lang="en">' in page and "Cleaning settings" in page and "Synchronized count" in page
+    assert '<html lang="en">' in page and "Cleaning settings" in page and "Time window" in page
 
     client.post(reverse("set_language"), {"language": "pl", "next": "/"})
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()

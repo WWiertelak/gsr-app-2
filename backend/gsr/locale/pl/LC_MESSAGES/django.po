@@ -15,18 +15,6 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : (n%10>=2 && n%10<=4) && "
 "(n%100<12 || n%100>14) ? 1 : 2);\n"
 
-#: gsr/charts.py:21
-msgid "Group mean"
-msgstr "Średnia grupowa"
-
-#: gsr/charts.py:22
-msgid "Synchronized count"
-msgstr "Liczba zsynchronizowanych"
-
-#: gsr/charts.py:23
-msgid "Threshold"
-msgstr "Próg"
-
 #: gsr/charts.py:24
 msgid "min"
 msgstr "min"
@@ -44,53 +32,45 @@ msgid "clean"
 msgstr "oczyszczony"
 
 #: gsr/charts.py:29
-msgid "rejected"
-msgstr "odrzucony"
-
-#: gsr/charts.py:30
 msgid "clipped (off scale)"
 msgstr "przycięty (poza skalą)"
 
-#: gsr/charts.py:31 gsr/params.py:51
+#: gsr/charts.py:30 gsr/params.py:51
 msgid "Time window"
 msgstr "Zakres czasu"
 
-#: gsr/charts.py:32 gsr/templates/gsr/partials/analysis_main.html:171
-#: gsr/templates/gsr/partials/analysis_main.html:240
+#: gsr/charts.py:31 gsr/templates/gsr/partials/analysis_main.html:174
+#: gsr/templates/gsr/partials/analysis_main.html:243
 #: gsr/templates/gsr/partials/direction.html:1
 msgid "High ↑"
 msgstr "Wysoki ↑"
 
-#: gsr/charts.py:33 gsr/templates/gsr/partials/analysis_main.html:172
-#: gsr/templates/gsr/partials/analysis_main.html:240
+#: gsr/charts.py:32 gsr/templates/gsr/partials/analysis_main.html:175
+#: gsr/templates/gsr/partials/analysis_main.html:243
 #: gsr/templates/gsr/partials/direction.html:1
 msgid "Low ↓"
 msgstr "Niski ↓"
 
-#: gsr/charts.py:34 gsr/templates/gsr/partials/analysis_main.html:173
+#: gsr/charts.py:33 gsr/templates/gsr/partials/analysis_main.html:176
 #: gsr/templates/gsr/partials/direction.html:1
 msgid "Co-move ↔"
 msgstr "Ko-ruch ↔"
 
-#: gsr/charts.py:35
+#: gsr/charts.py:34
 msgid "Episodes"
 msgstr "Epizody"
 
 #: gsr/charts.py:36
-msgid "in sync"
-msgstr "w synchronii"
-
-#: gsr/charts.py:37
 msgid "State"
 msgstr "Stan"
 
-#: gsr/charts.py:38 gsr/templates/gsr/partials/analysis_main.html:74
-#: gsr/templates/gsr/partials/analysis_main.html:201
-#: gsr/templates/gsr/partials/analysis_main.html:218
+#: gsr/charts.py:37 gsr/templates/gsr/partials/analysis_main.html:73
+#: gsr/templates/gsr/partials/analysis_main.html:204
+#: gsr/templates/gsr/partials/analysis_main.html:221
 msgid "Time (min)"
 msgstr "Czas (min)"
 
-#: gsr/charts.py:39
+#: gsr/charts.py:38
 msgid "Save PNG"
 msgstr "Zapisz PNG"
 
@@ -617,7 +597,7 @@ msgstr "Synchronizacja"
 msgid "Co-arousal"
 msgstr "Ko-pobudzenie"
 
-#: gsr/services/results.py:229
+#: gsr/services/results.py:219
 msgid "The file is missing. Upload it again."
 msgstr "Brakuje pliku. Wgraj go ponownie."
 
@@ -662,7 +642,15 @@ msgstr "Wybierz co najmniej dwa sygnały, aby policzyć synchronizację."
 msgid "Analysis results"
 msgstr "Wyniki analizy"
 
-#: gsr/templates/gsr/partials/analysis_main.html:13
+#: gsr/templates/gsr/partials/analysis_main.html:14
+msgid "Pairs and subgroups whose signals move together"
+msgstr "Pary i podgrupy, których sygnały zmieniają się razem"
+
+#: gsr/templates/gsr/partials/analysis_main.html:18
+msgid "Shared High or Low arousal states and co-movement episodes"
+msgstr "Wspólne stany wysokiego lub niskiego pobudzenia i epizody ko-ruchu"
+
+#: gsr/templates/gsr/partials/analysis_main.html:24
 msgid "No results for this step yet. Set the parameters and run the analysis."
 msgstr "Brak wyników dla tego kroku. Ustaw parametry i uruchom analizę."
 
@@ -671,13 +659,13 @@ msgstr "Brak wyników dla tego kroku. Ustaw parametry i uruchom analizę."
 msgid "Run analysis"
 msgstr "Uruchom analizę"
 
-#: gsr/templates/gsr/partials/analysis_main.html:17
+#: gsr/templates/gsr/partials/analysis_main.html:28
 msgid "Settings or signals changed since this run. Run the analysis again."
 msgstr ""
 "Ustawienia lub sygnały zmieniły się od tego obliczenia. Uruchom analizę "
 "ponownie."
 
-#: gsr/templates/gsr/partials/analysis_main.html:27
+#: gsr/templates/gsr/partials/analysis_main.html:33
 msgid ""
 "Mean of the pairs' maximum cross-correlation (the synchronization matrix "
 "below)."
@@ -685,7 +673,7 @@ msgstr ""
 "Średnia z maksymalnych korelacji wzajemnych par (macierz synchronizacji "
 "poniżej)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:28
+#: gsr/templates/gsr/partials/analysis_main.html:34
 msgid ""
 "Compares the mean synchrony with surrogate data in which the shared timing "
 "is destroyed. Below 0.05 the group is synchronized above chance; a higher p-"
@@ -695,40 +683,40 @@ msgstr ""
 "przebieg w czasie jest zniszczony. Poniżej 0,05 grupa jest zsynchronizowana "
 "powyżej poziomu przypadku; wyższe p nie dowodzi braku synchronii."
 
-#: gsr/templates/gsr/partials/analysis_main.html:31
-#: gsr/templates/gsr/partials/analysis_main.html:136
+#: gsr/templates/gsr/partials/analysis_main.html:37
+#: gsr/templates/gsr/partials/analysis_main.html:139
 msgid "Mean synchrony"
 msgstr "Średnia synchronizacja"
 
-#: gsr/templates/gsr/partials/analysis_main.html:33
+#: gsr/templates/gsr/partials/analysis_main.html:39
 msgid "mean of the pairs' maximum correlation"
 msgstr "średnia maks. korelacji par"
 
-#: gsr/templates/gsr/partials/analysis_main.html:36
+#: gsr/templates/gsr/partials/analysis_main.html:42
 msgid "Whole-group test"
 msgstr "Test całej grupy"
 
-#: gsr/templates/gsr/partials/analysis_main.html:38
-#: gsr/templates/gsr/partials/analysis_main.html:160
-#: gsr/templates/gsr/partials/analysis_main.html:165
+#: gsr/templates/gsr/partials/analysis_main.html:44
+#: gsr/templates/gsr/partials/analysis_main.html:163
+#: gsr/templates/gsr/partials/analysis_main.html:168
 msgid "No surrogate test"
 msgstr "Bez testu surogatowego"
 
-#: gsr/templates/gsr/partials/analysis_main.html:41
-#: gsr/templates/gsr/partials/analysis_main.html:168
+#: gsr/templates/gsr/partials/analysis_main.html:47
+#: gsr/templates/gsr/partials/analysis_main.html:171
 msgid "Episode count"
 msgstr "Liczba epizodów"
 
-#: gsr/templates/gsr/partials/analysis_main.html:42
+#: gsr/templates/gsr/partials/analysis_main.html:48
 #, python-format
 msgid "%(duration)s min in total"
 msgstr "łącznie %(duration)s min"
 
-#: gsr/templates/gsr/partials/analysis_main.html:46
+#: gsr/templates/gsr/partials/analysis_main.html:52
 msgid "Cluster count"
 msgstr "Liczba klastrów"
 
-#: gsr/templates/gsr/partials/analysis_main.html:52
+#: gsr/templates/gsr/partials/analysis_main.html:59
 msgid ""
 "We look for fragments where signals begin to synchronize and group them into "
 "clusters."
@@ -736,26 +724,12 @@ msgstr ""
 "Szukamy fragmentów, w których sygnały zaczynają się synchronizować, i "
 "grupujemy je w klastry."
 
-#: gsr/templates/gsr/partials/analysis_main.html:54
 #: gsr/templates/gsr/partials/analysis_main.html:60
-msgid "Synchronization timeline"
-msgstr "Oś czasu synchronizacji"
-
-#: gsr/templates/gsr/partials/analysis_main.html:55
-msgid "group mean and episodes above, participants in sync below"
-msgstr "u góry średnia grupowa i epizody, u dołu liczba osób w synchronii"
-
-#: gsr/templates/gsr/partials/analysis_main.html:57
-#, python-format
-msgid "Pair curves (%(count)s)"
-msgstr "Krzywe par (%(count)s)"
-
-#: gsr/templates/gsr/partials/analysis_main.html:63
-#: gsr/templates/gsr/partials/analysis_main.html:64
+#: gsr/templates/gsr/partials/analysis_main.html:61
 msgid "Signals with marked episodes"
 msgstr "Sygnały z zaznaczonymi epizodami"
 
-#: gsr/templates/gsr/partials/analysis_main.html:69
+#: gsr/templates/gsr/partials/analysis_main.html:64
 msgid ""
 "Stretches where a subgroup of participants (at least 2) stays synchronized "
 "above the threshold."
@@ -763,46 +737,46 @@ msgstr ""
 "Fragmenty, w których podgrupa uczestników (min. 2 osoby) utrzymuje "
 "synchronizację powyżej progu."
 
-#: gsr/templates/gsr/partials/analysis_main.html:70
+#: gsr/templates/gsr/partials/analysis_main.html:67
 msgid "Subgroup synchronization episodes"
 msgstr "Epizody synchronizacji podgrup"
 
-#: gsr/templates/gsr/partials/analysis_main.html:74
-#: gsr/templates/gsr/partials/analysis_main.html:201
-#: gsr/templates/gsr/partials/analysis_main.html:218
+#: gsr/templates/gsr/partials/analysis_main.html:73
+#: gsr/templates/gsr/partials/analysis_main.html:204
+#: gsr/templates/gsr/partials/analysis_main.html:221
 #: gsr/templates/gsr/partials/upload_main.html:32
 msgid "Duration"
 msgstr "Czas trwania"
 
-#: gsr/templates/gsr/partials/analysis_main.html:74
+#: gsr/templates/gsr/partials/analysis_main.html:73
 msgid "Participants"
 msgstr "Uczestnicy"
 
-#: gsr/templates/gsr/partials/analysis_main.html:74
+#: gsr/templates/gsr/partials/analysis_main.html:73
 msgid "Mean strength"
 msgstr "Śr. siła"
 
-#: gsr/templates/gsr/partials/analysis_main.html:74
+#: gsr/templates/gsr/partials/analysis_main.html:73
 msgid "Peak strength"
 msgstr "Szczytowa siła"
 
-#: gsr/templates/gsr/partials/analysis_main.html:90
+#: gsr/templates/gsr/partials/analysis_main.html:89
 msgid "No subgroup synchronization episodes detected."
 msgstr "Nie wykryto epizodów synchronizacji podgrup."
 
-#: gsr/templates/gsr/partials/analysis_main.html:95
+#: gsr/templates/gsr/partials/analysis_main.html:96
 msgid "Pairwise metrics"
 msgstr "Metryki par"
 
-#: gsr/templates/gsr/partials/analysis_main.html:95
+#: gsr/templates/gsr/partials/analysis_main.html:96
 msgid "bold = p < 0.05 (surrogates)"
 msgstr "pogrubione = p < 0,05 (surogaty)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:100
+#: gsr/templates/gsr/partials/analysis_main.html:103
 msgid "Pair"
 msgstr "Para"
 
-#: gsr/templates/gsr/partials/analysis_main.html:101
+#: gsr/templates/gsr/partials/analysis_main.html:104
 msgid ""
 "Highest cross-correlation of the z-scored pair at the best time shift within "
 "the max lag. From −1 to +1; closer to +1 = stronger synchronization."
@@ -811,25 +785,25 @@ msgstr ""
 "najlepszym przesunięciu czasowym w granicach maks. opóźnienia. Od −1 do +1; "
 "bliżej +1 = mocniejsza synchronizacja."
 
-#: gsr/templates/gsr/partials/analysis_main.html:101
+#: gsr/templates/gsr/partials/analysis_main.html:104
 msgid "Max correlation"
 msgstr "Maks. korelacja"
 
-#: gsr/templates/gsr/partials/analysis_main.html:102
+#: gsr/templates/gsr/partials/analysis_main.html:105
 msgid "p (surrogate)"
 msgstr "p (surogat)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:103
+#: gsr/templates/gsr/partials/analysis_main.html:106
 msgid "Time shift (in seconds) at which the pair correlation is highest."
 msgstr ""
 "Przesunięcie czasowe (w sekundach), przy którym korelacja pary jest "
 "największa."
 
-#: gsr/templates/gsr/partials/analysis_main.html:103
+#: gsr/templates/gsr/partials/analysis_main.html:106
 msgid "Lag (s)"
 msgstr "Opóźnienie (s)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:104
+#: gsr/templates/gsr/partials/analysis_main.html:107
 msgid ""
 "Mean spectral coherence in the low-frequency band (Welch method, up to ~1 "
 "Hz). From 0 to 1; higher = shared rhythm."
@@ -837,11 +811,11 @@ msgstr ""
 "Średnia koherencja widmowa w wolnych pasmach (metoda Welcha, do ~1 Hz). Od 0 "
 "do 1; wyżej = wspólny rytm."
 
-#: gsr/templates/gsr/partials/analysis_main.html:104
+#: gsr/templates/gsr/partials/analysis_main.html:107
 msgid "Coherence"
 msgstr "Koherencja"
 
-#: gsr/templates/gsr/partials/analysis_main.html:105
+#: gsr/templates/gsr/partials/analysis_main.html:108
 msgid ""
 "Dynamic Time Warping distance normalized by signal length. Lower = more "
 "similar."
@@ -849,25 +823,25 @@ msgstr ""
 "Odległość Dynamic Time Warping znormalizowana długością sygnału. Niżej = "
 "bardziej podobne."
 
-#: gsr/templates/gsr/partials/analysis_main.html:127
-#: gsr/templates/gsr/partials/analysis_main.html:128
+#: gsr/templates/gsr/partials/analysis_main.html:130
+#: gsr/templates/gsr/partials/analysis_main.html:131
 msgid "Synchronization matrix"
 msgstr "Macierz synchronizacji"
 
-#: gsr/templates/gsr/partials/analysis_main.html:131
+#: gsr/templates/gsr/partials/analysis_main.html:134
 msgid "Signal clusters"
 msgstr "Klastry sygnałów"
 
-#: gsr/templates/gsr/partials/analysis_main.html:135
+#: gsr/templates/gsr/partials/analysis_main.html:138
 msgid "Cluster"
 msgstr "Klaster"
 
-#: gsr/templates/gsr/partials/analysis_main.html:144
-#: gsr/templates/gsr/partials/analysis_main.html:257
+#: gsr/templates/gsr/partials/analysis_main.html:147
+#: gsr/templates/gsr/partials/analysis_main.html:260
 msgid "No results for this step yet."
 msgstr "Brak wyników dla tego kroku."
 
-#: gsr/templates/gsr/partials/analysis_main.html:150
+#: gsr/templates/gsr/partials/analysis_main.html:153
 msgid ""
 "Co-arousal index = time-average of max(number of people in High state, "
 "number in Low state). Compared with a circular-shift null distribution "
@@ -878,27 +852,27 @@ msgstr ""
 "kołowego (zachowuje autokorelację, niszczy tylko wspólne wyrównanie w "
 "czasie)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:153
+#: gsr/templates/gsr/partials/analysis_main.html:156
 msgid "Co-arousal index"
 msgstr "Indeks ko-pobudzenia"
 
-#: gsr/templates/gsr/partials/analysis_main.html:155
+#: gsr/templates/gsr/partials/analysis_main.html:158
 msgid "time average of max(#High, #Low)"
 msgstr "średnia w czasie z max(#Wysoki, #Niski)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:158
+#: gsr/templates/gsr/partials/analysis_main.html:161
 msgid "Null distribution"
 msgstr "Rozkład zerowy"
 
-#: gsr/templates/gsr/partials/analysis_main.html:160
+#: gsr/templates/gsr/partials/analysis_main.html:163
 msgid "circular shift, mean ± SD"
 msgstr "przesunięcie kołowe, średnia ± SD"
 
-#: gsr/templates/gsr/partials/analysis_main.html:163
+#: gsr/templates/gsr/partials/analysis_main.html:166
 msgid "Test"
 msgstr "Test"
 
-#: gsr/templates/gsr/partials/analysis_main.html:179
+#: gsr/templates/gsr/partials/analysis_main.html:182
 msgid ""
 "Mean state of each participant in 1-minute bins: red = High (+1), white = "
 "Neutral (0), blue = Low (−1)."
@@ -906,7 +880,7 @@ msgstr ""
 "Średni stan każdego uczestnika w 1-minutowych oknach: czerwony = Wysoki "
 "(+1), biały = Neutralny (0), niebieski = Niski (−1)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:180
+#: gsr/templates/gsr/partials/analysis_main.html:183
 msgid ""
 "We look for moments when many participants are simultaneously in the same "
 "arousal state (High/Low) or genuinely co-vary (correlation-based co-"
@@ -917,16 +891,16 @@ msgstr ""
 "oparty na korelacji). Sygnały są standaryzowane (z-score) w obrębie okna "
 "analizy."
 
-#: gsr/templates/gsr/partials/analysis_main.html:182
 #: gsr/templates/gsr/partials/analysis_main.html:185
+#: gsr/templates/gsr/partials/analysis_main.html:188
 msgid "Participant state map over time"
 msgstr "Mapa stanów uczestników w czasie"
 
-#: gsr/templates/gsr/partials/analysis_main.html:183
+#: gsr/templates/gsr/partials/analysis_main.html:186
 msgid "episodes above, 1-minute bins below"
 msgstr "u góry epizody, u dołu przedziały 1-minutowe"
 
-#: gsr/templates/gsr/partials/analysis_main.html:190
+#: gsr/templates/gsr/partials/analysis_main.html:193
 msgid ""
 "Episodes where ≥ the required number of participants hold a shared state "
 "(High/Low), plus co-movement episodes (mean pairwise Spearman in the window "
@@ -936,7 +910,7 @@ msgstr ""
 "(Wysoki/Niski), oraz epizody ko-ruchu (średnia parowa korelacja Spearmana w "
 "oknie ≥ próg)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:191
+#: gsr/templates/gsr/partials/analysis_main.html:194
 msgid ""
 "Each second gets one label by precedence: High/Low (joint extreme) > Co-"
 "movement. Adjacent same-label seconds are merged."
@@ -944,44 +918,44 @@ msgstr ""
 "Każda sekunda dostaje jedną etykietę wg precedencji: Wysoki/Niski (wspólne "
 "ekstremum) > Ko-ruch. Sąsiednie sekundy o tej samej etykiecie są łączone."
 
-#: gsr/templates/gsr/partials/analysis_main.html:193
+#: gsr/templates/gsr/partials/analysis_main.html:196
 msgid "Co-arousal episodes"
 msgstr "Epizody ko-pobudzenia"
 
-#: gsr/templates/gsr/partials/analysis_main.html:195
+#: gsr/templates/gsr/partials/analysis_main.html:198
 msgid "Merge overlaps"
 msgstr "Połącz nakładające się"
 
-#: gsr/templates/gsr/partials/analysis_main.html:201
-#: gsr/templates/gsr/partials/analysis_main.html:218
+#: gsr/templates/gsr/partials/analysis_main.html:204
+#: gsr/templates/gsr/partials/analysis_main.html:221
 msgid "Type"
 msgstr "Typ"
 
-#: gsr/templates/gsr/partials/analysis_main.html:201
+#: gsr/templates/gsr/partials/analysis_main.html:204
 msgid "Contributors"
 msgstr "Współtworzący"
 
-#: gsr/templates/gsr/partials/analysis_main.html:201
+#: gsr/templates/gsr/partials/analysis_main.html:204
 msgid "Strength"
 msgstr "Siła"
 
-#: gsr/templates/gsr/partials/analysis_main.html:210
+#: gsr/templates/gsr/partials/analysis_main.html:213
 msgid "full"
 msgstr "pełna"
 
-#: gsr/templates/gsr/partials/analysis_main.html:210
+#: gsr/templates/gsr/partials/analysis_main.html:213
 msgid "strong"
 msgstr "silna"
 
-#: gsr/templates/gsr/partials/analysis_main.html:210
+#: gsr/templates/gsr/partials/analysis_main.html:213
 msgid "partial"
 msgstr "częściowa"
 
-#: gsr/templates/gsr/partials/analysis_main.html:232
+#: gsr/templates/gsr/partials/analysis_main.html:235
 msgid "No episodes detected."
 msgstr "Brak wykrytych epizodów."
 
-#: gsr/templates/gsr/partials/analysis_main.html:236
+#: gsr/templates/gsr/partials/analysis_main.html:239
 msgid ""
 "Percent of time each signal was in the High, Neutral and Low state (z-score "
 "relative to its own baseline within the analysis window)."
@@ -989,28 +963,28 @@ msgstr ""
 "Procent czasu, w którym każdy sygnał był w stanie Wysokim, Neutralnym i "
 "Niskim (z-score względem własnej linii bazowej w oknie analizy)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:237
+#: gsr/templates/gsr/partials/analysis_main.html:240
 msgid "Time in states (per signal)"
 msgstr "Udział czasu w stanach (per sygnał)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:240
+#: gsr/templates/gsr/partials/analysis_main.html:243
 #: gsr/templates/gsr/partials/cleaning_main.html:80
 msgid "Signal"
 msgstr "Sygnał"
 
-#: gsr/templates/gsr/partials/analysis_main.html:240
+#: gsr/templates/gsr/partials/analysis_main.html:243
 msgid "Distribution"
 msgstr "Rozkład"
 
-#: gsr/templates/gsr/partials/analysis_main.html:240
+#: gsr/templates/gsr/partials/analysis_main.html:243
 msgid "Neutral"
 msgstr "Neutralny"
 
-#: gsr/templates/gsr/partials/analysis_main.html:265
+#: gsr/templates/gsr/partials/analysis_main.html:268
 msgid "The results go into the PDF report and the ZIP."
 msgstr "Wyniki trafiają do raportu PDF i do ZIP."
 
-#: gsr/templates/gsr/partials/analysis_main.html:267
+#: gsr/templates/gsr/partials/analysis_main.html:270
 msgid "Next: Export"
 msgstr "Dalej: Eksport"
 
@@ -1100,12 +1074,11 @@ msgstr "Wykryto identyczne sygnały"
 msgid ""
 "Signal after artifact removal (outliers, jumps), linear interpolation, "
 "Butterworth low-pass filter, and optional median filter. X-axis is relative "
-"time (minutes) from synchronization. Grey: raw signal, ×: rejected samples."
+"time (minutes) from synchronization. Grey: raw signal."
 msgstr ""
 "Sygnał po usunięciu artefaktów (outlierów, skoków), interpolacji liniowej, "
 "filtrze dolnoprzepustowym Butterwortha i opcjonalnym filtrze medianowym. Oś "
-"X to czas względny (minuty) od momentu synchronizacji. Szary: sygnał surowy, "
-"×: odrzucone próbki."
+"X to czas względny (minuty) od momentu synchronizacji. Szary: sygnał surowy."
 
 #: gsr/templates/gsr/partials/cleaning_main.html:55
 #: gsr/templates/gsr/partials/cleaning_main.html:61
@@ -1263,15 +1236,15 @@ msgstr "Podgląd pierwszej strony raportu"
 
 #: gsr/templates/gsr/partials/export_main.html:50
 msgid ""
-"Page 1: the project description, the key figures, the synchronization "
-"timeline and matrix, and the contents. Then import, cleaning, "
-"synchronization and co-arousal with charts, the methodology, and an appendix "
+"Page 1: the project description, the key figures, the signals with marked "
+"synchronization episodes and the matrix, and the contents. Then import, "
+"cleaning, synchronization and co-arousal, the methodology, and an appendix "
 "for reproducibility (settings, versions, SHA-256)."
 msgstr ""
-"Strona 1: opis projektu, najważniejsze liczby, oś czasu i macierz "
-"synchronizacji oraz spis treści. Dalej import, czyszczenie, synchronizacja i "
-"ko-pobudzenie z wykresami, metodologia i załącznik dla odtwarzalności "
-"(ustawienia, wersje, SHA-256)."
+"Strona 1: opis projektu, najważniejsze liczby, sygnały z zaznaczonymi "
+"epizodami synchronizacji i macierz synchronizacji oraz spis treści. Dalej "
+"import, czyszczenie, synchronizacja i ko-pobudzenie, metodologia i załącznik "
+"dla odtwarzalności (ustawienia, wersje, SHA-256)."
 
 #: gsr/templates/gsr/partials/export_main.html:51
 msgid "Report contents"

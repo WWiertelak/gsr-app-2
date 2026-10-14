@@ -1,7 +1,7 @@
 /*
  * Page behaviour: hydrate [data-chart] elements with ECharts (also after HTMX
- * swaps), result switches (pair curves, merged episode table), analysis tabs (ARIA tabs with arrow keys), info
- * tooltips, confirm dialogs, the settings drawer (opened from the run bar, kept open with its unapplied edits across
+ * swaps), the merged co-arousal episode table switch, analysis tabs (ARIA tabs with arrow keys), collapsible result
+ * tables, info tooltips, confirm dialogs, the settings drawer (opened from the run bar, kept open with its unapplied edits across
  * HTMX swaps), the Upload drop zone and its Separate/Overlay view switch, progress for plain form posts and on the
  * button that started a computation, the Upload overlap timeline's analysed-period handles, and the Export screen's
  * chart capture for the PDF report and the ZIP.
@@ -35,11 +35,8 @@
     if (element._gsrChart || !isVisible(element) || !window.echarts || !window.GSRCharts) {
       return;
     }
-    // A chart's "Pair curves" switch (the browser may restore it checked on reload).
-    var pairs = element.id && document.querySelector('[data-pairs-for="' + element.id + '"]');
     var option = window.GSRCharts.build(element.dataset.chart, readData(element.dataset.source), labels(), {
-      name: element.dataset.name,
-      pairs: Boolean(pairs && pairs.checked)
+      name: element.dataset.name
     });
     if (!option) {
       return;
@@ -59,6 +56,26 @@
       merged.hidden = !input.checked;
     }
   }
+
+  // Collapsible result tables: a heading button (aria-expanded) shows or hides its body.
+  function setDisclosure(button, expanded) {
+    var body = document.getElementById(button.getAttribute("aria-controls"));
+    button.setAttribute("aria-expanded", expanded ? "true" : "false");
+    if (body) {
+      body.hidden = !expanded;
+      if (expanded) {
+        hydrate(body);
+      }
+    }
+  }
+
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-disclosure]");
+    if (!button) {
+      return;
+    }
+    setDisclosure(button, button.getAttribute("aria-expanded") !== "true");
+  });
 
   function hydrate(root) {
     (root || document).querySelectorAll("[data-merge-toggle]").forEach(applyMergeToggle);
@@ -113,18 +130,8 @@
   }
 
   document.addEventListener("change", function (event) {
-    var input = event.target;
-    if (input.matches("[data-pairs-for]")) {
-      var element = document.getElementById(input.dataset.pairsFor);
-      if (element && element._gsrChart) {
-        element._gsrChart.dispose();
-        element._gsrChart = null;
-      }
-      if (element) {
-        initChart(element);
-      }
-    } else if (input.matches("[data-merge-toggle]")) {
-      applyMergeToggle(input);
+    if (event.target.matches("[data-merge-toggle]")) {
+      applyMergeToggle(event.target);
     }
   });
 
@@ -530,10 +537,7 @@
     window.GSRCharts.locale = chartLabels.locale || null;
     try {
       document.querySelectorAll("[data-capture-chart]").forEach(function (element) {
-        var option = window.GSRCharts.build(element.dataset.captureChart, readData(element.dataset.source), chartLabels, {
-          capture: true,
-          pairs: true
-        });
+        var option = window.GSRCharts.build(element.dataset.captureChart, readData(element.dataset.source), chartLabels, { capture: true });
         if (!option) {
           return;
         }

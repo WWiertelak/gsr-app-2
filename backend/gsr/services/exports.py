@@ -23,7 +23,6 @@ from .results import stored_pipeline_result
 CHART_KEYS = (
     "raw_overlay",
     "clean_overlay",
-    "sync_timeline",
     "sync_signals",
     "sync_matrix",
     "coarousal_states",
