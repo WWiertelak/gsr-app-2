@@ -18,9 +18,6 @@ from .services.results import FALLBACK_SIGNAL_COLOR
 def chart_labels() -> dict[str, str]:
     """Translated strings the chart builders show (series names, axis names, legends)."""
     return {
-        "groupMean": _("Group mean"),
-        "activeCount": _("Synchronized count"),
-        "threshold": _("Threshold"),
         "minutes": _("min"),
         "microsiemens": "µS",
         "scaled": _("scaled"),
@@ -32,7 +29,6 @@ def chart_labels() -> dict[str, str]:
         "low": _("Low ↓"),
         "comove": _("Co-move ↔"),
         "episodes": _("Episodes"),
-        "inSync": _("in sync"),
         "state": _("State"),
         "timeMin": _("Time (min)"),
         "savePng": _("Save PNG"),
@@ -95,27 +91,12 @@ def _episodes(synchrony: dict[str, Any]) -> list[dict[str, float]]:
 
 
 def timeline_span(synchrony: dict[str, Any]) -> list[float] | None:
-    """Whole minutes around the synchronization windows: the x range of the timeline and of the episode mini bars."""
+    """Whole minutes around the synchronization windows: the x range of the episode mini bars."""
     centers = synchrony.get("windows", {}).get("centers", [])
     if not centers:
         return None
     low, high = math.floor(min(centers)), math.ceil(max(centers))
     return [low, high if high > low else low + 1]
-
-
-def sync_timeline(synchrony: dict[str, Any]) -> dict[str, Any]:
-    windows = synchrony.get("windows", {})
-    return {
-        "span": timeline_span(synchrony),
-        "centers": windows.get("centers", []),
-        "groupMean": windows.get("group_mean", []),
-        "threshold": windows.get("threshold"),
-        "activeCounts": windows.get("active_counts", []),
-        "pairs": [{"name": f"{pair['alias_a']}·{pair['alias_b']}", "values": pair["values"]}
-                  for pair in windows.get("pairs", [])],
-        "episodes": _episodes(synchrony),
-        "aliasCount": len(synchrony.get("aliases", [])),
-    }
 
 
 def sync_signals(synchrony: dict[str, Any], preview: dict[str, Any], colors: dict[str, str]) -> dict[str, Any]:
@@ -175,7 +156,6 @@ def report_charts(payload: dict[str, Any], colors: dict[str, str], config: dict[
     ]
     if synchrony:
         charts += [
-            {"key": "sync_timeline", "kind": "syncTimeline", "data": sync_timeline(synchrony)},
             {"key": "sync_signals", "kind": "episodeSignals", "data": sync_signals(synchrony, preview, colors)},
             {"key": "sync_matrix", "kind": "heatmap", "data": sync_matrix(synchrony)},
         ]

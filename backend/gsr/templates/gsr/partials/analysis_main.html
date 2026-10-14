@@ -15,7 +15,7 @@
       </a>
       <a href="?tab=coarousal" role="tab" id="tab-coarousal" aria-controls="panel-coarousal" aria-labelledby="tab-coarousal-title" aria-describedby="tab-coarousal-desc" data-tab="coarousal" class="{% if tab == 'coarousal' %}active{% endif %}" aria-selected="{% if tab == 'coarousal' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'coarousal' %}0{% else %}-1{% endif %}">
         <span class="tab-title" id="tab-coarousal-title">{% translate "Co-arousal" %}{% if result and coarousal %} {% include "gsr/partials/episode_count.html" with count=coarousal.stats.episode_count %}{% endif %}</span>
-        <span class="tab-desc" id="tab-coarousal-desc">{% translate "Moments when participants share a High or Low arousal state" %}</span>
+        <span class="tab-desc" id="tab-coarousal-desc">{% translate "Shared High or Low arousal states and co-movement episodes" %}</span>
       </a>
     </div>
 

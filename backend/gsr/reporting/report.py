@@ -145,7 +145,6 @@ _TR: dict[str, dict[str, str]] = {
         "sync_cluster": "Klaster",
         "sync_members": "Sygnały",
         "sync_cluster_mean": "Śr. synchronizacja",
-        "sync_charts": "Wykresy synchronizacji",
         # contagion
         "contagion_heading": "Analiza zarażania emocjonalnego (ko-pobudzenie)",
         "contagion_coarousal": "Indeks ko-pobudzenia",
@@ -176,7 +175,6 @@ _TR: dict[str, dict[str, str]] = {
         # charts
         "chart_raw_overlay": "Sygnały RAW (nałożenie)",
         "chart_clean_overlay": "Sygnały po czyszczeniu (nałożenie)",
-        "chart_sync_timeline": "Oś czasu synchronizacji",
         "chart_sync_signals": "Sygnały z zaznaczonymi epizodami",
         "chart_sync_matrix": "Macierz synchronizacji",
         "chart_coarousal_states": "Mapa stanów uczestników w czasie",
@@ -330,7 +328,6 @@ _TR: dict[str, dict[str, str]] = {
         "sync_cluster": "Cluster",
         "sync_members": "Signals",
         "sync_cluster_mean": "Mean synchrony",
-        "sync_charts": "Synchronization charts",
         # contagion
         "contagion_heading": "Emotional-contagion (co-arousal) analysis",
         "contagion_coarousal": "Co-arousal index",
@@ -361,7 +358,6 @@ _TR: dict[str, dict[str, str]] = {
         # charts
         "chart_raw_overlay": "RAW signals (overlay)",
         "chart_clean_overlay": "Cleaned signals (overlay)",
-        "chart_sync_timeline": "Synchronization timeline",
         "chart_sync_signals": "Signals with marked episodes",
         "chart_sync_matrix": "Synchronization matrix",
         "chart_coarousal_states": "Participant state map over time",
@@ -406,12 +402,11 @@ _TR: dict[str, dict[str, str]] = {
     },
 }
 
-# The synchronization timeline (with its pair curves) and matrix are the summary page's charts.
+# The signals with marked synchronization episodes and the matrix are the summary page's charts.
 CHART_SECTIONS = {
-    "summary": ("sync_timeline", "sync_matrix"),
+    "summary": ("sync_signals", "sync_matrix"),
     "import": ("raw_overlay",),
     "cleaning": ("clean_overlay",),
-    "synchrony": ("sync_signals",),
     "coarousal": ("coarousal_states",),
 }
 
@@ -613,8 +608,8 @@ def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, 
     ]
     charts = {chart["key"]: chart for chart in _charts(payload, "summary", lang)}
     blocks: list[dict[str, Any]] = [{"type": "kpis", "items": kpis}]
-    if "sync_timeline" in charts:
-        blocks.append(charts["sync_timeline"])
+    if "sync_signals" in charts:
+        blocks.append(charts["sync_signals"])
     blocks.append({
         "type": "aside",
         "chart": charts.get("sync_matrix"),
@@ -825,9 +820,6 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
                    _table([_tr(lang, "sync_cluster"), _tr(lang, "sync_members"), _tr(lang, "sync_cluster_mean")], rows,
                           numeric=(0, 2))]
 
-    charts = _charts(payload, "synchrony", lang)
-    if charts:
-        blocks += [_h2(_tr(lang, "sync_charts")), *charts]
     return _section("synchrony", _tr(lang, "synchrony_heading"), blocks)
 
 

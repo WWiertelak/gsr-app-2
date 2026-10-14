@@ -15,18 +15,6 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : (n%10>=2 && n%10<=4) && "
 "(n%100<12 || n%100>14) ? 1 : 2);\n"
 
-#: gsr/charts.py:21
-msgid "Group mean"
-msgstr "Średnia grupowa"
-
-#: gsr/charts.py:22
-msgid "Synchronized count"
-msgstr "Liczba zsynchronizowanych"
-
-#: gsr/charts.py:23
-msgid "Threshold"
-msgstr "Próg"
-
 #: gsr/charts.py:24
 msgid "min"
 msgstr "min"
@@ -71,10 +59,6 @@ msgstr "Ko-ruch ↔"
 #: gsr/charts.py:34
 msgid "Episodes"
 msgstr "Epizody"
-
-#: gsr/charts.py:35
-msgid "in sync"
-msgstr "w synchronii"
 
 #: gsr/charts.py:36
 msgid "State"
@@ -663,8 +647,8 @@ msgid "Pairs and subgroups whose signals move together"
 msgstr "Pary i podgrupy, których sygnały zmieniają się razem"
 
 #: gsr/templates/gsr/partials/analysis_main.html:18
-msgid "Moments when participants share a High or Low arousal state"
-msgstr "Momenty, w których uczestnicy są razem w stanie wysokiego lub niskiego pobudzenia"
+msgid "Shared High or Low arousal states and co-movement episodes"
+msgstr "Wspólne stany wysokiego lub niskiego pobudzenia i epizody ko-ruchu"
 
 #: gsr/templates/gsr/partials/analysis_main.html:24
 msgid "No results for this step yet. Set the parameters and run the analysis."

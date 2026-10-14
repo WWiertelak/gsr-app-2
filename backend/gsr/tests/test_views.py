@@ -653,7 +653,7 @@ def test_analysis_run_stores_both_results_in_two_tabs(client, project) -> None:
     fragment = _run_analysis(client, project).content.decode()
     for kind in ("episodeSignals", "heatmap", "coarousalStates"):
         assert f'data-chart="{kind}"' in fragment
-    # The signals with marked episodes replace the synchronization timeline on screen (the PDF keeps it).
+    # The signals with marked episodes replace the synchronization timeline.
     assert 'data-chart="syncTimeline"' not in fragment and "data-pairs-for" not in fragment
     assert 'hx-swap-oob="true"' in fragment and "run-status fresh" in fragment
 
@@ -865,10 +865,10 @@ def test_coarousal_chart_stacks_overlapping_episodes_in_lanes() -> None:
     assert charts.coarousal_states({})["lanes"] == 0
 
 
-def test_sync_timeline_spans_whole_minutes_around_the_windows() -> None:
-    assert charts.sync_timeline({"windows": {"centers": [0.25, 5.5, 11.6]}})["span"] == [0, 12]
-    assert charts.sync_timeline({"windows": {"centers": [3.0]}})["span"] == [3, 4]
-    assert charts.sync_timeline({})["span"] is None
+def test_timeline_span_covers_whole_minutes_around_the_windows() -> None:
+    assert charts.timeline_span({"windows": {"centers": [0.25, 5.5, 11.6]}}) == [0, 12]
+    assert charts.timeline_span({"windows": {"centers": [3.0]}}) == [3, 4]
+    assert charts.timeline_span({}) is None
 
 
 @pytest.mark.django_db
@@ -937,8 +937,9 @@ def test_export_needs_an_analysis_run(client, project) -> None:
 def test_export_screen_offers_report_charts_for_capture(client, project) -> None:
     _run_analysis(client, project)
     page = client.get(reverse("gsr:export", args=[project.pk])).content.decode()
-    for key in ("raw_overlay", "clean_overlay", "sync_timeline", "sync_signals", "sync_matrix", "coarousal_states"):
+    for key in ("raw_overlay", "clean_overlay", "sync_signals", "sync_matrix", "coarousal_states"):
         assert f'data-key="{key}"' in page and f'name="chart_{key}"' in page
+    assert 'data-key="sync_timeline"' not in page
     assert page.count("data-capture-charts") == 2
 
 
@@ -1021,8 +1022,9 @@ def test_export_zip_bundles_tables_json_and_posted_chart_pngs(client, project) -
     response = client.post(
         reverse("gsr:export_zip", args=[project.pk]),
         {
-            "chart_sync_timeline": _png_data_url(),
+            "chart_sync_signals": _png_data_url(),
             "chart_sync_matrix": "data:image/png;base64,bm90IGEgcG5n",  # "not a png"
+            "chart_sync_timeline": _png_data_url(),
             "chart_unknown": _png_data_url(),
         },
     )
@@ -1033,9 +1035,9 @@ def test_export_zip_bundles_tables_json_and_posted_chart_pngs(client, project) -
         "clean_signals.csv", "analysis_input_merged.csv", "synchrony_episodes.csv", "synchrony_pairs.csv",
         "synchrony_windows.csv", "coarousal_episodes.csv", "coarousal_state_timeline.csv",
         "coarousal_state_percentages.csv", "run_settings_and_results.json",
-        "charts/sync_timeline.png",
+        "charts/sync_signals.png",
     } == names
-    assert archive.read("charts/sync_timeline.png").startswith(b"\x89PNG")
+    assert archive.read("charts/sync_signals.png").startswith(b"\x89PNG")
 
 
 @pytest.mark.django_db
@@ -1047,7 +1049,7 @@ def test_export_pdf_follows_ui_language_and_embeds_charts(client, project) -> No
     assert without_charts.status_code == 200 and without_charts["Content-Type"] == "application/pdf"
     assert without_charts.content.startswith(b"%PDF") and "report_pl.pdf" in without_charts["Content-Disposition"]
 
-    with_charts = client.post(url, {"chart_sync_timeline": _png_data_url(), "chart_coarousal_states": _png_data_url()})
+    with_charts = client.post(url, {"chart_sync_signals": _png_data_url(), "chart_coarousal_states": _png_data_url()})
     assert with_charts.content.startswith(b"%PDF") and len(with_charts.content) > len(without_charts.content)
 
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
@@ -1061,7 +1063,7 @@ def test_export_screen_shows_report_card_language_select_and_file_names(client, 
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:export", args=[project.pk])).content.decode()
     assert "Outdated" not in page and "data-stale-banner" not in page and "is-stale" not in page
-    for item in ("Summary page", "Synchronization", "Co-arousal", "Methodology", "Reproducibility", "6 charts"):
+    for item in ("Summary page", "Synchronization", "Co-arousal", "Methodology", "Reproducibility", "5 charts"):
         assert f"</svg>{item}</li>" in page
     assert '<select name="lang" data-report-lang-select>' in page
     assert '<option value="en" selected>English</option>' in page and '<option value="pl">Polski</option>' in page
@@ -1071,8 +1073,8 @@ def test_export_screen_shows_report_card_language_select_and_file_names(client, 
                  "coarousal_state_percentages.csv", "run_settings_and_results.json", "results.zip"):
         assert f"sesja-odzka_{name}" in page
     labels = json.loads(page.split('<script id="report-chart-labels" type="application/json">')[1].split("</script>")[0])
-    assert labels["pl"]["activeCount"] == "Liczba zsynchronizowanych" and labels["pl"]["locale"] == "pl"
-    assert labels["en"]["activeCount"] == "Synchronized count"
+    assert labels["pl"]["timeWindow"] == "Zakres czasu" and labels["pl"]["locale"] == "pl"
+    assert labels["en"]["timeWindow"] == "Time window"
 
 
 @pytest.mark.django_db
@@ -1145,12 +1147,12 @@ def test_export_pdf_uses_the_chosen_report_language(client, project, monkeypatch
 @pytest.mark.django_db
 def test_language_switch_translates_screens_and_chart_labels(client, project) -> None:
     page = client.get(reverse("gsr:projects")).content.decode()
-    assert '<html lang="pl">' in page and "Nowy projekt" in page and "Liczba zsynchronizowanych" in page
+    assert '<html lang="pl">' in page and "Nowy projekt" in page and "Zakres czasu" in page
 
     response = client.post(reverse("set_language"), {"language": "en", "next": reverse("gsr:cleaning", args=[project.pk])})
     assert response.status_code == 302 and response["Location"] == reverse("gsr:cleaning", args=[project.pk])
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
-    assert '<html lang="en">' in page and "Cleaning settings" in page and "Synchronized count" in page
+    assert '<html lang="en">' in page and "Cleaning settings" in page and "Time window" in page
 
     client.post(reverse("set_language"), {"language": "pl", "next": "/"})
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
