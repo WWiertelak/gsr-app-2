@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-13 19:46+0000\n"
+"POT-Creation-Date: 2026-10-14 05:42+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -568,7 +568,7 @@ msgstr "Filtry: %(enabled)d/%(total)d"
 msgid "Median: %(value)s"
 msgstr "Mediana: %(value)s"
 
-#: gsr/params.py:323
+#: gsr/params.py:323 gsr/params.py:358
 msgid "off"
 msgstr "wył."
 
@@ -591,6 +591,10 @@ msgstr "Próg wysoki/niski z: %(high)s/%(low)s"
 #, python-format
 msgid "Min. participants: %(value)s"
 msgstr "Min. uczestników: %(value)s"
+
+#: gsr/params.py:358
+msgid "on"
+msgstr "wł."
 
 #: gsr/services/results.py:229
 msgid "The file is missing. Upload it again."
@@ -681,7 +685,7 @@ msgstr "Wyniki analizy"
 msgid "No results for this step yet. Set the parameters and run the analysis."
 msgstr "Brak wyników dla tego kroku. Ustaw parametry i uruchom analizę."
 
-#: gsr/templates/gsr/partials/analysis_main.html:52 gsr/tests/test_views.py:812
+#: gsr/templates/gsr/partials/analysis_main.html:52 gsr/tests/test_views.py:896
 msgid "Run analysis"
 msgstr "Uruchom analizę"
 
@@ -691,13 +695,13 @@ msgstr ""
 "Ustawienia lub sygnały zmieniły się od tego obliczenia. Uruchom analizę "
 "ponownie."
 
-#: gsr/templates/gsr/partials/analysis_main.html:59
-#: gsr/templates/gsr/partials/export_main.html:36
+#: gsr/templates/gsr/partials/analysis_main.html:59 gsr/views.py:628
+#: gsr/views.py:651
 msgid "Synchronization"
 msgstr "Synchronizacja"
 
-#: gsr/templates/gsr/partials/analysis_main.html:60
-#: gsr/templates/gsr/partials/export_main.html:42
+#: gsr/templates/gsr/partials/analysis_main.html:60 gsr/views.py:633
+#: gsr/views.py:653
 msgid "Co-arousal"
 msgstr "Ko-pobudzenie"
 
@@ -1202,112 +1206,108 @@ msgstr "Błąd"
 msgid "Exclude %(alias)s"
 msgstr "Wyklucz %(alias)s"
 
-#: gsr/templates/gsr/partials/export_main.html:5
+#: gsr/templates/gsr/partials/export_main.html:6
 msgid "Run the analysis first; the export takes the results of the last run."
 msgstr ""
 "Najpierw uruchom analizę; eksport korzysta z wyników ostatniego obliczenia."
 
-#: gsr/templates/gsr/partials/export_main.html:5
+#: gsr/templates/gsr/partials/export_main.html:6
 msgid "Go to Analysis"
 msgstr "Przejdź do analizy"
 
-#: gsr/templates/gsr/partials/export_main.html:9
-msgid ""
-"Settings or signals changed after the last run. The exports describe the "
-"last run; run the analysis again to include the changes."
-msgstr ""
-"Ustawienia lub sygnały zmieniły się po ostatnim obliczeniu. Eksport opisuje "
-"ostatnie obliczenie; uruchom analizę ponownie, aby uwzględnić zmiany."
-
 #: gsr/templates/gsr/partials/export_main.html:13
+#, python-format
+msgid "The export describes the run from %(time)s"
+msgstr "Eksport opisuje obliczenie z %(time)s"
+
+#: gsr/templates/gsr/partials/export_main.html:14
+msgid "Changed since then:"
+msgstr "Od tego czasu zmieniono:"
+
+#: gsr/templates/gsr/partials/export_main.html:14
+msgid "Settings or signals changed since then."
+msgstr "Od tego czasu zmieniono ustawienia lub sygnały."
+
+#: gsr/templates/gsr/partials/export_main.html:14
+msgid "Run the analysis again to include the changes."
+msgstr "Uruchom analizę ponownie, aby uwzględnić zmiany."
+
+#: gsr/templates/gsr/partials/export_main.html:19
+msgid "Run the analysis again"
+msgstr "Uruchom analizę ponownie"
+
+#: gsr/templates/gsr/partials/export_main.html:21
+#, python-format
+msgid "Export the %(time)s run anyway"
+msgstr "Mimo to eksportuj obliczenie z %(time)s"
+
+#: gsr/templates/gsr/partials/export_main.html:30
 msgid "PDF report"
 msgstr "Raport PDF"
 
-#: gsr/templates/gsr/partials/export_main.html:14
-msgid ""
-"The report for other researchers: project description, results summary, "
-"import, cleaning, synchronization and co-arousal results with charts, "
-"methodology, and the data needed to reproduce the run. Its language follows "
-"the UI language (PL/EN)."
-msgstr ""
-"Raport dla innych badaczy: opis projektu, podsumowanie wyników, import, "
-"czyszczenie, wyniki synchronizacji i ko-pobudzenia z wykresami, metodologia "
-"oraz dane potrzebne do odtworzenia obliczeń. Język raportu odpowiada "
-"językowi interfejsu (PL/EN)."
+#: gsr/templates/gsr/partials/export_main.html:31
+msgid "for other researchers"
+msgstr "dla innych badaczy"
 
-#: gsr/templates/gsr/partials/export_main.html:18
+#: gsr/templates/gsr/partials/export_main.html:45
+msgid "Preview of the report's first page"
+msgstr "Podgląd pierwszej strony raportu"
+
+#: gsr/templates/gsr/partials/export_main.html:48
+msgid ""
+"Project description, the main results on one summary page, then import, "
+"cleaning, synchronization and co-arousal with charts, the methodology, and "
+"an appendix for reproducibility (settings, versions, SHA-256)."
+msgstr ""
+"Opis projektu, najważniejsze wyniki na jednej stronie podsumowania, potem "
+"import, czyszczenie, synchronizacja i ko-pobudzenie z wykresami, metodologia "
+"i załącznik dla odtwarzalności (ustawienia, wersje, SHA-256)."
+
+#: gsr/templates/gsr/partials/export_main.html:49
+msgid "Report contents"
+msgstr "Zawartość raportu"
+
+#: gsr/templates/gsr/partials/export_main.html:56
+msgid "Report language"
+msgstr "Język raportu"
+
+#: gsr/templates/gsr/partials/export_main.html:63
 msgid "Generate PDF report"
 msgstr "Generuj raport PDF"
 
-#: gsr/templates/gsr/partials/export_main.html:19
+#: gsr/templates/gsr/partials/export_main.html:68
+msgid "the report language is independent of the UI language"
+msgstr "język raportu nie zależy od języka interfejsu"
+
+#: gsr/templates/gsr/partials/export_main.html:68
+msgid "charts are drawn from the same data as on screen"
+msgstr "wykresy rysowane z tych samych danych co na ekranie"
+
+#: gsr/templates/gsr/partials/export_main.html:76
+msgid "Data files"
+msgstr "Pliki danych"
+
+#: gsr/templates/gsr/partials/export_main.html:80
+msgid "Download all (ZIP)"
+msgstr "Pobierz wszystko (ZIP)"
+
+#: gsr/templates/gsr/partials/export_main.html:83
 #, python-format
-msgid "Results of the run from %(time)s"
-msgstr "Wyniki obliczenia z %(time)s"
-
-#: gsr/templates/gsr/partials/export_main.html:24
-msgid "Data"
-msgstr "Dane"
-
-#: gsr/templates/gsr/partials/export_main.html:25
 msgid ""
-"A ZIP with every file below plus the report charts as PNG. Every chart on "
-"the screens also has its own “Save PNG” button."
+"Every file below plus the report charts as PNG, in <code>%(name)s</code>. "
+"Every chart on the screens also has its own “Save PNG” button."
 msgstr ""
-"Archiwum ZIP ze wszystkimi plikami poniżej oraz wykresami raportu w PNG. "
+"Wszystkie pliki poniżej oraz wykresy raportu w PNG, w <code>%(name)s</code>. "
 "Każdy wykres na ekranach ma też własny przycisk „Zapisz PNG”."
 
-#: gsr/templates/gsr/partials/export_main.html:29
-msgid "Download ZIP"
-msgstr "Pobierz ZIP"
+#: gsr/templates/gsr/partials/export_main.html:93
+#, python-format
+msgid "Download %(name)s"
+msgstr "Pobierz %(name)s"
 
-#: gsr/templates/gsr/partials/export_main.html:32
-msgid "Cleaned signals CSV"
-msgstr "CSV sygnałów po czyszczeniu"
-
-#: gsr/templates/gsr/partials/export_main.html:32
-msgid "per participant, relative time, full resolution"
-msgstr "per uczestnik, czas względny, pełna rozdzielczość"
-
-#: gsr/templates/gsr/partials/export_main.html:34
-msgid "Analysis-ready merged CSV"
-msgstr "Połączony CSV do analizy"
-
-#: gsr/templates/gsr/partials/export_main.html:34
-msgid "scaled, downsampled, shared time axis"
-msgstr "skalowany, po downsamplingu, wspólna oś czasu"
-
-#: gsr/templates/gsr/partials/export_main.html:36
-msgid "episodes, pairs, windows"
-msgstr "epizody, pary, okna"
-
-#: gsr/templates/gsr/partials/export_main.html:38
-#: gsr/templates/gsr/partials/export_main.html:44
-msgid "episodes"
-msgstr "epizody"
-
-#: gsr/templates/gsr/partials/export_main.html:39
-msgid "pairs"
-msgstr "pary"
-
-#: gsr/templates/gsr/partials/export_main.html:40
-msgid "windows"
-msgstr "okna"
-
-#: gsr/templates/gsr/partials/export_main.html:42
-msgid "episodes, state timeline, time in states"
-msgstr "epizody, stany w czasie, udział czasu w stanach"
-
-#: gsr/templates/gsr/partials/export_main.html:45
-msgid "states"
-msgstr "stany"
-
-#: gsr/templates/gsr/partials/export_main.html:48
-msgid "Run settings + results JSON"
-msgstr "JSON z ustawieniami i wynikami"
-
-#: gsr/templates/gsr/partials/export_main.html:48
-msgid "reproducibility: settings, library versions, file SHA-256"
-msgstr "odtwarzalność: ustawienia, wersje bibliotek, SHA-256 plików"
+#: gsr/templates/gsr/partials/export_main.html:98
+msgid "Choose"
+msgstr "Wybierz"
 
 #: gsr/templates/gsr/partials/param_field.html:14
 #, python-format
@@ -1416,7 +1416,7 @@ msgstr "Status"
 msgid "Save"
 msgstr "Zapisz"
 
-#: gsr/templates/gsr/partials/upload_main.html:47 gsr/tests/test_views.py:813
+#: gsr/templates/gsr/partials/upload_main.html:47 gsr/tests/test_views.py:897
 #, python-format
 msgid "%(counter)s Excel fix"
 msgid_plural "%(counter)s Excel fixes"
@@ -1567,48 +1567,48 @@ msgstr "Czy na pewno usunąć projekt?"
 msgid "No saved projects yet. Create one to get started."
 msgstr "Brak zapisanych projektów. Utwórz pierwszy projekt, aby zacząć."
 
-#: gsr/views.py:74
+#: gsr/views.py:75 gsr/views.py:649
 msgid "Import"
 msgstr "Import"
 
-#: gsr/views.py:74
+#: gsr/views.py:75 gsr/views.py:649
 msgid "Cleaning"
 msgstr "Czyszczenie"
 
-#: gsr/views.py:74
+#: gsr/views.py:75
 msgid "Analysis"
 msgstr "Analiza"
 
-#: gsr/views.py:74
+#: gsr/views.py:75
 msgid "Export"
 msgstr "Eksport"
 
-#: gsr/views.py:87
+#: gsr/views.py:88
 msgid "no recordings"
 msgstr "brak nagrań"
 
-#: gsr/views.py:89
+#: gsr/views.py:90
 #, python-format
 msgid "computed %(time)s"
 msgstr "obliczono %(time)s"
 
-#: gsr/views.py:89 gsr/views.py:109
+#: gsr/views.py:90 gsr/views.py:110
 msgid "not run"
 msgstr "nie uruchomiono"
 
-#: gsr/views.py:90
+#: gsr/views.py:91
 msgid "ready"
 msgstr "gotowy"
 
-#: gsr/views.py:90
+#: gsr/views.py:91
 msgid "needs analysis"
 msgstr "wymaga analizy"
 
-#: gsr/views.py:101
+#: gsr/views.py:102
 msgid "outdated"
 msgstr "nieaktualne"
 
-#: gsr/views.py:114
+#: gsr/views.py:115
 #, python-format
 msgid "%(count)s recording"
 msgid_plural "%(count)s recordings"
@@ -1616,7 +1616,7 @@ msgstr[0] "%(count)s nagranie"
 msgstr[1] "%(count)s nagrania"
 msgstr[2] "%(count)s nagrań"
 
-#: gsr/views.py:119
+#: gsr/views.py:120
 #, python-format
 msgid "%(count)s rejected sample"
 msgid_plural "%(count)s rejected samples"
@@ -1624,61 +1624,164 @@ msgstr[0] "%(count)s odrzucona próbka"
 msgstr[1] "%(count)s odrzucone próbki"
 msgstr[2] "%(count)s odrzuconych próbek"
 
-#: gsr/views.py:149
+#: gsr/views.py:150
 msgid "Project name is required."
 msgstr "Nazwa projektu jest wymagana."
 
-#: gsr/views.py:151
+#: gsr/views.py:152
 msgid "Project name cannot exceed 200 characters."
 msgstr "Nazwa projektu nie może przekraczać 200 znaków."
 
-#: gsr/views.py:169
+#: gsr/views.py:170
 msgid "Project name is required (up to 200 characters)."
 msgstr "Nazwa projektu jest wymagana (do 200 znaków)."
 
-#: gsr/views.py:174
+#: gsr/views.py:175
 msgid "Project details saved."
 msgstr "Zapisano dane projektu."
 
-#: gsr/views.py:182
+#: gsr/views.py:183
 msgid "Project deleted."
 msgstr "Projekt usunięty."
 
-#: gsr/views.py:194
+#: gsr/views.py:195
 msgid "Choose at least one CSV file."
 msgstr "Wybierz co najmniej jeden plik CSV."
 
-#: gsr/views.py:201
+#: gsr/views.py:202
 #, python-format
 msgid "Uploaded %(file)s as %(alias)s."
 msgstr "Wgrano %(file)s jako %(alias)s."
 
-#: gsr/views.py:260
+#: gsr/views.py:261
 #, python-format
 msgid "Alias already exists in project: %(alias)s"
 msgstr "Alias już istnieje w projekcie: %(alias)s"
 
-#: gsr/views.py:266
+#: gsr/views.py:267
 #, python-format
 msgid "Signal renamed to %(alias)s."
 msgstr "Zmieniono nazwę sygnału na %(alias)s."
 
-#: gsr/views.py:279
+#: gsr/views.py:280
 #, python-format
 msgid "Signal %(alias)s excluded from cleaning and analysis."
 msgstr "Sygnał %(alias)s wykluczono z czyszczenia i analizy."
 
-#: gsr/views.py:303
+#: gsr/views.py:306
 #, python-format
 msgid "Signal %(alias)s deleted."
 msgstr "Usunięto sygnał %(alias)s."
 
-#: gsr/views.py:345
+#: gsr/views.py:348
 #, python-format
 msgid "rejected %(rejected)s of %(total)s samples"
 msgstr "odrzucono %(rejected)s z %(total)s próbek"
 
-#: gsr/views.py:495
+#: gsr/views.py:498
 #, python-format
 msgid "subgroups of ≥ %(size)s people above %(threshold)s"
 msgstr "podgrupy ≥ %(size)s osób powyżej %(threshold)s"
+
+#: gsr/views.py:605
+#, python-format
+msgid "Signals added: %(aliases)s"
+msgstr "Dodane sygnały: %(aliases)s"
+
+#: gsr/views.py:607
+#, python-format
+msgid "Signals removed: %(aliases)s"
+msgstr "Usunięte sygnały: %(aliases)s"
+
+#: gsr/views.py:608
+#, python-format
+msgid "Signal renamed: %(old)s → %(new)s"
+msgstr "Zmieniona nazwa sygnału: %(old)s → %(new)s"
+
+#: gsr/views.py:624
+msgid "Cleaned signals"
+msgstr "Sygnały po czyszczeniu"
+
+#: gsr/views.py:624
+msgid "per participant, relative time, full resolution"
+msgstr "per uczestnik, czas względny, pełna rozdzielczość"
+
+#: gsr/views.py:626
+msgid "Analysis-ready merged file"
+msgstr "Połączony plik do analizy"
+
+#: gsr/views.py:626
+msgid "scaled, downsampled, shared time axis"
+msgstr "skalowany, po downsamplingu, wspólna oś czasu"
+
+#: gsr/views.py:628
+msgid "episodes, pairs, windows"
+msgstr "epizody, pary, okna"
+
+#: gsr/views.py:629 gsr/views.py:634
+msgid "episodes"
+msgstr "epizody"
+
+#: gsr/views.py:630
+msgid "pairs"
+msgstr "pary"
+
+#: gsr/views.py:631
+msgid "windows"
+msgstr "okna"
+
+#: gsr/views.py:633
+msgid "episodes, state timeline, time in states"
+msgstr "epizody, stany w czasie, udział czasu w stanach"
+
+#: gsr/views.py:635
+msgid "state timeline"
+msgstr "oś stanów"
+
+#: gsr/views.py:636
+msgid "time in states"
+msgstr "udział czasu w stanach"
+
+#: gsr/views.py:638
+msgid "Run settings and results"
+msgstr "Ustawienia i wyniki obliczenia"
+
+#: gsr/views.py:638
+msgid "for reproducibility: settings, library versions, file SHA-256"
+msgstr "dla odtwarzalności: ustawienia, wersje bibliotek, SHA-256 plików"
+
+#: gsr/views.py:640
+msgid "Charts"
+msgstr "Wykresy"
+
+#: gsr/views.py:640
+#, python-format
+msgid "%(count)d report chart, 2× resolution, white background, in the ZIP"
+msgid_plural ""
+"%(count)d report charts, 2× resolution, white background, in the ZIP"
+msgstr[0] ""
+"%(count)d wykres raportu, rozdzielczość 2×, białe tło, w archiwum ZIP"
+msgstr[1] ""
+"%(count)d wykresy raportu, rozdzielczość 2×, białe tło, w archiwum ZIP"
+msgstr[2] ""
+"%(count)d wykresów raportu, rozdzielczość 2×, białe tło, w archiwum ZIP"
+
+#: gsr/views.py:649
+msgid "Summary page"
+msgstr "Strona podsumowania"
+
+#: gsr/views.py:654
+msgid "Methodology"
+msgstr "Metodologia"
+
+#: gsr/views.py:654
+msgid "Reproducibility"
+msgstr "Odtwarzalność"
+
+#: gsr/views.py:655
+#, python-format
+msgid "%(count)d chart"
+msgid_plural "%(count)d charts"
+msgstr[0] "%(count)d wykres"
+msgstr[1] "%(count)d wykresy"
+msgstr[2] "%(count)d wykresów"

@@ -11,6 +11,7 @@ import json
 from typing import Any
 
 import pandas as pd
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -18,7 +19,7 @@ from django.db.models import Count
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import timezone, translation
 from django.utils.formats import number_format
 from django.utils.text import slugify
 from django.utils.translation import get_language, ngettext
@@ -29,7 +30,7 @@ from . import charts, params
 from .errors import UserError, describe, no_overlap_message
 from .models import AnalysisResult, Dataset, Project
 from .pipeline.config import PipelineConfig
-from .reporting.report import render_report_pdf
+from .reporting.report import render_report_pdf, report_text, resolve_lang
 from .services import exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
@@ -279,7 +280,7 @@ def dataset_exclude(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespo
         messages.success(request, _("Signal %(alias)s excluded from cleaning and analysis.") % {"alias": dataset.alias})
     if step == "cleaning":
         error = _run(compute_cleaning, project, step)
-    elif step == "analysis":
+    elif step in ("analysis", "export"):
         error = _run(compute_analysis, project, step)
     else:
         return redirect("gsr:upload", project.pk)
@@ -289,6 +290,8 @@ def dataset_exclude(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespo
         return redirect(f"gsr:{step}", project.pk)
     if step == "cleaning":
         return _page(request, project, step, "gsr/partials/cleaning_main.html", _cleaning_context(project, error))
+    if step == "export":
+        return _page(request, project, step, "gsr/partials/export_main.html", _export_context(project, error))
     return _page(
         request, project, step, "gsr/partials/analysis_main.html", _analysis_context(project, ANALYSIS_TABS[0], error)
     )
@@ -588,14 +591,130 @@ def _attachment(content: bytes, filename: str, content_type: str) -> HttpRespons
     return response
 
 
+def _stale_causes(project: Project, result: AnalysisResult) -> list[str]:
+    """What changed since the exported run: settings as "label old → new", then added, removed or renamed signals."""
+    try:
+        causes = params.changed_settings(PipelineConfig.from_dict(result.config).model_dump(), _current_values(project))
+    except ValueError:
+        causes = []
+    before = dict(zip(result.dataset_ids, (row["alias"] for row in result.payload.get("datasets", []))))
+    now = {str(dataset.id): dataset.alias for dataset in included_datasets(project)}
+    added = [alias for key, alias in now.items() if key not in before]
+    removed = [alias for key, alias in before.items() if key not in now]
+    if added:
+        causes.append(_("Signals added: %(aliases)s") % {"aliases": ", ".join(added)})
+    if removed:
+        causes.append(_("Signals removed: %(aliases)s") % {"aliases": ", ".join(removed)})
+    causes += [_("Signal renamed: %(old)s → %(new)s") % {"old": alias, "new": now[key]}
+               for key, alias in before.items() if key in now and now[key] != alias]
+    return causes
+
+
+def _export_file(project: Project, name: str, label: str = "") -> dict[str, str]:
+    return {"name": _download_name(project, name), "label": label,
+            "url": reverse("gsr:export_file", args=[project.pk, name])}
+
+
+def _export_groups(project: Project, chart_count: int) -> list[dict[str, Any]]:
+    """The Data card's rows: each with its download name(s); grouped CSVs share one menu."""
+    def row(title: str, description: str, kind: str, files: list[dict[str, str]]) -> dict[str, Any]:
+        return {"title": title, "description": description, "kind": kind, "files": files}
+
+    return [
+        row(_("Cleaned signals"), _("per participant, relative time, full resolution"), "CSV",
+            [_export_file(project, "clean_signals.csv")]),
+        row(_("Analysis-ready merged file"), _("scaled, downsampled, shared time axis"), "CSV",
+            [_export_file(project, "analysis_input_merged.csv")]),
+        row(_("Synchronization"), _("episodes, pairs, windows"), "CSV×3", [
+            _export_file(project, "synchrony_episodes.csv", _("episodes")),
+            _export_file(project, "synchrony_pairs.csv", _("pairs")),
+            _export_file(project, "synchrony_windows.csv", _("windows")),
+        ]),
+        row(_("Co-arousal"), _("episodes, state timeline, time in states"), "CSV×3", [
+            _export_file(project, "coarousal_episodes.csv", _("episodes")),
+            _export_file(project, "coarousal_state_timeline.csv", _("state timeline")),
+            _export_file(project, "coarousal_state_percentages.csv", _("time in states")),
+        ]),
+        row(_("Run settings and results"), _("for reproducibility: settings, library versions, file SHA-256"),
+            "JSON", [_export_file(project, "run_settings_and_results.json")]),
+        row(_("Charts"), ngettext("%(count)d report chart, 2× resolution, white background, in the ZIP",
+                                  "%(count)d report charts, 2× resolution, white background, in the ZIP",
+                                  chart_count) % {"count": chart_count}, "PNG", []),
+    ]
+
+
+def _report_contents(result: AnalysisResult, chart_count: int) -> list[str]:
+    """The PDF report's sections as the report card lists them (the report skips analyses that did not run)."""
+    payload = result.payload
+    contents = [_("Summary page"), _("Import"), _("Cleaning")]
+    if payload.get("synchrony"):
+        contents.append(_("Synchronization"))
+    if payload.get("coarousal"):
+        contents.append(_("Co-arousal"))
+    contents += [_("Methodology"), _("Reproducibility"),
+                 ngettext("%(count)d chart", "%(count)d charts", chart_count) % {"count": chart_count}]
+    return contents
+
+
+def _report_languages(project: Project, result: AnalysisResult) -> list[dict[str, Any]]:
+    """Per report language: its name, PDF file name, page-1 preview texts and chart labels (charts are captured
+    in the browser, so an English report needs English chart labels whatever the UI language)."""
+    languages = []
+    for code, name in settings.LANGUAGES:
+        with translation.override(code):
+            labels = {**charts.chart_labels(), "locale": code}
+        languages.append({
+            "code": code,
+            "name": name,
+            "file_name": _download_name(project, f"report_{code}.pdf"),
+            "title": report_text(code, "report_title"),
+            "meta": [
+                (report_text(code, "computed_at"), timezone.localtime(result.computed_at).strftime("%Y-%m-%d %H:%M")),
+                (report_text(code, "signals"),
+                 ", ".join(row["alias"] for row in result.payload.get("datasets", [])) or "-"),
+            ],
+            "chart_labels": labels,
+        })
+    return languages
+
+
 def export(request: HttpRequest, pk: Any) -> HttpResponse:
     project = _project(pk)
+    return _page(request, project, "export", "gsr/partials/export_main.html", _export_context(project))
+
+
+def _export_context(project: Project, error: UserError | None = None) -> dict[str, Any]:
     result = get_result(project, AnalysisResult.KIND_ANALYSIS)
-    context: dict[str, Any] = {"result": result, "stale": is_stale(project, result)}
+    stale = is_stale(project, result)
+    context: dict[str, Any] = {"result": result, "stale": stale, "error": error}
     if result is not None:
         values = PipelineConfig.from_dict(result.config).model_dump()
-        context["report_charts"] = charts.report_charts(result.payload, signal_colors(project), values)
-    return _page(request, project, "export", "gsr/partials/export_main.html", context)
+        report_charts = charts.report_charts(result.payload, signal_colors(project), values)
+        languages = _report_languages(project, result)
+        context.update(
+            report_charts=report_charts,
+            report_contents=_report_contents(result, len(report_charts)),
+            report_languages=languages,
+            report_lang=resolve_lang(get_language()),
+            report_chart_labels={lang["code"]: lang["chart_labels"] for lang in languages},
+            export_groups=_export_groups(project, len(report_charts)),
+            zip_name=_download_name(project, "results.zip"),
+            computed_time=_computed_time(result),
+            stale_causes=_stale_causes(project, result) if stale else [],
+        )
+    return context
+
+
+@require_POST
+def export_rerun(request: HttpRequest, pk: Any) -> HttpResponse:
+    """The outdated-run banner's "Run the analysis again": rerun with the current settings and signals."""
+    project = _project(pk)
+    error = _run(compute_analysis, project, "export")
+    if not _is_htmx(request):
+        if error:
+            messages.error(request, error.message)
+        return redirect("gsr:export", project.pk)
+    return _page(request, project, "export", "gsr/partials/export_main.html", _export_context(project, error))
 
 
 def _results_json(project: Project, result: AnalysisResult) -> bytes:
@@ -661,12 +780,13 @@ def report_payload(project: Project, result: AnalysisResult, chart_images: dict[
 
 
 def export_pdf(request: HttpRequest, pk: Any) -> HttpResponse:
-    """The PDF report in the current UI language; charts come from the Export screen's capture."""
+    """The PDF report in the chosen report language (the UI language by default); charts come from the Export
+    screen's capture."""
     if request.method not in ("GET", "POST"):
         return HttpResponseNotAllowed(["GET", "POST"])
     project = _project(pk)
     result = _analysis_result_or_404(project)
     chart_images = exports.parse_chart_images(request.POST) if request.method == "POST" else {}
-    lang = get_language() or "pl"
+    lang = resolve_lang(request.POST.get("lang") or request.GET.get("lang") or get_language())
     content = render_report_pdf(report_payload(project, result, chart_images, lang))
     return _attachment(content, _download_name(project, f"report_{lang[:2]}.pdf"), "application/pdf")

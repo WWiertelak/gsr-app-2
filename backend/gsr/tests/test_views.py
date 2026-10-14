@@ -788,6 +788,90 @@ def test_export_pdf_follows_ui_language_and_embeds_charts(client, project) -> No
     assert "report_en.pdf" in english["Content-Disposition"]
 
 
+@pytest.mark.django_db
+def test_export_screen_shows_report_card_language_select_and_file_names(client, project) -> None:
+    _run_analysis(client, project)
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    page = client.get(reverse("gsr:export", args=[project.pk])).content.decode()
+    assert "Outdated" not in page and "data-stale-banner" not in page and "is-stale" not in page
+    for item in ("Summary page", "Synchronization", "Co-arousal", "Methodology", "Reproducibility", "6 charts"):
+        assert f"</svg>{item}</li>" in page
+    assert '<select name="lang" data-report-lang-select>' in page
+    assert '<option value="en" selected>English</option>' in page and '<option value="pl">Polski</option>' in page
+    assert "sesja-odzka_report_en.pdf" in page and "sesja-odzka_report_pl.pdf" in page
+    assert "GSR Analysis Report" in page and "Raport analizy GSR" in page  # page-1 preview per report language
+    for name in ("clean_signals.csv", "analysis_input_merged.csv", "synchrony_pairs.csv",
+                 "coarousal_state_percentages.csv", "run_settings_and_results.json", "results.zip"):
+        assert f"sesja-odzka_{name}" in page
+    labels = json.loads(page.split('<script id="report-chart-labels" type="application/json">')[1].split("</script>")[0])
+    assert labels["pl"]["activeCount"] == "Liczba zsynchronizowanych" and labels["pl"]["locale"] == "pl"
+    assert labels["en"]["activeCount"] == "Synchronized count"
+
+
+@pytest.mark.django_db
+def test_export_outdated_banner_names_the_change_and_reruns(client, project) -> None:
+    _run_analysis(client, project)
+    stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
+    project.refresh_from_db()
+    project.pipeline_config = {**project.pipeline_config, "contagion_high_z": 1.5}
+    project.save()
+    dataset = project.datasets.get(alias="C")
+    client.post(reverse("gsr:dataset_rename", args=[project.pk, dataset.pk]), {"alias": "Cezary"})
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+
+    page = client.get(reverse("gsr:export", args=[project.pk])).content.decode()
+    assert "data-stale-banner" in page and 'class="export-grid is-stale"' in page
+    assert "The export describes the run from" in page and "Export the" in page
+    assert "High threshold (z): 1 → 1.5" in page and "Signal renamed: C → Cezary" in page
+    assert reverse("gsr:export_rerun", args=[project.pk]) in page
+
+    response = client.post(reverse("gsr:export_rerun", args=[project.pk]), **HTMX)
+    assert response.status_code == 200
+    page = response.content.decode()
+    assert "data-stale-banner" not in page and 'id="rail-steps" hx-swap-oob="true"' in page
+    rerun = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
+    assert rerun.computed_at > stored.computed_at and rerun.config["contagion_high_z"] == 1.5
+
+
+@pytest.mark.django_db
+def test_export_banner_lists_added_and_removed_signals(client, project) -> None:
+    project.datasets.filter(alias="B").update(included=False)
+    _run_analysis(client, project)
+    project.datasets.filter(alias="B").update(included=True)
+    project.datasets.filter(alias="C").update(included=False)
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    page = client.get(reverse("gsr:export", args=[project.pk])).content.decode()
+    assert "Signals added: B" in page and "Signals removed: C" in page
+
+
+@pytest.mark.django_db
+def test_export_rerun_failure_shows_the_error_on_the_export_screen(client, project) -> None:
+    _run_analysis(client, project)
+    project.datasets.exclude(alias="A").update(included=False)
+    response = client.post(reverse("gsr:export_rerun", args=[project.pk]), **HTMX)
+    page = response.content.decode()
+    assert 'class="alert error"' in page and "data-stale-banner" in page
+
+    response = client.post(reverse("gsr:export_rerun", args=[project.pk]))
+    assert response.status_code == 302 and response["Location"] == reverse("gsr:export", args=[project.pk])
+    assert client.get(reverse("gsr:export_rerun", args=[project.pk])).status_code == 405
+
+
+@pytest.mark.django_db
+def test_export_pdf_uses_the_chosen_report_language(client, project, monkeypatch) -> None:
+    from gsr import views
+
+    seen = {}
+    monkeypatch.setattr(views, "render_report_pdf", lambda payload: seen.setdefault("lang", payload["lang"]) and b"%PDF")
+    _run_analysis(client, project)
+    url = reverse("gsr:export_pdf", args=[project.pk])
+    response = client.post(url, {"lang": "en"})
+    assert seen["lang"] == "en" and "sesja-odzka_report_en.pdf" in response["Content-Disposition"]
+    seen.clear()
+    response = client.post(url, {"lang": "de"})
+    assert seen["lang"] == "pl" and "report_pl.pdf" in response["Content-Disposition"]
+
+
 # ─── Language switch ─────────────────────────────────────────────────────────
 
 
@@ -841,3 +925,18 @@ def test_parse_params_reads_checkboxes_decimal_commas_and_blanks() -> None:
     assert stored["time_range_from"] == 1.5 and stored["synchrony_threshold"] == 0.4
     with pytest.raises(ValueError):
         params.apply_settings({}, {"clean_filter_zscore_threshold": "50"})
+
+
+def test_changed_settings_name_each_change_with_old_and_new_values() -> None:
+    before = params.DEFAULTS
+    after = {**before, "clean_filter_zscore_threshold": 4.0, "clean_filter_iqr": not before["clean_filter_iqr"],
+             "synchrony_surrogate_method": "phase", "time_range_to": 9.5}
+    with translation.override("en"):
+        changes = params.changed_settings(before, after)
+    assert changes == [
+        "Time window · To (min): — → 9.5",
+        "Z-score deviation · Threshold (SD): 5 → 4",
+        "Interquartile range (IQR): off → on",
+        "Surrogate method: circular shift → phase randomization",
+    ]
+    assert params.changed_settings(before, dict(before)) == []

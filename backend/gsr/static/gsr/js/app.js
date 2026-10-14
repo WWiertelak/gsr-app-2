@@ -220,23 +220,82 @@
   });
 
   // ── Chart capture for the PDF report / ZIP (same builders, fixed size, white background) ──
-  function captureCharts() {
+  // The PDF form's report language picks the chart labels and number format; the ZIP uses the UI language.
+  function captureLabels(form) {
+    var select = form.querySelector("[data-report-lang-select]");
+    var byLang = select && readData("report-chart-labels");
+    return (byLang && byLang[select.value]) || labels();
+  }
+
+  function captureCharts(chartLabels) {
     var images = {};
-    document.querySelectorAll("[data-capture-chart]").forEach(function (element) {
-      var option = window.GSRCharts.build(element.dataset.captureChart, readData(element.dataset.source), labels(), {
-        capture: true,
-        pairs: true
+    window.GSRCharts.locale = chartLabels.locale || null;
+    try {
+      document.querySelectorAll("[data-capture-chart]").forEach(function (element) {
+        var option = window.GSRCharts.build(element.dataset.captureChart, readData(element.dataset.source), chartLabels, {
+          capture: true,
+          pairs: true
+        });
+        if (!option) {
+          return;
+        }
+        var chart = window.echarts.init(element, window.GSRCharts.theme, { renderer: "canvas" });
+        chart.setOption(option);
+        images[element.dataset.key] = chart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#ffffff" });
+        chart.dispose();
       });
-      if (!option) {
-        return;
-      }
-      var chart = window.echarts.init(element, window.GSRCharts.theme, { renderer: "canvas" });
-      chart.setOption(option);
-      images[element.dataset.key] = chart.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#ffffff" });
-      chart.dispose();
-    });
+    } finally {
+      window.GSRCharts.locale = null;
+    }
     return images;
   }
+
+  // The report card's language select switches the page-1 preview and the file name.
+  document.addEventListener("change", function (event) {
+    var select = event.target.closest("[data-report-lang-select]");
+    if (!select) {
+      return;
+    }
+    select.closest(".report-card").querySelectorAll("[data-report-lang]").forEach(function (element) {
+      element.hidden = element.dataset.reportLang !== select.value;
+    });
+  });
+
+  // A file menu closes on a click outside it or on Escape.
+  function closeFileMenus(except) {
+    document.querySelectorAll(".file-menu[open]").forEach(function (menu) {
+      if (menu !== except) {
+        menu.open = false;
+      }
+    });
+  }
+  document.addEventListener("click", function (event) {
+    closeFileMenus(event.target.closest(".file-menu"));
+  });
+  document.addEventListener("keydown", function (event) {
+    var open = event.key === "Escape" && document.querySelector(".file-menu[open]");
+    if (open) {
+      closeFileMenus(null);
+      open.querySelector("summary").focus();
+    }
+  });
+
+  // "Export the outdated run anyway": stop dimming the export cards and move to the report button.
+  document.addEventListener("click", function (event) {
+    var link = event.target.closest("[data-export-anyway]");
+    if (!link) {
+      return;
+    }
+    event.preventDefault();
+    document.querySelectorAll("[data-export-grid]").forEach(function (grid) {
+      grid.classList.remove("is-stale");
+    });
+    var button = document.querySelector("#report-card button[type=submit]");
+    if (button) {
+      button.scrollIntoView({ block: "center" });
+      button.focus();
+    }
+  });
 
   function setBusy(busy, button) {
     document.body.classList.toggle("is-busy", busy);
@@ -267,7 +326,7 @@
       window.setTimeout(function () {
         try {
           if (window.echarts && window.GSRCharts) {
-            var images = captureCharts();
+            var images = captureCharts(captureLabels(form));
             Object.keys(images).forEach(function (key) {
               var input = form.querySelector('input[name="chart_' + key + '"]');
               if (input) {

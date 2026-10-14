@@ -1,55 +1,115 @@
 {% load i18n %}
 <div class="stack">
+  {% if error %}{% include "gsr/partials/error.html" %}{% endif %}
   {% if not result %}
     <section class="card empty-state">
       <p>{% translate "Run the analysis first; the export takes the results of the last run." %} <a href="{% url 'gsr:analysis' project.pk %}">{% translate "Go to Analysis" %}</a></p>
     </section>
   {% else %}
     {% if stale %}
-      <div class="alert warning">{% translate "Settings or signals changed after the last run. The exports describe the last run; run the analysis again to include the changes." %}</div>
+      <section class="alert warning stale-banner" aria-labelledby="stale-title" data-stale-banner>
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18h.01"/></svg>
+        <div>
+          <h2 id="stale-title">{% blocktranslate with time=computed_time %}The export describes the run from {{ time }}{% endblocktranslate %}</h2>
+          <p>{% if stale_causes %}{% translate "Changed since then:" %} {{ stale_causes|join:"; " }}. {% else %}{% translate "Settings or signals changed since then." %} {% endif %}{% translate "Run the analysis again to include the changes." %}</p>
+          <div class="actions">
+            <form method="post" action="{% url 'gsr:export_rerun' project.pk %}" data-busy
+                  hx-post="{% url 'gsr:export_rerun' project.pk %}" hx-target="#main" hx-swap="innerHTML"
+                  hx-indicator="#busy" hx-disabled-elt="find button">
+              {% csrf_token %}<button type="submit">{% translate "Run the analysis again" %}</button>
+            </form>
+            <a class="button secondary" href="#report-card" data-export-anyway>{% blocktranslate with time=computed_time %}Export the {{ time }} run anyway{% endblocktranslate %}</a>
+          </div>
+        </div>
+      </section>
     {% endif %}
 
-    <section class="card">
-      <h2>{% translate "PDF report" %}</h2>
-      <p class="hint">{% translate "The report for other researchers: project description, results summary, import, cleaning, synchronization and co-arousal results with charts, methodology, and the data needed to reproduce the run. Its language follows the UI language (PL/EN)." %}</p>
-      <form method="post" action="{% url 'gsr:export_pdf' project.pk %}" data-capture-charts>
-        {% csrf_token %}
-        {% for chart in report_charts %}<input type="hidden" name="chart_{{ chart.key }}" value="">{% endfor %}
-        <button type="submit">{% translate "Generate PDF report" %}</button>
-        <span class="muted small">{% blocktranslate with time=result.computed_at|date:"Y-m-d H:i" %}Results of the run from {{ time }}{% endblocktranslate %}</span>
-      </form>
-    </section>
+    <div class="export-grid{% if stale %} is-stale{% endif %}" data-export-grid>
+      <section class="card report-card" id="report-card" aria-labelledby="report-title">
+        <div class="card-head">
+          <h2 id="report-title">{% translate "PDF report" %}</h2>
+          <span class="muted small">{% translate "for other researchers" %}</span>
+        </div>
+        <div class="report-body">
+          <figure class="report-preview">
+            {% for lang in report_languages %}
+              <div class="page" data-report-lang="{{ lang.code }}"{% if lang.code != report_lang %} hidden{% endif %} aria-hidden="true">
+                <span class="kicker">GSR_APP 2.0</span>
+                <span class="title">{{ lang.title }}</span>
+                <span class="sub">{{ project.name }}</span>
+                <span class="rule"></span>
+                {% for label, value in lang.meta %}<span class="meta"><b>{{ label }}</b> {{ value }}</span>{% endfor %}
+                <span class="lines"><i></i><i></i><i></i><i></i></span>
+              </div>
+            {% endfor %}
+            <figcaption class="sr-only">{% translate "Preview of the report's first page" %}</figcaption>
+          </figure>
+          <div class="report-info">
+            <p>{% translate "Project description, the main results on one summary page, then import, cleaning, synchronization and co-arousal with charts, the methodology, and an appendix for reproducibility (settings, versions, SHA-256)." %}</p>
+            <h3 class="sr-only">{% translate "Report contents" %}</h3>
+            <ul class="report-contents">
+              {% for item in report_contents %}<li><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>{{ item }}</li>{% endfor %}
+            </ul>
+            <form method="post" action="{% url 'gsr:export_pdf' project.pk %}" class="report-form" data-capture-charts>
+              {% csrf_token %}
+              {% for chart in report_charts %}<input type="hidden" name="chart_{{ chart.key }}" value="">{% endfor %}
+              <label class="lang-select">{% translate "Report language" %}
+                <select name="lang" data-report-lang-select>
+                  {% for lang in report_languages %}<option value="{{ lang.code }}"{% if lang.code == report_lang %} selected{% endif %}>{{ lang.name }}</option>{% endfor %}
+                </select>
+              </label>
+              <button type="submit" class="lg">
+                <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+                {% translate "Generate PDF report" %}
+              </button>
+            </form>
+            <p class="muted small">
+              {% for lang in report_languages %}<code data-report-lang="{{ lang.code }}"{% if lang.code != report_lang %} hidden{% endif %}>{{ lang.file_name }}</code>{% endfor %}
+              · {% translate "the report language is independent of the UI language" %} · {% translate "charts are drawn from the same data as on screen" %}
+            </p>
+          </div>
+        </div>
+      </section>
 
-    <section class="card">
-      <h2>{% translate "Data" %}</h2>
-      <p class="hint">{% translate "A ZIP with every file below plus the report charts as PNG. Every chart on the screens also has its own “Save PNG” button." %}</p>
-      <form method="post" action="{% url 'gsr:export_zip' project.pk %}" data-capture-charts>
-        {% csrf_token %}
-        {% for chart in report_charts %}<input type="hidden" name="chart_{{ chart.key }}" value="">{% endfor %}
-        <button type="submit">{% translate "Download ZIP" %}</button>
-      </form>
-      <ul class="export-list">
-        <li><span><strong>{% translate "Cleaned signals CSV" %}</strong> <span class="muted small">{% translate "per participant, relative time, full resolution" %}</span></span>
-          <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'clean_signals.csv' %}">CSV</a></li>
-        <li><span><strong>{% translate "Analysis-ready merged CSV" %}</strong> <span class="muted small">{% translate "scaled, downsampled, shared time axis" %}</span></span>
-          <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'analysis_input_merged.csv' %}">CSV</a></li>
-        <li><span><strong>{% translate "Synchronization" %}</strong> <span class="muted small">{% translate "episodes, pairs, windows" %}</span></span>
-          <span class="row-form">
-            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'synchrony_episodes.csv' %}">{% translate "episodes" %}</a>
-            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'synchrony_pairs.csv' %}">{% translate "pairs" %}</a>
-            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'synchrony_windows.csv' %}">{% translate "windows" %}</a>
-          </span></li>
-        <li><span><strong>{% translate "Co-arousal" %}</strong> <span class="muted small">{% translate "episodes, state timeline, time in states" %}</span></span>
-          <span class="row-form">
-            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'coarousal_episodes.csv' %}">{% translate "episodes" %}</a>
-            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'coarousal_state_timeline.csv' %}">{% translate "states" %}</a>
-            <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'coarousal_state_percentages.csv' %}">%</a>
-          </span></li>
-        <li><span><strong>{% translate "Run settings + results JSON" %}</strong> <span class="muted small">{% translate "reproducibility: settings, library versions, file SHA-256" %}</span></span>
-          <a class="button secondary small" href="{% url 'gsr:export_file' project.pk 'run_settings_and_results.json' %}">JSON</a></li>
-      </ul>
-    </section>
+      <section class="card data-card" aria-labelledby="data-title">
+        <div class="card-head">
+          <h2 id="data-title">{% translate "Data files" %}</h2>
+          <form method="post" action="{% url 'gsr:export_zip' project.pk %}" data-capture-charts>
+            {% csrf_token %}
+            {% for chart in report_charts %}<input type="hidden" name="chart_{{ chart.key }}" value="">{% endfor %}
+            <button type="submit" class="secondary">{% translate "Download all (ZIP)" %}</button>
+          </form>
+        </div>
+        <p class="muted small">{% blocktranslate with name=zip_name %}Every file below plus the report charts as PNG, in <code>{{ name }}</code>. Every chart on the screens also has its own “Save PNG” button.{% endblocktranslate %}</p>
+        <ul class="export-list">
+          {% for group in export_groups %}
+            <li>
+              <span class="file-kind" aria-hidden="true">{{ group.kind }}</span>
+              <span class="file-text">
+                <strong>{{ group.title }}</strong>
+                <span class="muted small">{{ group.description }}{% if group.files|length == 1 %} · <code>{{ group.files.0.name }}</code>{% endif %}</span>
+              </span>
+              {% if group.files|length == 1 %}
+                <a class="button ghost icon" href="{{ group.files.0.url }}" download aria-label="{% blocktranslate with name=group.files.0.name %}Download {{ name }}{% endblocktranslate %}">
+                  <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+                </a>
+              {% elif group.files %}
+                <details class="file-menu">
+                  <summary class="button ghost">{% translate "Choose" %} <span aria-hidden="true">▾</span><span class="sr-only">: {{ group.title }}</span></summary>
+                  <ul>
+                    {% for file in group.files %}
+                      <li><a href="{{ file.url }}" download><b>{{ file.label }}</b> <code>{{ file.name }}</code></a></li>
+                    {% endfor %}
+                  </ul>
+                </details>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    </div>
 
+    {{ report_chart_labels|json_script:"report-chart-labels" }}
     <div class="capture-area" aria-hidden="true">
       {% for chart in report_charts %}
         {% with data_id="capture-"|add:chart.key|add:"-data" %}{{ chart.data|json_script:data_id }}
@@ -59,3 +119,4 @@
     </div>
   {% endif %}
 </div>
+{% if htmx %}{% include "gsr/partials/rail_steps.html" with oob=True %}{% endif %}
