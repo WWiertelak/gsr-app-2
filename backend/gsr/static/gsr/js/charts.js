@@ -1,8 +1,8 @@
 /*
  * ECharts option builders, ported from GSRv2 (frontend/src/App.tsx
- * buildSynchronyTimelineOption / buildEpisodeSignalsOption /
- * buildContagionStateHeatmapOption, renderRawPlots / renderProcessedPlots, and
- * charts/options.ts buildHeatmapOption). The segment-coverage chart is not ported.
+ * buildEpisodeSignalsOption / buildContagionStateHeatmapOption, renderRawPlots /
+ * renderProcessedPlots, and charts/options.ts buildHeatmapOption). The
+ * segment-coverage and synchronization-timeline charts are not ported.
  *
  * GSRCharts.build(kind, data, labels, opts) returns an ECharts option; `data`
  * comes from gsr/charts.py, `labels` from chart_labels() (current UI language).
