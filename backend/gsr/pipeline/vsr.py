@@ -278,6 +278,7 @@ class Proposal:
     number: int
     status: str
     pass_number: int
+    after_step_6_no: bool
     rank: int
     candidate_count: int
     moment: Moment
@@ -368,23 +369,21 @@ def _moment_from_run(step: int, state: str | None, run: list[Window]) -> Moment:
 
 
 def _moments_by_step(windows: list[Window]) -> dict[int, list[Moment]]:
-    """Group windows into moments: consecutive windows answering the same step.
+    """Group windows into moments: strictly consecutive windows answering the same step.
 
-    One skipped window does not split a moment, so a single window that dips to
-    another step does not cut a long stretch in two. A change of shared arousal
-    state does split it, so the state a moment reports holds for all of it.
+    A change of shared arousal state splits a moment too, so the state a moment
+    reports holds for all of it.
     """
     runs: dict[tuple[int, str | None], list[list[Window]]] = {}
-    last_index: dict[tuple[int, str | None], int] = {}
-    for index, window in enumerate(windows):
-        if window.step is None:
-            continue
-        key = (window.step, window.shared_state)
-        if key in last_index and index - last_index[key] <= 2:
-            runs[key][-1].append(window)
-        else:
-            runs.setdefault(key, []).append([window])
-        last_index[key] = index
+    previous_key: tuple[int, str | None] | None = None
+    for window in windows:
+        key = (window.step, window.shared_state) if window.step is not None else None
+        if key is not None:
+            if key == previous_key:
+                runs[key][-1].append(window)
+            else:
+                runs.setdefault(key, []).append([window])
+        previous_key = key
 
     moments: dict[int, list[Moment]] = {step: [] for step in STEPS}
     for (step, state), step_runs in runs.items():
@@ -441,6 +440,7 @@ def _select(moments: dict[int, list[Moment]], config: VsrConfig) -> tuple[list[P
                 number=len(selected) + 1,
                 status=PRIMARY if len(selected) < config.moments_per_interview else RESERVE,
                 pass_number=pass_number,
+                after_step_6_no=pass_number > 1 and purpose == PRIMARY,
                 rank=rank,
                 candidate_count=len(moments[number]),
                 moment=moment,
@@ -554,7 +554,7 @@ def justification_fragments(proposal: Proposal, data_basis: Quote, config: VsrCo
             "rule": step.choice_rule,
         }
     )
-    if proposal.pass_number > 1:
+    if proposal.after_step_6_no:
         fragments.append(
             {
                 "kind": "repeat_pass",

@@ -145,15 +145,20 @@ def _window(index: int, step: int | None, state: str | None = HIGH) -> Window:
     )
 
 
-def test_moments_merge_windows_of_the_same_step_across_one_skipped_window() -> None:
-    windows = [_window(index, step) for index, step in enumerate([1, 1, None, 1, None, None, 1])]
+def test_a_moment_is_a_run_of_strictly_consecutive_windows_of_one_step() -> None:
+    windows = [_window(index, step) for index, step in enumerate([1, 1, 2, 1, None, 1, 1])]
 
-    moments = _moments_by_step(windows)[1]
+    moments = _moments_by_step(windows)
 
-    # Windows 0, 1, 3 form one moment (window 2 is a single skipped window);
-    # window 6 starts a second one because two windows were skipped.
-    assert [(moment.start_seconds, moment.end_seconds) for moment in moments] == [(0.0, 44.0), (30.0, 59.0)]
-    assert [moment.window_count for moment in moments] == [3, 1]
+    # A window answering another step or no step ends the moment, so no moment
+    # spans a window that fails its step's criterion.
+    assert sorted((moment.start_seconds, moment.end_seconds) for moment in moments[1]) == [
+        (0.0, 34.0),
+        (15.0, 44.0),
+        (25.0, 59.0),
+    ]
+    assert sorted(moment.window_count for moment in moments[1]) == [1, 2, 2]
+    assert [(moment.start_seconds, moment.end_seconds) for moment in moments[2]] == [(10.0, 39.0)]
 
 
 def test_a_change_of_shared_state_starts_a_new_moment() -> None:
@@ -273,6 +278,8 @@ def test_step_6_repeats_the_steps_until_five_moments_are_selected() -> None:
     # The strongest candidate of a step goes first, and its rank is reported.
     assert [proposal.rank for proposal in proposals if proposal.moment.step == 1] == [1, 2, 3]
     assert all(proposal.candidate_count == 3 for proposal in proposals)
+    # Passes 2 and 3 ran because STEP 6 answered NO, and their moments say so.
+    assert [proposal.after_step_6_no for proposal in proposals] == [False, False, True, True, True, True]
 
 
 def test_a_candidate_overlapping_a_selected_moment_is_skipped() -> None:
@@ -314,6 +321,10 @@ def test_reserve_moments_are_marked_and_justified_as_additional() -> None:
     assert [proposal.status for proposal in proposals] == [PRIMARY] * 5 + [RESERVE] * 3
     assert all("reserve" not in kind_list for kind_list in kinds[:5])
     assert all("reserve" in kind_list for kind_list in kinds[5:])
+    # Passes 2-5 ran because STEP 6 answered NO; the reserves come from passes
+    # run after STEP 6 answered YES, so they do not claim a NO.
+    assert [pass_record["step_6"]["answer"] for pass_record in _passes[:5]] == ["NO"] * 4 + ["YES"]
+    assert ["repeat_pass" in kind_list for kind_list in kinds] == [False] + [True] * 4 + [False] * 3
     reserve_text = justification_text(justification_fragments(proposals[5], QUOTE_DYAD_DATA, VsrConfig()))
     assert QUOTE_RESERVE.text in reserve_text
 
