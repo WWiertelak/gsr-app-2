@@ -40,6 +40,7 @@ import numpy as np
 from .common import PipelineError, _estimate_step_seconds, _resolve_aliases, _zscore
 from .preprocessing import PipelineResult
 from .synchrony import _window_correlation
+from .vsr_config import VsrConfig
 
 CRITERIA_PAGE = 1  # "Criteria for moments selected for discussion in VSR interviews", GSR PARTICIPANTS
 STEP_PAGES = {1: 3, 2: 3, 3: 3, 4: 4, 5: 4, 6: 4}
@@ -166,59 +167,6 @@ STEPS: dict[int, Step] = {
 
 
 @dataclass(frozen=True)
-class VsrConfig:
-    """Selection parameters. Every default is the document's own number.
-
-    The windowing and arousal-state parameters repeat the Synchrony and
-    Co-arousal defaults, which is what makes a VSR moment readable next to those
-    analyses; the document does not define them.
-    """
-
-    synchronous_above: float = 0.8  # page 1: "Synchronous = above 0.8"
-    asynchronous_below: float = 0.1  # page 1: "Asynchronous = below 0.1"
-    window_seconds: float = 30.0
-    step_seconds: float = 5.0
-    high_z: float = 1.0
-    low_z: float = -1.0
-    shared_state_min_fraction: float = 0.6
-    moments_per_interview: int = 5  # page 1: "A total of 5 moments discussed per interview (ideally)"
-    reserve_moments: int = 3  # page 1: "Aim to identify more (e.g. 8)"
-    correlation_method: str = "pearson"
-
-    def __post_init__(self) -> None:
-        if not -1.0 <= self.asynchronous_below <= self.synchronous_above <= 1.0:
-            raise ValueError("asynchronous_below must not exceed synchronous_above, and both must lie in [-1, 1]")
-        if self.window_seconds <= 0 or self.step_seconds <= 0:
-            raise ValueError("window_seconds and step_seconds must be positive")
-        if self.step_seconds > self.window_seconds:
-            raise ValueError("step_seconds must not exceed window_seconds")
-        if self.low_z >= self.high_z:
-            raise ValueError("low_z must be lower than high_z")
-        if not 0.0 < self.shared_state_min_fraction <= 1.0:
-            raise ValueError("shared_state_min_fraction must lie in (0, 1]")
-        if self.moments_per_interview < 1:
-            raise ValueError("moments_per_interview must be at least 1")
-        if self.reserve_moments < 0:
-            raise ValueError("reserve_moments must not be negative")
-        if self.correlation_method not in ("pearson", "spearman"):
-            raise ValueError("correlation_method must be one of: pearson, spearman")
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "synchronous_above": float(self.synchronous_above),
-            "asynchronous_below": float(self.asynchronous_below),
-            "window_seconds": float(self.window_seconds),
-            "step_seconds": float(self.step_seconds),
-            "high_z": float(self.high_z),
-            "low_z": float(self.low_z),
-            "shared_state_min_fraction": float(self.shared_state_min_fraction),
-            "moments_per_interview": int(self.moments_per_interview),
-            "reserve_moments": int(self.reserve_moments),
-            "correlation_method": str(self.correlation_method),
-        }
-
-
-@dataclass(frozen=True)
 class Window:
     """One correlation window of a pair, and the step its measurements answer."""
 
@@ -304,38 +252,38 @@ def _shared_state(shared_high_fraction: float, shared_low_fraction: float, confi
     They cannot both hold HIGH and LOW for most of the same window, so the two
     fractions cannot clear the minimum together.
     """
-    if shared_high_fraction >= config.shared_state_min_fraction:
+    if shared_high_fraction >= config.vsr_shared_arousal_min_fraction:
         return HIGH
-    if shared_low_fraction >= config.shared_state_min_fraction:
+    if shared_low_fraction >= config.vsr_shared_arousal_min_fraction:
         return LOW
     return None
 
 
 def _window_step(correlation: float, shared_state: str | None, config: VsrConfig) -> int | None:
     """The step a window answers, tested in document order; the steps exclude each other."""
-    if correlation > config.synchronous_above:
+    if correlation > config.vsr_sync_threshold:
         return 1 if shared_state is not None else 2
     if shared_state == HIGH:
         return 3
     if shared_state == LOW:
         return 4
-    if correlation < config.asynchronous_below:
+    if correlation < config.vsr_async_threshold:
         return 5
     return None
 
 
 def _windows(a: np.ndarray, b: np.ndarray, relative_minutes: np.ndarray, config: VsrConfig) -> list[Window]:
     sample_seconds = _estimate_step_seconds(relative_minutes)
-    width = max(2, int(round(config.window_seconds / sample_seconds)))
-    stride = max(1, int(round(config.step_seconds / sample_seconds)))
+    width = max(2, int(round(config.vsr_window_seconds / sample_seconds)))
+    stride = max(1, int(round(config.vsr_step_seconds / sample_seconds)))
     seconds = relative_minutes * 60.0
-    shared_high = (a > config.high_z) & (b > config.high_z)
-    shared_low = (a < config.low_z) & (b < config.low_z)
+    shared_high = (a > config.vsr_high_z) & (b > config.vsr_high_z)
+    shared_low = (a < config.vsr_low_z) & (b < config.vsr_low_z)
 
     windows: list[Window] = []
     for start in range(0, len(relative_minutes) - width + 1, stride):
         stop = start + width
-        correlation = _window_correlation(a[start:stop], b[start:stop], config.correlation_method)
+        correlation = _window_correlation(a[start:stop], b[start:stop], "pearson")
         high_fraction = float(shared_high[start:stop].mean())
         low_fraction = float(shared_low[start:stop].mean())
         state = _shared_state(high_fraction, low_fraction, config)
@@ -397,7 +345,7 @@ def _moments_by_step(windows: list[Window]) -> dict[int, list[Moment]]:
 
 def _select(moments: dict[int, list[Moment]], config: VsrConfig) -> tuple[list[Proposal], list[dict[str, Any]]]:
     """Walk STEPS 1-5 repeatedly (STEP 6) until five moments plus the reserve are selected."""
-    target = config.moments_per_interview + config.reserve_moments
+    target = config.vsr_primary_moment_count + config.vsr_reserve_moment_count
     selected: list[Proposal] = []
     used: set[tuple[int, int]] = set()
     passes: list[dict[str, Any]] = []
@@ -405,7 +353,7 @@ def _select(moments: dict[int, list[Moment]], config: VsrConfig) -> tuple[list[P
     pass_number = 0
     while len(selected) < target:
         pass_number += 1
-        purpose = PRIMARY if len(selected) < config.moments_per_interview else RESERVE
+        purpose = PRIMARY if len(selected) < config.vsr_primary_moment_count else RESERVE
         step_records: list[dict[str, Any]] = []
         selected_in_pass = 0
 
@@ -436,11 +384,12 @@ def _select(moments: dict[int, list[Moment]], config: VsrConfig) -> tuple[list[P
             rank, moment = choice
             used.add((number, rank))
             selected_in_pass += 1
+            status = PRIMARY if len(selected) < config.vsr_primary_moment_count else RESERVE
             proposal = Proposal(
                 number=len(selected) + 1,
-                status=PRIMARY if len(selected) < config.moments_per_interview else RESERVE,
+                status=status,
                 pass_number=pass_number,
-                after_step_6_no=pass_number > 1 and purpose == PRIMARY,
+                after_step_6_no=pass_number > 1 and status == PRIMARY,
                 rank=rank,
                 candidate_count=len(moments[number]),
                 moment=moment,
@@ -450,8 +399,8 @@ def _select(moments: dict[int, list[Moment]], config: VsrConfig) -> tuple[list[P
                 _step_record(step, answer="YES", candidate_count=len(moments[number]), moment_number=proposal.number)
             )
 
-        primary_count = min(len(selected), config.moments_per_interview)
-        reached_target = primary_count >= config.moments_per_interview
+        primary_count = min(len(selected), config.vsr_primary_moment_count)
+        reached_target = primary_count >= config.vsr_primary_moment_count
         passes.append(
             {
                 "pass_number": pass_number,
@@ -505,7 +454,7 @@ def _step_record(
 def justification_fragments(proposal: Proposal, data_basis: Quote, config: VsrConfig) -> list[dict[str, Any]]:
     """The justification of one proposal: document quotes plus the measured values."""
     moment = proposal.moment
-    minimum_shared_fraction = config.shared_state_min_fraction
+    minimum_shared_fraction = config.vsr_shared_arousal_min_fraction
     step = STEPS[moment.step]
     fragments: list[dict[str, Any]] = [
         {"kind": "data_basis", "quote": data_basis.as_dict()},
@@ -748,10 +697,10 @@ def _interview_payload(
         "stats": {
             "primary_count": len(primary),
             "reserve_count": len(selection.proposals) - len(primary),
-            "primary_target": config.moments_per_interview,
-            "reserve_target": config.reserve_moments,
+            "primary_target": config.vsr_primary_moment_count,
+            "reserve_target": config.vsr_reserve_moment_count,
             "pass_count": len(selection.passes),
-            "complete": len(primary) >= config.moments_per_interview,
+            "complete": len(primary) >= config.vsr_primary_moment_count,
         },
     }
 
@@ -823,7 +772,7 @@ def compute_vsr(
         )
 
     return {
-        "config": cfg.as_dict(),
+        "config": cfg.model_dump(),
         "criteria": {
             "moments_per_interview": QUOTE_FIVE_MOMENTS.as_dict(),
             "reserve": QUOTE_RESERVE.as_dict(),

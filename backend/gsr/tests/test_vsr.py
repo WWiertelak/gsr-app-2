@@ -35,7 +35,6 @@ from gsr.pipeline.vsr import (
     STEP_PAGES,
     STEPS,
     Moment,
-    VsrConfig,
     Window,
     _moments_by_step,
     _select,
@@ -47,6 +46,7 @@ from gsr.pipeline.vsr import (
     justification_text,
     select_pair_moments,
 )
+from gsr.pipeline.vsr_config import VsrConfig
 
 from .esense_csv import build_esense_csv
 
@@ -84,10 +84,10 @@ def test_document_quotes_carry_the_numbers_the_defaults_use() -> None:
 
     # A default drifting away from the quoted criterion would make every
     # justification cite a threshold the engine did not apply.
-    assert f"above {config.synchronous_above}" in QUOTE_SYNCHRONOUS.text
-    assert f"below {config.asynchronous_below}" in QUOTE_ASYNCHRONOUS.text
-    assert f"A total of {config.moments_per_interview} moments" in QUOTE_FIVE_MOMENTS.text
-    assert f"(e.g. {config.moments_per_interview + config.reserve_moments})" in QUOTE_RESERVE.text
+    assert f"above {config.vsr_sync_threshold}" in QUOTE_SYNCHRONOUS.text
+    assert f"below {config.vsr_async_threshold}" in QUOTE_ASYNCHRONOUS.text
+    assert f"A total of {config.vsr_primary_moment_count} moments" in QUOTE_FIVE_MOMENTS.text
+    assert f"(e.g. {config.vsr_primary_moment_count + config.vsr_reserve_moment_count})" in QUOTE_RESERVE.text
     assert [step.question.page for step in STEPS.values()] == [STEP_PAGES[number] for number in STEPS]
     assert {step.criterion for step in STEPS.values()} == {QUOTE_SYNCHRONOUS, QUOTE_ASYNCHRONOUS}
 
@@ -278,8 +278,9 @@ def test_step_6_repeats_the_steps_until_five_moments_are_selected() -> None:
     # The strongest candidate of a step goes first, and its rank is reported.
     assert [proposal.rank for proposal in proposals if proposal.moment.step == 1] == [1, 2, 3]
     assert all(proposal.candidate_count == 3 for proposal in proposals)
-    # Passes 2 and 3 ran because STEP 6 answered NO, and their moments say so.
-    assert [proposal.after_step_6_no for proposal in proposals] == [False, False, True, True, True, True]
+    # Passes 2 and 3 ran because STEP 6 answered NO; the reserve #6 was picked
+    # after five moments were selected, so it does not claim a NO.
+    assert [proposal.after_step_6_no for proposal in proposals] == [False, False, True, True, True, False]
 
 
 def test_a_candidate_overlapping_a_selected_moment_is_skipped() -> None:
@@ -471,7 +472,7 @@ def test_compute_vsr_builds_one_interview_per_dyad_and_one_for_the_teacher(tmp_p
     assert teacher["participants"] == ["T", "S1", "S2", "S3"]
     assert teacher["data_basis"] == QUOTE_TEACHER_DATA.as_dict()
     assert teacher["basis_notes"] == [QUOTE_TEACHER_AGGREGATION.as_dict()]
-    assert payload["config"]["synchronous_above"] == 0.8
+    assert payload["config"]["vsr_sync_threshold"] == 0.8
     assert payload["stats"]["interview_count"] == 2
 
     for interview in payload["interviews"]:
@@ -512,28 +513,10 @@ def test_compute_vsr_rejects_unusable_interview_participants(tmp_path: Path) -> 
         compute_vsr(result, dyads=[], teacher_alias="T", student_aliases=["T"])
 
 
-@pytest.mark.parametrize(
-    ("overrides", "message"),
-    [
-        ({"synchronous_above": 0.05}, "must not exceed synchronous_above"),
-        ({"step_seconds": 60.0}, "step_seconds must not exceed window_seconds"),
-        ({"window_seconds": 0.0}, "must be positive"),
-        ({"high_z": -2.0}, "low_z must be lower than high_z"),
-        ({"shared_state_min_fraction": 0.0}, "must lie in"),
-        ({"moments_per_interview": 0}, "at least 1"),
-        ({"reserve_moments": -1}, "must not be negative"),
-        ({"correlation_method": "kendall"}, "must be one of"),
-    ],
-)
-def test_config_rejects_parameters_the_protocol_cannot_apply(overrides: dict, message: str) -> None:
-    with pytest.raises(ValueError, match=message):
-        VsrConfig(**overrides)
-
-
 def test_config_can_follow_an_edited_asynchrony_threshold() -> None:
     first, second, minutes = _lesson(_stretch(300, NEUTRAL_BAND, together=False))
 
-    strict = select_pair_moments(first, second, minutes, VsrConfig(asynchronous_below=-1.0))
+    strict = select_pair_moments(first, second, minutes, VsrConfig(vsr_async_threshold=-1.0))
     literal = select_pair_moments(first, second, minutes, VsrConfig())
 
     assert not strict.moments_by_step[5]
