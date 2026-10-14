@@ -7,7 +7,7 @@ and the response is this row again; without JavaScript, Enter posts the form and
           hx-post="{% url 'gsr:dataset_rename' project.pk dataset.pk %}" hx-trigger="submit, change" hx-sync="this:drop" hx-target="closest tr" hx-swap="outerHTML">
       {% csrf_token %}
       <span class="dot" style="background: {{ item.color }}" aria-hidden="true"></span>
-      <input type="text" id="alias-{{ dataset.pk }}" name="alias" value="{{ alias_value }}" maxlength="120" required
+      <input type="text" id="alias-{{ dataset.pk }}" name="alias" value="{{ alias_value }}" maxlength="120"
              aria-label="{% blocktranslate with file=dataset.original_filename %}Alias of {{ file }}{% endblocktranslate %}"
              {% if alias_error %}aria-invalid="true" aria-describedby="alias-msg-{{ dataset.pk }}"{% endif %}>
     </form>

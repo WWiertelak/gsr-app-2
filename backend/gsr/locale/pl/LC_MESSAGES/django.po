@@ -1971,3 +1971,7 @@ msgstr "Usuń %(alias)s"
 #, python-format
 msgid "%(recordings)s · common window %(minutes)s min"
 msgstr "%(recordings)s · wspólne okno %(minutes)s min"
+
+#: gsr/views.py
+msgid "Alias cannot be empty"
+msgstr "Alias nie może być pusty"

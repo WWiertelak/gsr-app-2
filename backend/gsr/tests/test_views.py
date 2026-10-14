@@ -209,6 +209,25 @@ def test_inline_alias_save_returns_the_row(client, project) -> None:
     assert dataset.alias == "Anna"
 
 
+@pytest.mark.django_db
+def test_clearing_an_alias_restores_it_with_an_inline_error(client, project) -> None:
+    dataset = project.datasets.get(alias="A")
+    rename = reverse("gsr:dataset_rename", args=[project.pk, dataset.pk])
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    # No browser-side `required`: leaving a cleared field must reach the server instead of silently doing nothing.
+    alias_input = page.split(f'id="alias-{dataset.pk}"')[1].split(">")[0]
+    assert "required" not in alias_input
+
+    for language, message in (("en", "Alias cannot be empty"), ("pl", "Alias nie może być pusty")):
+        client.post(reverse("set_language"), {"language": language, "next": "/"})
+        response = client.post(rename, {"alias": "  "}, **HTMX)
+        row = response.content.decode()
+        assert 'value="A"' in row and 'aria-invalid="true"' in row and message in row
+        assert "HX-Trigger" not in response
+    dataset.refresh_from_db()
+    assert dataset.alias == "A"
+
+
 def test_clock_ticks_use_round_clock_times() -> None:
     from gsr.services.results import clock_ticks
 

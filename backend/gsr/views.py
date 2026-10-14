@@ -284,8 +284,11 @@ def dataset_rename(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespon
     project = _project(pk)
     dataset = get_object_or_404(Dataset, pk=dataset_pk, project=project)
     error = None
+    posted = request.POST.get("alias") or ""
     try:
-        alias = normalize_alias(request.POST.get("alias") or "")
+        if not posted.strip():
+            raise ValidationError(_("Alias cannot be empty"))
+        alias = normalize_alias(posted)
         if project.datasets.exclude(pk=dataset.pk).filter(alias=alias).exists():
             raise ValidationError(_("Alias already exists in project: %(alias)s") % {"alias": alias})
     except ValidationError as exc:
@@ -297,7 +300,8 @@ def dataset_rename(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespon
         context = {
             "project": project,
             "item": _dataset_row(dataset, signal_colors(project)[dataset.alias]),
-            "alias_value": (request.POST.get("alias") or "") if error else dataset.alias,
+            # A cleared field gets the saved alias back; other rejected input stays for the user to fix.
+            "alias_value": posted if error and posted.strip() else dataset.alias,
             "alias_error": error,
             "alias_saved": error is None,
         }
