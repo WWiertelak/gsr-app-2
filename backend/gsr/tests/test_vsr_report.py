@@ -349,7 +349,7 @@ def test_csv_lists_accepted_retimed_and_manual_moments_with_reasons_and_notes(cu
     assert manual["clock_start"] and manual["video_start"]
     # A proposed moment's step stays a whole number although a manual row leaves the column empty there.
     assert {row["step"] for row in own if row["source"] == "proposed"} <= {"1", "2", "3", "4", "5"}
-    assert {row["interview"] for row in rows} == {"S1+S2", "S3+S4", "T"}  # the others are not curated: proposals
+    assert {row["interview"] for row in rows} == {"S1+S2", "S3+S4", "T"}
 
 
 @pytest.mark.django_db
@@ -369,15 +369,44 @@ def test_report_shows_the_curated_list_in_both_languages(curated) -> None:
 
 
 @pytest.mark.django_db
-def test_report_falls_back_to_the_proposals_until_the_researcher_has_a_list(proposed) -> None:
+def test_undecided_lists_are_not_called_the_researchers_list(proposed) -> None:
+    assert proposed.interview_moments.exists()
+    data = report_data(proposed, with_traces=False)
+    assert not data["curated"] and not any(interview["curated"] for interview in data["interviews"])
+    for interview, original in zip(data["interviews"], get_result(proposed, AnalysisResult.KIND_VSR).payload["interviews"]):
+        assert [(m["start_seconds"], m["end_seconds"], m["status"]) for m in interview["moments"]] == [
+            (m["start_seconds"], m["end_seconds"], m["status"]) for m in original["moments"]]
+        assert {m["decision"] for m in interview["moments"]} == {"undecided"} and interview["rejected_count"] == 0
+    assert "Lista momentów to lista badacza" not in "".join(_texts(_page(proposed, "pl")))
+    assert "researcher's list" not in "".join(_texts(_page(proposed, "en")))
+
+
+@pytest.mark.django_db
+def test_only_interviews_with_a_decision_count_as_curated(curated) -> None:
+    data = report_data(curated, with_traces=False)
+    assert data["curated"]
+    assert {interview["key"]: interview["curated"] for interview in data["interviews"]} == {
+        "S1+S2": True, "S3+S4": False, "T": False}
+
+
+@pytest.mark.django_db
+def test_a_note_alone_makes_the_list_the_researchers(proposed) -> None:
+    row = proposed.interview_moments.filter(interview_key="T").order_by("position").first()
+    curation.set_note(row, "Ask what happened here")
+    data = report_data(proposed, with_traces=False)
+    assert data["curated"]
+    assert [interview["key"] for interview in data["interviews"] if interview["curated"]] == ["T"]
+    assert any(text.startswith("Lista momentów to lista badacza") for text in _texts(_page(proposed, "pl")))
+
+
+@pytest.mark.django_db
+def test_report_falls_back_to_the_proposals_without_any_list(proposed) -> None:
     InterviewMoment.objects.filter(project=proposed).delete()
     data = report_data(proposed, with_traces=False)
     assert not data["curated"]
     for interview, original in zip(data["interviews"], get_result(proposed, AnalysisResult.KIND_VSR).payload["interviews"]):
         assert [(m["start_seconds"], m["end_seconds"], m["status"]) for m in interview["moments"]] == [
             (m["start_seconds"], m["end_seconds"], m["status"]) for m in original["moments"]]
-        assert {m["decision"] for m in interview["moments"]} == {"undecided"} and interview["rejected_count"] == 0
-    assert "Lista momentów to lista badacza" not in "".join(_texts(_page(proposed, "pl")))
 
 
 @pytest.mark.django_db

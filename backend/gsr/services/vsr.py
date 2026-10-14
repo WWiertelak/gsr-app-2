@@ -256,7 +256,7 @@ def report_data(project: Project, with_traces: bool = True) -> dict[str, Any] | 
     payload = vsr.payload
     colors = signal_colors(project)
     traces = _interview_traces(project, vsr, analysis) if with_traces else {}
-    from .curation import curated_interviews  # curation imports this module
+    from .curation import curated_interviews, is_decided  # curation imports this module
 
     curated = curated_interviews(project, vsr)
     config = VsrConfig.from_dict(payload["config"])
@@ -268,7 +268,7 @@ def report_data(project: Project, with_traces: bool = True) -> dict[str, Any] | 
         interviews.append({
             **interview,
             "moments": moments,
-            "curated": bool(items),
+            "curated": any(is_decided(item.row) for item in items or []),
             "rejected_count": sum(1 for item in items or [] if item.number is None),
             "stats": {**interview["stats"], **_stats(moments, config.vsr_primary_moment_count,
                                                      config.vsr_reserve_moment_count)},
