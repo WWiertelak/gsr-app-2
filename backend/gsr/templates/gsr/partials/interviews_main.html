@@ -1,11 +1,28 @@
 {% load i18n gsr_tags %}
-{% translate "Propose moments" as run_label %}{% include "gsr/partials/run_bar.html" with run_form="interview-roles" run_disabled=apply_disabled run_label=run_label %}
+<div class="run-bar" id="run-bar">
+  <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+  {% if analysis %}
+    <span class="run-source">{% blocktranslate with time=analysis.computed_at|date:"Y-m-d H:i" %}From the Analysis of {{ time }}:{% endblocktranslate %}</span>
+    <ul class="kv" aria-label="{% translate 'Analysis settings' %}">{% for item in analysis_settings %}<li>{{ item.text }}</li>{% endfor %}</ul>
+  {% else %}
+    <span class="run-source grow">{% translate "The moments come from the Analysis results." %}</span>
+  {% endif %}
+  <span class="run-actions">
+    {% if result %}
+      <span class="run-status {% if stale %}stale{% else %}fresh{% endif %}"><span class="dot" aria-hidden="true"></span>{% if stale %}{% translate "Outdated result" %}{% else %}{% translate "Up to date" %}{% endif %} · {% blocktranslate with time=result.computed_at|date:"Y-m-d H:i" %}Chosen {{ time }}{% endblocktranslate %}</span>
+    {% else %}
+      <span class="run-status none"><span class="dot" aria-hidden="true"></span>{% translate "Not chosen yet" %}</span>
+    {% endif %}
+    <a class="button secondary" href="{% url 'gsr:analysis' project.pk %}">{% translate "Analysis settings" %}</a>
+    <button type="submit" form="interview-roles"{% if not analysis_ready %} disabled{% endif %}>{% if result %}{% translate "Choose again" %}{% else %}{% translate "Choose moments" %}{% endif %}</button>
+  </span>
+</div>
 <div class="stack">
   {% if error %}{% include "gsr/partials/error.html" %}{% endif %}
   {% if not analysis %}
-    <div class="alert warning">{% translate "Run the analysis first: the proposals use the signals of its last run." %} <a href="{% url 'gsr:analysis' project.pk %}">{% translate "Go to Analysis" %}</a></div>
+    <div class="alert warning" role="status"><strong>{% translate "Run the Analysis first." %}</strong> {% translate "The interview moments are chosen from its synchronization and co-arousal episodes." %} <a href="{% url 'gsr:analysis' project.pk %}">{% translate "Go to Analysis" %}</a></div>
   {% elif analysis_stale %}
-    <div class="alert warning">{% translate "The analysis is outdated: the proposals use the signals of its last run. Run the analysis again to include the changes." %} <a href="{% url 'gsr:analysis' project.pk %}">{% translate "Go to Analysis" %}</a></div>
+    <div class="alert warning" role="status"><strong>{% translate "Run the Analysis first." %}</strong> {% translate "Its result is outdated, and the interview moments are chosen from it." %} <a href="{% url 'gsr:analysis' project.pk %}">{% translate "Go to Analysis" %}</a></div>
   {% endif %}
 
   <section class="card" aria-labelledby="roles-title">
@@ -15,7 +32,7 @@
     </div>
     <form id="interview-roles" class="roles-form" method="post" action="{% url 'gsr:interviews' project.pk %}" data-busy
           hx-post="{% url 'gsr:interviews' project.pk %}" hx-target="#main" hx-swap="innerHTML"
-          hx-indicator="#busy" hx-disabled-elt="#interview-roles button, #run-bar button, #settings-drawer button">
+          hx-indicator="#busy" hx-disabled-elt="#interview-roles button, #run-bar button">
       {% csrf_token %}
       <input type="hidden" name="tab" value="{{ tab|default:'' }}" data-tab-input>
       <div class="roles-grid">
@@ -46,40 +63,51 @@
               <option value="">{% translate "none (no teacher interview)" %}</option>
               {% for recording in roles.recordings %}<option value="{{ recording.alias }}"{% if recording.alias == roles.teacher %} selected{% endif %}>{{ recording.alias }}{% if not recording.included %} ({% translate "excluded" %}){% endif %}</option>{% endfor %}
             </select>
-            <span class="muted small">{% translate "Interviewed against the students' average GSR: each student is z-scored, then averaged." %}</span>
+            <span class="muted small">{% translate "Compared with the students' average signal: each student is z-scored, then averaged." %}</span>
           </div>
           <div class="f">
             <label for="video-start">{% translate "Video start (sensor clock)" %}</label>
             <input id="video-start" type="text" name="video_start_time" value="{{ roles.video_start_time }}" placeholder="HH:MM:SS" inputmode="numeric" autocomplete="off">
             <span class="muted small">{% translate "The clock time on the GSR sensors when the video recording starts; the moments then get video timecodes." %}</span>
           </div>
+          <fieldset class="f moment-counts">
+            <legend>{% translate "Moments per interview" %}</legend>
+            <div class="count-fields">
+              <label>{% translate "Primary" %} <input type="number" name="primary_moment_count" value="{{ roles.primary_moment_count }}" min="{{ roles.limits.primary_moment_count.0 }}" max="{{ roles.limits.primary_moment_count.1 }}" step="1" required></label>
+              <span aria-hidden="true">+</span>
+              <label>{% translate "Reserve" %} <input type="number" name="reserve_moment_count" value="{{ roles.reserve_moment_count }}" min="{{ roles.limits.reserve_moment_count.0 }}" max="{{ roles.limits.reserve_moment_count.1 }}" step="1" required></label>
+            </div>
+            <span class="muted small">{% translate "The VSR flow chart asks for 5 moments and a few in reserve (8 in all)." %}</span>
+          </fieldset>
         </div>
       </div>
-      <p class="roles-help muted small">{% translate "“Propose moments” in the bar above saves the participants and walks STEPS 1–6 of the VSR Interview Flow Chart for every interview." %}</p>
+      <p class="roles-help muted small">{% translate "“Choose moments” saves the participants and takes the moments from the Analysis: its episodes are sorted into steps 1–5 of the VSR flow chart, the strongest first." %}</p>
     </form>
   </section>
 
   <section class="card" aria-labelledby="vsr-results-title">
     <div class="card-head">
-      <h2 id="vsr-results-title">{% translate "Proposed moments" %}</h2>
-      <span class="muted">{% translate "a proposal from the document's protocol, not a result: the researcher chooses what to discuss" %}</span>
+      <h2 id="vsr-results-title">{% translate "Moments for the interviews" %}</h2>
+      <span class="muted">{% translate "a proposal from the Analysis: you decide what to discuss" %}</span>
     </div>
-    <p class="doc-criteria">{% for item in criteria %}<span>{{ item }}</span>{% endfor %}</p>
+    <ol class="step-legend" aria-label="{% translate 'Steps of the VSR flow chart' %}">
+      {% for step in step_names %}<li><b>{{ step.number }}</b> {{ step.name }}</li>{% endfor %}
+    </ol>
 
     {% if not result %}
       <div class="empty-state">
-        <p>{% translate "No proposals yet. Choose the interview participants and propose the moments." %}</p>
+        <p>{% if analysis_ready %}{% translate "No moments yet. Choose the interview participants, then “Choose moments”." %}{% else %}{% translate "No moments yet. Run the Analysis first." %}{% endif %}</p>
       </div>
     {% else %}
       {% if stale %}
-        <div class="alert warning stale-note">{% translate "The participants, the settings or the analysis changed since these proposals. Propose the moments again." %}</div>
+        <div class="alert warning stale-note">{% if analysis_ready %}{% translate "The participants, the number of moments or the Analysis changed since these moments were chosen. Choose them again." %}{% else %}{% translate "The Analysis changed since these moments were chosen. Run the Analysis, then choose the moments again." %}{% endif %}</div>
       {% endif %}
       {% if interviews %}
         <div class="tabs interview-tabs" role="tablist" aria-labelledby="vsr-results-title">
           {% for interview in interviews %}
             <a href="?tab={{ interview.tab }}" role="tab" id="tab-{{ interview.tab }}" aria-controls="panel-{{ interview.tab }}" data-tab="{{ interview.tab }}" class="{% if tab == interview.tab %}active{% endif %}" aria-selected="{% if tab == interview.tab %}true{% else %}false{% endif %}" tabindex="{% if tab == interview.tab %}0{% else %}-1{% endif %}">
               <span class="tab-title">{{ interview.label }} <span class="count">{{ interview.primary_count }} + {{ interview.reserve_count }}</span></span>
-              <span class="tab-desc">{% if interview.kind == "teacher" %}{% translate "teacher and the students' average GSR" %}{% else %}{% translate "student pair" %}{% endif %}</span>
+              <span class="tab-desc">{% if interview.kind == "teacher" %}{% translate "teacher and the students' average" %}{% else %}{% translate "student pair" %}{% endif %}</span>
             </a>
           {% endfor %}
         </div>
@@ -88,26 +116,21 @@
       {% for interview in interviews %}
         <div class="result{% if stale %} is-stale{% endif %}" role="tabpanel" id="panel-{{ interview.tab }}" aria-labelledby="tab-{{ interview.tab }}" tabindex="0" data-tab-panel="{{ interview.tab }}"{% if tab != interview.tab %} hidden{% endif %}>
           {% for signal in interview.poor_signals %}
-            <div class="alert warning">{% blocktranslate with alias=signal.alias pct=signal.pct %}The GSR signal of {{ alias }} has poor quality ({{ pct }}% of its samples were rejected on the Cleaning step).{% endblocktranslate %} {% translate "The document (page 1):" %} {{ gsr_disruption_quote }} {% translate "Check the recording before discussing these moments." %}</div>
+            <div class="alert warning">{% blocktranslate with alias=signal.alias pct=signal.pct %}The GSR signal of {{ alias }} has poor quality ({{ pct }}% of its samples were rejected on the Cleaning step). Check the recording before discussing these moments.{% endblocktranslate %}</div>
           {% endfor %}
           {% if not interview.stats.complete %}
-            <div class="alert warning">{% blocktranslate with count=interview.stats.primary_count target=interview.stats.primary_target %}Only {{ count }} of {{ target }} moments answer a step of the protocol.{% endblocktranslate %}</div>
+            <div class="alert warning">{% blocktranslate with count=interview.stats.primary_count target=interview.stats.primary_target %}The Analysis has episodes for only {{ count }} of {{ target }} moments. Add moments by hand if you need more.{% endblocktranslate %}</div>
           {% endif %}
 
-          <p class="doc-basis">{% translate "Data:" %} {{ interview.data_basis }}{% for note in interview.basis_notes %} · {{ note }}{% endfor %}</p>
-          {% if interview.kind == "teacher" %}
-            <p class="muted small">{% blocktranslate with alias=interview.participants.0 %}Teacher {{ alias }} against the average of:{% endblocktranslate %} {{ interview.participants|slice:"1:"|join:", " }}</p>
-          {% endif %}
-
-          <h3 class="section-gap">{% translate "Moments meeting each step" %}</h3>
-          <ul class="step-counts">
+          <p class="interview-signals small">
+            {% for signal in interview.signals %}<span class="chip"><span class="dot" style="background: {{ signal.color }}"></span>{{ signal.name }}</span>{% endfor %}
+            {% if interview.kind == "teacher" %}<span class="muted">{% blocktranslate with students=interview.participants|slice:"1:"|join:", " %}average of: {{ students }}{% endblocktranslate %}</span>{% endif %}
+          </p>
+          <ul class="step-counts" aria-label="{% translate 'Analysis episodes per step' %}">
             {% for step in interview.steps %}
-              <li{% if not step.count %} class="none"{% endif %}><b>{% blocktranslate with number=step.number %}STEP {{ number }}{% endblocktranslate %}</b> <span class="step-type">{{ step.type }}</span> <span class="count">{{ step.count }}</span></li>
+              <li{% if not step.count %} class="none"{% endif %}><span class="step-type"><b>{{ step.number }}</b> {{ step.name }}</span> <span class="count">{{ step.count }}</span></li>
             {% endfor %}
           </ul>
-          {% if interview.empty_steps %}
-            <ul class="empty-steps">{% for sentence in interview.empty_steps %}<li>{{ sentence }}</li>{% endfor %}</ul>
-          {% endif %}
 
           <div class="section-head section-gap">
             <h3>{% translate "Lesson timeline" %}</h3>
@@ -124,15 +147,15 @@
           </div>
 
           <div class="section-head section-gap">
-            <h3>{% translate "Moments for the interview" %}</h3>
+            <h3>{% translate "Moments" %}</h3>
             <span class="subtitle">{% blocktranslate with primary=interview.primary_count reserve=interview.reserve_count %}{{ primary }} primary + {{ reserve }} reserve{% endblocktranslate %}{% if interview.rejected_count %} · {% blocktranslate count counter=interview.rejected_count %}{{ counter }} rejected{% plural %}{{ counter }} rejected{% endblocktranslate %}{% endif %}</span>
           </div>
-          <p class="muted small">{% translate "The first moments on the list that are not rejected are the primary ones; rejecting one moves the first reserve moment up. Use ↑ ↓ to change the order." %}</p>
+          <p class="muted small">{% translate "The first moments that are not rejected are the primary ones; rejecting one moves the first reserve moment up. Use ↑ ↓ to change the order." %}</p>
           <ol class="moment-list">
             {% for moment in interview.moments %}
               {% include "gsr/partials/interview_moment.html" %}
             {% empty %}
-              <li class="muted">{% translate "No moment answers a step of the protocol." %}</li>
+              <li class="muted">{% translate "The Analysis has no episodes for this interview. Add moments by hand." %}</li>
             {% endfor %}
           </ol>
 
@@ -174,5 +197,4 @@
     <a class="button lg" href="{% url 'gsr:export' project.pk %}">{% translate "Next: Export" %} →</a>
   </div>
 {% endif %}
-{% if htmx %}{% include "gsr/partials/rail_steps.html" with oob=True %}
-<div id="drawer-root" hx-swap-oob="innerHTML">{% include drawer %}</div>{% endif %}
+{% if htmx %}{% include "gsr/partials/rail_steps.html" with oob=True %}{% endif %}

@@ -31,31 +31,20 @@ from . import charts, params, vsr_text
 from .errors import UserError, describe, no_overlap_message
 from .models import AnalysisResult, Dataset, InterviewMoment, Project
 from .pipeline.config import PipelineConfig
-from .pipeline.vsr import (
-    PRIMARY,
-    QUOTE_ASYNCHRONOUS,
-    QUOTE_FIVE_MOMENTS,
-    QUOTE_GSR_DISRUPTION,
-    QUOTE_RESERVE,
-    QUOTE_SYNCHRONOUS,
-    RESERVE,
-)
-from .pipeline.vsr import STEPS as VSR_STEPS
-from .pipeline.vsr_config import VsrConfig
+from .pipeline.vsr import PRIMARY, RESERVE
 from .reporting.report import render_report_pdf, report_text, resolve_lang
-from .reporting.vsr_charts import lesson_ticks
+from .reporting.vsr_charts import AVERAGE_COLOR, lesson_ticks
 from .services import curation, exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
 from .services.interview import (
+    COUNT_LIMITS,
     InterviewConfig,
     InterviewRoles,
     apply_interview_config,
     forget_interview_alias,
     load_interview_config,
     rename_interview_alias,
-    vsr_changed_label,
-    vsr_field_rows,
 )
 from .services.results import (
     FALLBACK_SIGNAL_COLOR,
@@ -67,9 +56,9 @@ from .services.results import (
     recording_overview,
     signal_colors,
 )
-from .services.vsr import compute_interviews
+from .services.vsr import compute_interviews, interview_colors
+from .services.vsr import preview as moment_preview
 from .services.vsr import report_data as vsr_report_data
-from .vsr_params import VSR_PARAMS, vsr_summary
 
 STEPS = (
     ("upload", "gsr:upload"),
@@ -122,15 +111,16 @@ def _steps(project: Project, current: str) -> list[dict[str, Any]]:
         "interviews": interviews is not None,
         "export": False,
     }
-    stale = {"cleaning": is_stale(project, cleaning), "analysis": is_stale(project, analysis),
-             "interviews": is_stale(project, interviews)}
+    stale = {"cleaning": is_stale(project, cleaning), "analysis": is_stale(project, analysis)}
+    # The interview moments come from the analysis: an outdated analysis makes them outdated too.
+    stale["interviews"] = interviews is not None and (is_stale(project, interviews) or stale["analysis"])
     stale["export"] = stale["analysis"]
     status = {
         "upload": _recordings_label(recordings) if recordings else _("no recordings"),
         "cleaning": _cleaning_status(cleaning),
         "analysis": _("computed %(time)s") % {"time": _computed_time(analysis)} if analysis else _("not run"),
         "interviews": _interviews_status(interviews) if interviews else (
-            _("not proposed") if analysis else _("needs analysis")),
+            _("not chosen") if analysis else _("needs analysis")),
         "export": _("ready") if analysis else _("needs analysis"),
     }
     return [
@@ -456,7 +446,7 @@ def dataset_exclude(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespo
     if step == "cleaning":
         error = _run(compute_cleaning, project, step)
     elif step in ("analysis", "interviews", "export"):
-        # Interview proposals use the analysis run's signals: rerun the analysis, then propose again on the screen.
+        # The interview moments come from the analysis run: rerun the analysis, then choose them again on the screen.
         error = _run(compute_analysis, project, step)
     else:
         return redirect("gsr:upload", project.pk)
@@ -758,21 +748,21 @@ def analysis_reset(request: HttpRequest, pk: Any) -> HttpResponse:
 
 # ─── 4 Interviews ────────────────────────────────────────────────────────────
 
-# The page-1 criteria the Interviews screen states above the proposals.
-VSR_CRITERIA = (QUOTE_FIVE_MOMENTS, QUOTE_RESERVE, QUOTE_SYNCHRONOUS, QUOTE_ASYNCHRONOUS)
 MIN_PAIR_ROWS = 3  # the document's three student dyads (page 1: "6 students, 3 dyads")
+MOMENT_CHART_HEIGHT = 190
 
 
 def _interview_config(project: Project) -> InterviewConfig:
-    """The stored roles and VSR parameters; defaults when the stored value no longer validates."""
+    """The stored roles and moment counts; defaults when the stored value no longer validates."""
     try:
         return load_interview_config(project)
     except ValueError:
-        return InterviewConfig(roles=InterviewRoles(None, (), None), vsr=VsrConfig())
+        return InterviewConfig(roles=InterviewRoles(None, (), None))
 
 
 def _role_form(project: Project, roles: dict[str, Any]) -> dict[str, Any]:
-    """The interview participants card: teacher, student pair rows (plus empty rows to add pairs), video start."""
+    """The interview participants card: teacher, student pair rows (plus empty rows to add pairs), video start and
+    the number of moments."""
     pairs = [list(pair) for pair in roles.get("student_pairs") or []]
     pairs += [["", ""]] * max(MIN_PAIR_ROWS - len(pairs), 1)
     return {
@@ -781,6 +771,9 @@ def _role_form(project: Project, roles: dict[str, Any]) -> dict[str, Any]:
         "teacher": roles.get("teacher_alias") or "",
         "pairs": [{"number": index + 1, "left": left, "right": right} for index, (left, right) in enumerate(pairs)],
         "video_start_time": roles.get("video_start_time") or "",
+        "primary_moment_count": roles.get("primary_moment_count"),
+        "reserve_moment_count": roles.get("reserve_moment_count"),
+        "limits": COUNT_LIMITS,
     }
 
 
@@ -788,11 +781,15 @@ def _posted_roles(request: HttpRequest) -> dict[str, Any]:
     pairs = [[left.strip(), right.strip()]
              for left, right in zip(request.POST.getlist("pair_left"), request.POST.getlist("pair_right"))
              if left.strip() or right.strip()]
-    return {
+    roles = {
         "teacher_alias": (request.POST.get("teacher_alias") or "").strip() or None,
         "student_pairs": pairs,
         "video_start_time": request.POST.get("video_start_time") or "",
     }
+    for name in COUNT_LIMITS:
+        if name in request.POST:
+            roles[name] = request.POST[name]
+    return roles
 
 
 def _interview_label(interview: dict[str, Any]) -> str:
@@ -801,10 +798,41 @@ def _interview_label(interview: dict[str, Any]) -> str:
     return _("Pair %(left)s + %(right)s") % {"left": interview["participants"][0], "right": interview["participants"][1]}
 
 
-def _moment_view(item: curation.CuratedMoment, start: float, span: float) -> dict[str, Any]:
-    """One card of an interview's list: the moment as the researcher kept it, with its proposal's justification."""
+def _signal_names(interview: dict[str, Any]) -> list[str]:
+    """The names of an interview's two signals: the pair's two people, or the teacher and the students' average."""
+    participants = interview["participants"]
+    return [participants[0], _("Students' average") if interview["kind"] == "teacher" else participants[1]]
+
+
+def _moment_chart(payload: dict[str, Any], interview: dict[str, Any], row: InterviewMoment,
+                  colors: list[str | None], number: int | None) -> dict[str, Any] | None:
+    """The moment preview for ``momentSignals`` (static/gsr/js/charts.js): both signals around the moment, shaded."""
+    window = moment_preview(payload, interview, row.start_seconds, row.end_seconds)
+    if window is None:
+        return None
+    settings = payload.get("analysis_settings") or {}
+    minutes = [round(seconds / 60.0, 4) for seconds in window["seconds"]]
+    series = [
+        {"alias": name, "color": color or AVERAGE_COLOR, "points": [[x, y] for x, y in zip(minutes, values)]}
+        for name, color, values in zip(_signal_names(interview), colors, (window["a"], window["b"]))
+    ]
+    shared = row.proposal.get("shared_state") if not row.is_manual else None
+    return {
+        "series": series,
+        "moment": {"start": window["start"] / 60.0, "end": window["end"] / 60.0, "label": str(number or "×")},
+        "range": {"min": window["low"] / 60.0, "max": window["high"] / 60.0},
+        # The Co-arousal thresholds, drawn when the moment is about a shared state.
+        "high": settings.get("contagion_high_z") if shared == "HIGH" else None,
+        "low": settings.get("contagion_low_z") if shared == "LOW" else None,
+    }
+
+
+def _moment_view(item: curation.CuratedMoment, interview: dict[str, Any], payload: dict[str, Any],
+                 colors: list[str | None]) -> dict[str, Any]:
+    """One card of an interview's list: the moment as the researcher kept it, its preview and its justification."""
     row = item.row
-    proposal = row.proposal
+    lesson = payload.get("lesson") or {"start_seconds": 0.0, "end_seconds": 0.0}
+    start, span = lesson["start_seconds"], lesson["end_seconds"] - lesson["start_seconds"]
     duration = row.end_seconds - row.start_seconds
     left = min(max((row.start_seconds - start) / span, 0.0), 1.0) * 100 if span > 0 else 0.0
     width = min(max(duration / span * 100, 0.6), 100 - left) if span > 0 else 100.0
@@ -828,45 +856,37 @@ def _moment_view(item: curation.CuratedMoment, start: float, span: float) -> dic
         "start_video": item.start_video,
         "end_video": item.end_video,
         "bar": {"left": f"{left:.2f}", "width": f"{width:.2f}"},
+        "chart": _moment_chart(payload, interview, row, colors, item.number),
+        "chart_height": MOMENT_CHART_HEIGHT,
     }
-    if not row.is_manual:
-        view.update(
-            step=proposal["step"],
-            step_type=vsr_text.quote(proposal["synchrony_type"]),
-            pass_number=proposal["pass_number"],
-            sentences=vsr_text.justification(proposal["justification"]),
-            r=vsr_text.correlation(proposal["correlation"]),
-            shared_state=proposal["shared_state"],
-            shared_pct=vsr_text.percent(proposal["shared_state_fraction"]) if proposal["shared_state"] else None,
-        )
+    if not row.is_manual and row.proposal.get("step") in range(1, 6):
+        view.update(step=row.proposal["step"], step_title=vsr_text.step_title(row.proposal["step"]),
+                    sentence=vsr_text.justification(row.proposal, interview["kind"]))
     return view
 
 
 def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, Any],
-                    curated: list[curation.CuratedMoment]) -> dict[str, Any]:
+                    curated: list[curation.CuratedMoment], colors: dict[str, str]) -> dict[str, Any]:
     lesson = payload.get("lesson") or {"start_seconds": 0.0, "end_seconds": 0.0}
-    start, end = lesson["start_seconds"], lesson["end_seconds"]
     quality = payload.get("quality", {})
-    first_pass = interview["passes"][0]["steps"] if interview["passes"] else []
+    line_colors = interview_colors(colors, interview)
+    counts = interview.get("candidate_counts", {})
     return {
         "tab": f"interview-{index + 1}",
         "kind": interview["kind"],
         "label": _interview_label(interview),
         "participants": interview["participants"],
-        "data_basis": vsr_text.quote(interview["data_basis"]),
-        "basis_notes": [vsr_text.quote(note) for note in interview["basis_notes"]],
-        "steps": [{"number": number, "type": vsr_text.quote(step.synchrony_type.as_dict()),
-                   "count": interview["candidate_counts"].get(str(number), 0)} for number, step in VSR_STEPS.items()],
-        "empty_steps": [vsr_text.step_sentence(record["fragments"][0]) for record in first_pass
-                        if record["answer"] == "NO"],
+        "signals": [{"name": name, "color": color or AVERAGE_COLOR}
+                    for name, color in zip(_signal_names(interview), line_colors)],
+        "steps": [{**step, "count": counts.get(str(step["number"]), 0)} for step in vsr_text.steps()],
         "key": interview["key"],
-        "moments": [_moment_view(item, start, end - start) for item in curated],
+        "moments": [_moment_view(item, interview, payload, line_colors) for item in curated],
         "primary_count": sum(1 for item in curated if item.role == PRIMARY),
         "reserve_count": sum(1 for item in curated if item.role == RESERVE),
         "rejected_count": sum(1 for item in curated if item.role is None),
         "kept_count": sum(1 for item in curated if item.role is not None),
         "stats": interview["stats"],
-        "ticks": lesson_ticks(start, end),
+        "ticks": lesson_ticks(lesson["start_seconds"], lesson["end_seconds"]),
         "poor_signals": [{"alias": alias, "pct": number_format(quality[alias]["rejected_pct"], 0)}
                          for alias in interview["participants"]
                          if quality.get(alias, {}).get("level") == "poor"],
@@ -877,37 +897,21 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
                         posted_roles: dict[str, Any] | None = None,
                         moment_form: dict[str, Any] | None = None) -> dict[str, Any]:
     config = _interview_config(project)
-    values = config.vsr.model_dump()
     result = get_result(project, AnalysisResult.KIND_VSR)
     analysis = get_result(project, AnalysisResult.KIND_ANALYSIS)
-    applied = None
-    if result is not None:
-        try:
-            applied = VsrConfig.from_dict(result.config.get("vsr")).model_dump()
-        except ValueError:
-            applied = None
-    roles = posted_roles if posted_roles is not None else {
-        "teacher_alias": config.roles.teacher_alias,
-        "student_pairs": [list(pair) for pair in config.roles.student_pairs],
-        "video_start_time": config.roles.video_start_time,
-    }
+    analysis_stale = is_stale(project, analysis)
+    roles = {**config.to_storage(), **(posted_roles or {})}
     context: dict[str, Any] = {
-        "drawer": "gsr/partials/interviews_settings.html",
-        "form_id": "interviews-settings",
-        "form_action": reverse("gsr:interviews_settings", args=[project.pk]),
-        "reset_action": reverse("gsr:interviews_reset", args=[project.pk]),
-        "apply_disabled": analysis is None,
-        "changed_label": vsr_changed_label(values),
-        "vsr_rows": vsr_field_rows(values),
-        "settings_summary": vsr_summary(values, applied),
         "roles": _role_form(project, roles),
         "result": result,
-        "stale": is_stale(project, result),
+        # The moments come from the analysis: an outdated analysis makes them outdated too.
+        "stale": result is not None and (is_stale(project, result) or analysis_stale),
         "analysis": analysis,
-        "analysis_stale": is_stale(project, analysis),
+        "analysis_stale": analysis_stale,
+        "analysis_ready": analysis is not None and not analysis_stale,
+        "analysis_settings": params.analysis_summary(_applied_values(analysis) or {}) if analysis else [],
         "error": error,
-        "criteria": [vsr_text.quote(item.as_dict()) for item in VSR_CRITERIA],
-        "gsr_disruption_quote": vsr_text.quote(QUOTE_GSR_DISRUPTION.as_dict(), ellipsis=True),
+        "step_names": vsr_text.steps(),
         # The card form the last action came from, reopened with its values and its error.
         "moment_form": moment_form or {},
     }
@@ -915,7 +919,8 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
         payload = result.payload
         curation.ensure_synced(project, result)
         curated = curation.curated_interviews(project, result)
-        interviews = [_interview_view(index, interview, payload, curated.get(interview["key"], []))
+        colors = signal_colors(project)
+        interviews = [_interview_view(index, interview, payload, curated.get(interview["key"], []), colors)
                       for index, interview in enumerate(payload.get("interviews", []))]
         tabs = [interview["tab"] for interview in interviews]
         context.update(
@@ -952,7 +957,7 @@ def _interviews_redirect(request: HttpRequest, project: Project, error: UserErro
 
 
 def interviews(request: HttpRequest, pk: Any) -> HttpResponse:
-    """The Interviews step; POST saves the interview participants and proposes the moments."""
+    """The Interviews step; POST saves the interview participants and chooses the moments from the Analysis."""
     project = _project(pk)
     tab = request.GET.get("tab") or request.POST.get("tab")
     if request.method != "POST":
@@ -967,29 +972,6 @@ def interviews(request: HttpRequest, pk: Any) -> HttpResponse:
     return _interviews_page(request, project, tab, error, posted)
 
 
-@require_POST
-def interviews_settings(request: HttpRequest, pk: Any) -> HttpResponse:
-    """The settings drawer's Apply: save the VSR parameters and propose the moments again."""
-    project = _project(pk)
-    tab = request.POST.get("tab")
-    error = _save_interview_config(project, {"vsr": params.parse_params(VSR_PARAMS, request.POST)})
-    if error is None:
-        error = _run(compute_interviews, project, "interviews")
-    if not _is_htmx(request):
-        return _interviews_redirect(request, project, error)
-    return _interviews_page(request, project, tab, error)
-
-
-@require_POST
-def interviews_reset(request: HttpRequest, pk: Any) -> HttpResponse:
-    project = _project(pk)
-    project.interview_config = {**(project.interview_config or {}), "vsr": VsrConfig().model_dump()}
-    project.save(update_fields=["interview_config", "updated_at"])
-    if not _is_htmx(request):
-        return _interviews_redirect(request, project, None)
-    return _interviews_page(request, project, request.POST.get("tab"))
-
-
 # The card actions on an interview's list; "time" and "note" also post their form fields.
 MOMENT_STATUS_ACTIONS = {
     "accept": InterviewMoment.STATUS_ACCEPTED,
@@ -1002,7 +984,7 @@ MOMENT_MOVES = {"up": -1, "down": 1}
 def _vsr_result_or_404(project: Project) -> AnalysisResult:
     result = get_result(project, AnalysisResult.KIND_VSR)
     if result is None:
-        raise Http404("Propose the moments first.")
+        raise Http404("Choose the moments first.")
     return result
 
 
@@ -1211,7 +1193,7 @@ def _export_context(project: Project, error: UserError | None = None) -> dict[st
         values = PipelineConfig.from_dict(result.config).model_dump()
         report_charts = charts.report_charts(result.payload, signal_colors(project), values)
         languages = _report_languages(project, result)
-        vsr = vsr_report_data(project, with_traces=False)
+        vsr = vsr_report_data(project)
         context.update(
             report_charts=report_charts,
             report_contents=_report_contents(result, len(report_charts), vsr is not None),
@@ -1257,9 +1239,9 @@ def export_file(request: HttpRequest, pk: Any, name: str) -> HttpResponse:
         elif kind == "json":
             content = _results_json(project, result)
         elif kind == "vsr":
-            vsr = vsr_report_data(project, with_traces=False)
+            vsr = vsr_report_data(project)
             if vsr is None:
-                raise Http404("Propose the interview moments before exporting them.")
+                raise Http404("Choose the interview moments before exporting them.")
             content = exports.vsr_moments_csv(vsr)
         else:
             content = exports.table_exports(result)[name]
@@ -1278,7 +1260,7 @@ def export_zip(request: HttpRequest, pk: Any) -> HttpResponse:
     chart_images = exports.parse_chart_images(request.POST) if request.method == "POST" else {}
     try:
         content = exports.build_zip(project, result, chart_images, _results_json(project, result),
-                                    vsr_report_data(project, with_traces=False))
+                                    vsr_report_data(project))
     except AnalysisError as exc:
         messages.error(request, describe(exc, project, "export").message)
         return redirect("gsr:export", project.pk)

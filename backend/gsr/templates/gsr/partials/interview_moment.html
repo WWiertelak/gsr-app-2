@@ -1,5 +1,5 @@
-{% load i18n gsr_tags %}{% comment %}One moment on an interview's list (Interviews step): its times, its justification and the researcher's
-actions. Every action posts to gsr:interview_moment and swaps the main area; without JavaScript it reloads the page.{% endcomment %}
+{% load i18n gsr_tags %}{% comment %}One moment on an interview's list (Interviews step): its signals, its justification, its times and the
+researcher's actions. Every action posts to gsr:interview_moment and swaps the main area; without JavaScript it reloads the page.{% endcomment %}
 {% url 'gsr:interview_moment' project.pk moment.id as moment_url %}
 <li class="moment-card{% if not moment.primary %} reserve{% endif %}{% if moment.rejected %} rejected{% endif %}{% if moment.manual %} manual{% endif %}" id="moment-{{ moment.id }}">
   <div class="moment-head">
@@ -8,41 +8,43 @@ actions. Every action posts to gsr:interview_moment and swaps the main area; wit
     {% elif moment.primary %}<span class="badge sig">{% translate "primary" %}</span>
     {% else %}<span class="badge neutral">{% translate "reserve" %}</span>{% endif %}
     {% if moment.accepted %}<span class="badge good">✓ {% translate "accepted" %}</span>{% endif %}
-    {% if moment.manual %}
-      <strong>{% translate "Added manually" %}</strong>
-    {% else %}
-      <strong>{% blocktranslate with number=moment.step %}STEP {{ number }}{% endblocktranslate %}</strong>
-      <span class="step-type">{{ moment.step_type }}</span>
-      {% if moment.pass_number > 1 %}<span class="muted small">{% blocktranslate with number=moment.pass_number %}pass {{ number }}{% endblocktranslate %}</span>{% endif %}
-    {% endif %}
+    <strong>{% if moment.manual %}{% translate "Added manually" %}{% else %}{{ moment.step_title }}{% endif %}</strong>
+    <span class="moment-when">{{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}</span>
     {% if moment.proposed_role == "reserve" %}<span class="muted small">{% translate "proposed as reserve" %}</span>
     {% elif moment.proposed_role == "primary" %}<span class="muted small">{% translate "proposed as primary" %}</span>{% endif %}
     {% if moment.time_changed %}<span class="badge changed">{% translate "time changed" %}</span>{% endif %}
     {% if moment.row.needs_check %}<span class="badge warning">{% translate "check" %}</span>{% endif %}
   </div>
   {% if moment.row.needs_check %}
-    <p class="alert warning moment-check">{% translate "The last proposal run no longer proposes this moment; your decision is kept. Check it, then accept or reject it." %}</p>
+    <p class="alert warning moment-check">{% translate "The moments chosen last time no longer include this one; your decision is kept. Check it, then accept or reject it." %}</p>
   {% endif %}
-  <dl class="moment-times">
-    <div><dt>{% translate "Lesson" %}</dt><dd>{{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }} <span class="muted">({{ moment.duration_seconds|seconds_mmss }})</span></dd></div>
-    <div><dt>{% translate "Sensor clock" %}</dt><dd>{% if moment.start_clock %}{{ moment.start_clock }}–{{ moment.end_clock }}{% else %}—{% endif %}</dd></div>
-    <div><dt>{% translate "Video" %}</dt><dd>{% if moment.start_video %}{{ moment.start_video }}–{{ moment.end_video|default:"…" }}{% elif result_roles.video_start_time %}<span class="muted">{% translate "before the video starts" %}</span>{% else %}<span class="muted">{% translate "set the video start" %}</span>{% endif %}</dd></div>
-    {% if not moment.manual %}
-      <div><dt>r</dt><dd>{{ moment.r }}</dd></div>
-      <div><dt>{% translate "Shared state" %}</dt><dd>{% if moment.shared_state == "HIGH" %}<span class="badge high">{% translate "High ↑" %} {{ moment.shared_pct }}%</span>{% elif moment.shared_state == "LOW" %}<span class="badge low">{% translate "Low ↓" %} {{ moment.shared_pct }}%</span>{% else %}—{% endif %}</dd></div>
-    {% endif %}
-  </dl>
-  <h4 class="sr-only">{% translate "Justification" %}</h4>
-  {% if moment.manual %}
-    <ul class="justification"><li>{% translate "Added by the researcher:" %} {{ moment.row.reason }}</li></ul>
-  {% else %}
-    {% if moment.time_changed %}
-      <p class="moment-change small">{% blocktranslate with start=moment.row.original_start_seconds|seconds_mmss end=moment.row.original_end_seconds|seconds_mmss %}Proposed as {{ start }}–{{ end }}; time changed by the researcher:{% endblocktranslate %} {{ moment.row.reason }}</p>
-      <p class="muted small">{% translate "The justification describes the proposed time." %}</p>
-    {% endif %}
-    <ul class="justification">{% for sentence in moment.sentences %}<li>{{ sentence }}</li>{% endfor %}</ul>
-  {% endif %}
-  {% if moment.row.note %}<p class="moment-note small"><b>{% translate "Note:" %}</b> {{ moment.row.note|linebreaksbr }}</p>{% endif %}
+  <div class="moment-body">
+    <div class="moment-preview">
+      {% if moment.chart %}
+        {% blocktranslate with number=moment.number|default:"×" asvar chart_label %}Signals around moment {{ number }}{% endblocktranslate %}
+        {% include "gsr/partials/chart.html" with label=chart_label kind="momentSignals" data=moment.chart chart_id="moment-chart-"|add:moment.id name="moment_"|add:moment.id height=moment.chart_height %}
+      {% else %}
+        <p class="muted small">{% translate "No preview: choose the moments again to see the signals." %}</p>
+      {% endif %}
+    </div>
+    <div class="moment-text">
+      <h4 class="sr-only">{% translate "Justification" %}</h4>
+      {% if moment.manual %}
+        <p class="moment-sentence">{% translate "Added by the researcher:" %} {{ moment.row.reason }}</p>
+      {% else %}
+        {% if moment.time_changed %}
+          <p class="moment-change small">{% blocktranslate with start=moment.row.original_start_seconds|seconds_mmss end=moment.row.original_end_seconds|seconds_mmss %}Proposed as {{ start }}–{{ end }}; time changed by the researcher:{% endblocktranslate %} {{ moment.row.reason }}</p>
+        {% endif %}
+        <p class="moment-sentence">{{ moment.sentence }}</p>
+      {% endif %}
+      <dl class="moment-times">
+        <div><dt>{% translate "Lesson" %}</dt><dd>{{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }} <span class="muted">({{ moment.duration_seconds|seconds_mmss }})</span></dd></div>
+        <div><dt>{% translate "Sensor clock" %}</dt><dd>{% if moment.start_clock %}{{ moment.start_clock }}–{{ moment.end_clock }}{% else %}—{% endif %}</dd></div>
+        <div><dt>{% translate "Video" %}</dt><dd>{% if moment.start_video %}{{ moment.start_video }}–{{ moment.end_video|default:"…" }}{% elif result_roles.video_start_time %}<span class="muted">{% translate "before the video starts" %}</span>{% else %}<span class="muted">{% translate "set the video start" %}</span>{% endif %}</dd></div>
+      </dl>
+      {% if moment.row.note %}<p class="moment-note small"><b>{% translate "Note:" %}</b> {{ moment.row.note|linebreaksbr }}</p>{% endif %}
+    </div>
+  </div>
 
   <div class="moment-actions">
     {% if moment_form.id == moment.id and moment_form.error and moment_form.action != "time" and moment_form.action != "note" %}<p class="alert error" role="alert">{{ moment_form.error }}</p>{% endif %}

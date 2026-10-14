@@ -7,9 +7,8 @@ and the place on the list; a decided moment the engine no longer proposes stays
 and is marked for checking; only proposals nobody touched are replaced.
 
 The list order decides the roles: the first moments that are not rejected are
-the primary ones (page 1: "A total of 5 moments discussed per interview
-(ideally)") and the rest the reserve, so rejecting a primary moment moves the
-first reserve moment up.
+the primary ones (5 by default, as the VSR Interview Flow Chart asks) and the
+rest the reserve, so rejecting a primary moment moves the first reserve moment up.
 """
 
 from __future__ import annotations
@@ -24,8 +23,7 @@ from django.utils.translation import gettext
 
 from ..models import AnalysisResult, InterviewMoment, Project
 from ..pipeline.vsr import PRIMARY, RESERVE
-from ..pipeline.vsr_config import VsrConfig
-from .vsr import video_time
+from .vsr import moment_counts, video_time
 
 MAX_REASON_LENGTH = 1000
 MAX_NOTE_LENGTH = 2000
@@ -187,7 +185,7 @@ def _times(row: InterviewMoment, clock_start: datetime | None, video_start: str 
 
 
 def primary_target(result: AnalysisResult) -> int:
-    return VsrConfig.from_dict(result.payload.get("config")).vsr_primary_moment_count
+    return moment_counts(result.payload)[0]
 
 
 def ordered_rows(rows: Iterable[InterviewMoment]) -> list[InterviewMoment]:

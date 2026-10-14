@@ -438,6 +438,79 @@
     };
   }
 
+  // A VSR interview moment: the interview's two z-scored signals zoomed to the moment, the moment shaded like an
+  // Analysis episode, and the Co-arousal High/Low threshold when the moment is about a shared state.
+  function momentSignals(data, labels, opts) {
+    var seen = {};
+    var series = (data.series || []).map(function (entry) {
+      return {
+        type: "line",
+        name: entry.alias,
+        showSymbol: false,
+        sampling: "lttb",
+        lineStyle: { width: 1.8, color: entry.color, type: participantLineType(entry.color, seen) },
+        itemStyle: { color: entry.color },
+        data: entry.points
+      };
+    });
+    if (!series.length) {
+      return null;
+    }
+    var moment = data.moment || {};
+    series[0].markArea = {
+      silent: true,
+      itemStyle: { color: T.episode, borderColor: T.episodeEdge, borderWidth: 1 },
+      label: { show: true, position: "insideTop", distance: 4, color: T.ink2, fontSize: 11, fontWeight: 600 },
+      data: [[{ xAxis: moment.start, name: moment.label || "" }, { xAxis: moment.end }]]
+    };
+    var lines = [];
+    if (typeof data.high === "number") {
+      lines.push({ yAxis: data.high, lineStyle: { color: HIGH }, label: { formatter: labels.high || "", color: HIGH } });
+    }
+    if (typeof data.low === "number") {
+      lines.push({ yAxis: data.low, lineStyle: { color: LOW }, label: { formatter: labels.low || "", color: LOW } });
+    }
+    if (lines.length) {
+      series[0].markLine = {
+        silent: true,
+        symbol: "none",
+        lineStyle: { type: "dashed", width: 1 },
+        label: { position: "insideEndTop", fontSize: 10 },
+        data: lines
+      };
+    }
+    // Whole ticks (5 s … 30 min) across the shown range, so the m:ss labels read evenly.
+    var range = data.range || {};
+    var span = (range.max - range.min) || 1;
+    var step = [1 / 12, 1 / 6, 0.25, 0.5, 1, 2, 5, 10, 15, 30].filter(function (candidate) {
+      return span / candidate <= 7;
+    })[0] || 30;
+    return {
+      animation: false,
+      toolbox: toolbox(labels, opts),
+      tooltip: {
+        trigger: "axis",
+        formatter: function (params) {
+          var rows = (params || []).map(function (item) {
+            var value = Array.isArray(item.value) ? item.value[1] : item.value;
+            return item.marker + escapeHtml(item.seriesName) + ": " + formatNumber(value, 2);
+          });
+          return params && params.length ? [mmss(params[0].axisValue)].concat(rows).join("<br/>") : "";
+        }
+      },
+      legend: { type: "scroll", top: 2, left: 52, right: 40, itemHeight: 8, textStyle: { fontSize: 11 } },
+      grid: { left: 40, right: 14, top: 32, bottom: 26 },
+      xAxis: valueAxis({
+        min: Math.floor(range.min / step) * step,
+        max: Math.ceil(range.max / step) * step,
+        interval: step,
+        axisLabel: { formatter: mmss }
+      }),
+      yAxis: valueAxis({ name: labels.zscore || "z", nameGap: 10, scale: true }),
+      series: series
+    };
+  }
+
   // ── Heatmap cell labels: ink or white, whichever contrasts more with the cell colour ──
   var HEATMAP_COLORS = [LOW, "#92c5de", NEUTRAL_STATE, "#f4a582", HIGH];
 
@@ -711,6 +784,7 @@
     overlay: overlay,
     cleanVsRaw: cleanVsRaw,
     episodeSignals: episodeSignals,
+    momentSignals: momentSignals,
     heatmap: heatmap,
     coarousalStates: coarousalStates
   };

@@ -219,9 +219,7 @@ figure.chart figcaption {
 }
 figure.chart img { display: block; width: 100%; height: auto; border: 0.5px solid var(--line); }
 
-/* VSR interview moments: document quotes, the lesson timeline and one card per moment. */
-q.doc-quote { font-style: italic; color: var(--ink); }
-.doc-page { color: var(--ink-3); font-size: 7pt; white-space: nowrap; }
+/* VSR interview moments: the lesson timeline and one card per moment. */
 .svg-figure { margin: 0 0 var(--s3); break-inside: avoid; }
 .svg-figure svg, .moment-chart svg { display: block; width: 100%; height: auto; }
 .moment-card {
@@ -256,5 +254,5 @@ q.doc-quote { font-style: italic; color: var(--ink); }
 .moment-chart .chart-note { margin: 2px 0 0; font-size: 6.5pt; color: var(--ink-3); }
 .moment-text { flex: 1 1 0; }
 .moment-change, .moment-check { margin: 0 0 var(--s1); font-size: 7.5pt; color: var(--warn); }
-.moment-card .justification { margin: 0; padding-left: var(--s3); font-size: 7.5pt; color: var(--ink-2); }
+.moment-sentence { margin: 0; font-size: 8.5pt; line-height: 1.45; color: var(--ink); }
 .moment-note { margin: var(--s2) 0 0; font-size: 7.5pt; color: var(--ink-2); }

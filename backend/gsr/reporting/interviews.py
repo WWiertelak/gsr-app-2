@@ -1,11 +1,12 @@
 """The PDF report's section of VSR interview moments ("Momenty do wywiadów VSR").
 
 Lays out the moments of the Interviews step (``services/vsr.report_data``: the researcher's
-list without rejected moments, or the stored proposals while nothing is decided): per
-interview a table of the moments with lesson, sensor-clock and video times, and for every
-moment its justification built from document quotes (``vsr_text``) beside a mini-chart of
-the two signals. Report strings live here in Polish and English like the rest of the
-report; the justification sentences go through gettext under the report language.
+list without rejected moments, or the chosen moments while nothing is decided): the Analysis
+run and settings they come from, and per interview a table of the moments with lesson,
+sensor-clock and video times, and a card per moment with the same preview chart and the same
+one-sentence justification (``vsr_text``) as the Interviews screen. Report strings live here
+in Polish and English like the rest of the report; the justification goes through gettext
+under the report language.
 """
 
 from __future__ import annotations
@@ -14,43 +15,43 @@ from typing import Any
 
 from django.utils import translation
 from django.utils.formats import number_format
-from django.utils.html import format_html
 from django.utils.safestring import SafeString
 
-from .. import vsr_text
-from ..params import display_number
-from ..pipeline.vsr import HIGH, PRIMARY, QUOTE_GSR_DISRUPTION, STEPS
+from .. import params, vsr_text
+from ..pipeline.vsr import HIGH, LOW, PRIMARY
 from ..templatetags.gsr_tags import seconds_mmss
-from ..vsr_params import VSR_PARAMS
 from .vsr_charts import lesson_timeline_svg, moment_chart_svg
 
 _TEXT: dict[str, dict[str, str]] = {
     "pl": {
         "title": "Momenty do wywiadów VSR",
-        "lead": "Propozycje momentów do omówienia podczas wywiadów VSR, wybrane według protokołu GSR z dokumentu "
-                "„VSR Interview Flow Chart”. Kroki 1–5 pytają po kolei o typ synchronii, a krok 6 powtarza je, aż "
-                "wybrano 5 momentów. To propozycja dla badacza, nie wynik analizy: o tym, co omówić, decyduje badacz.",
-        "stale": "Uczestnicy wywiadów, parametry lub analiza zmieniły się po wyznaczeniu tych propozycji. "
-                 "Raport opisuje ostatnio wyznaczone propozycje.",
-        "criteria_heading": "Kryteria z dokumentu",
-        "settings_heading": "Parametry wyboru",
-        "parameter": "Parametr",
+        "lead": "Momenty do omówienia w wywiadach VSR, wybrane z wyników Analizy: epizody synchronizacji i "
+                "ko-pobudzenia danej pary (lub nauczyciela z uczniami) przypisano do kroków 1–5 schematu "
+                "„VSR Interview Flow Chart”, najsilniejsze najpierw, aż wybrano momenty główne i rezerwowe. To "
+                "propozycja dla badacza, nie wynik analizy: o tym, co omówić, decyduje badacz.",
+        "stale": "Uczestnicy wywiadów, liczba momentów lub Analiza zmieniły się po wybraniu tych momentów. "
+                 "Raport opisuje ostatnio wybrane momenty.",
+        "steps_heading": "Kroki schematu VSR",
+        "source_heading": "Źródło: Analiza",
+        "parameter": "Ustawienie",
         "value": "Wartość",
-        "document_value": "Wartość z dokumentu",
+        "analysis_run": "Przebieg Analizy",
+        "moment_counts": "Momenty na wywiad",
+        "moment_counts_value": "{primary} głównych + {reserve} rezerwowych",
         "video_start": "Start nagrania wideo (zegar czujnika)",
         "video_start_missing": "nie podano",
         "times_note": "Czas lekcji liczy się od wspólnego początku nagrań, jak w Analizie; zegar czujnika to zegar "
                       "zapisany w nagraniach; kod wideo wymaga podania startu nagrania.",
         "pair": "Para {left} + {right}",
         "teacher": "Nauczyciel {alias}",
-        "data": "Dane",
-        "teacher_against": "Nauczyciel {alias} względem średniej sygnałów uczniów: {students}.",
+        "teacher_against": "Nauczyciel {alias} względem średniej sygnałów uczniów (każdy uczeń w z-score): "
+                           "{students}.",
         "students_average": "Średnia uczniów",
-        "step": "KROK",
-        "steps_heading": "Momenty spełniające poszczególne kroki",
+        "step": "Krok",
+        "steps_count_heading": "Epizody Analizy w poszczególnych krokach",
         "col_step": "Krok",
-        "col_type": "Typ synchronii (dokument, s. 1)",
-        "col_count": "Liczba momentów",
+        "col_name": "Opis",
+        "col_count": "Epizody",
         "timeline_heading": "Oś lekcji",
         "timeline_label": "Oś lekcji z numerami momentów",
         "moments_heading": "Wybrane momenty",
@@ -59,12 +60,14 @@ _TEXT: dict[str, dict[str, str]] = {
         "col_lesson": "Czas lekcji",
         "col_clock": "Zegar czujnika",
         "col_video": "Wideo",
-        "col_shared": "Wspólny stan",
+        "col_episode": "Epizod Analizy",
         "decision": "Decyzja",
         "accepted": "zaakceptowany",
         "undecided": "bez decyzji",
         "manual": "dodany ręcznie",
         "time_changed": "czas zmieniony",
+        "synchrony_episode": "synchronizacja E{number}",
+        "coarousal_episode": "ko-pobudzenie {number}",
         "curated_note": "Lista momentów to lista badacza z kroku 4 Wywiady: kolejność decyduje o roli (pierwsze "
                         "momenty niewykluczone są główne, reszta rezerwowa), a uwzględnione są zaakceptowane, "
                         "przesunięte i dodane ręcznie momenty wraz z powodami i notatkami. Momenty odrzucone "
@@ -72,144 +75,142 @@ _TEXT: dict[str, dict[str, str]] = {
         "rejected": "Odrzucone przez badacza i pominięte w raporcie: {count}.",
         "added_by": "Dodany przez badacza:",
         "retimed": "Zaproponowano {start}–{end}; czas zmieniony przez badacza:",
-        "retimed_note": "Uzasadnienie i pomiary r oraz wspólnego stanu dotyczą zaproponowanego czasu.",
-        "needs_check": "Ostatnie wyznaczenie propozycji już nie zawiera tego momentu; decyzja badacza została "
-                       "zachowana. Sprawdź go.",
+        "needs_check": "Ostatni wybór momentów już nie zawiera tego momentu; decyzja badacza została zachowana. "
+                       "Sprawdź go.",
         "note_label": "Notatka:",
         "manual_heading": "Dodany ręcznie",
         "primary": "główny",
         "reserve": "rezerwowy",
-        "high": "Wysoki",
-        "low": "Niski",
-        "justification_heading": "Uzasadnienie każdego momentu",
-        "pass": "przejście {number}",
+        "cards_heading": "Podgląd i uzasadnienie każdego momentu",
         "lesson": "Lekcja",
         "before_video": "przed startem wideo",
-        "chart_note": "Sygnały z-score obu osób wokół momentu (zacieniony).",
-        "chart_label": "Sygnały obu osób wokół momentu {number}",
+        "chart_note": "Sygnały (z-score) wokół momentu (zacieniony), jak na kroku Wywiady.",
+        "chart_label": "Sygnały wokół momentu {number}",
         "no_moments": "Brak momentów na liście.",
-        "incomplete": "Wybrano tylko {count} z {target} momentów głównych.",
-        "poor_signal": "Sygnał GSR {alias} ma słabą jakość ({pct}% próbek odrzucono przy czyszczeniu). "
-                       "Dokument (s. 1):",
-        "check_recording": "Sprawdź nagranie przed omówieniem tych momentów.",
+        "incomplete": "Analiza ma epizody tylko dla {count} z {target} momentów głównych.",
+        "poor_signal": "Sygnał GSR {alias} ma słabą jakość ({pct}% próbek odrzucono przy czyszczeniu). Sprawdź "
+                       "nagranie przed omówieniem tych momentów.",
         "warning": "Uwaga",
         "summary_label": "Wywiady VSR",
         "summary_unit": "momentów",
         "summary_interviews": "wywiadów: {count}",
-        "summary_stale": "propozycje nieaktualne",
+        "summary_stale": "momenty nieaktualne",
         "method_title": "8. Momenty do wywiadów VSR",
-        "method_selection": "Propozycje wynikają z protokołu GSR dokumentu „VSR Interview Flow Chart”, a nie z "
-                            "wnioskowania statystycznego. Dla każdej pary uczniów, a w wywiadzie z nauczycielem dla "
-                            "nauczyciela i średniej sygnałów uczniów (każdy uczeń w z-score, potem średnia ponownie "
-                            "w z-score), program liczy korelację Pearsona w przesuwanych oknach na sygnałach "
-                            "z-score z analizowanego okresu. Każde okno odpowiada na jeden krok protokołu: 1 to "
-                            "ko-ruch i wspólny stan pobudzenia, 2 sam ko-ruch, 3 wspólne wysokie pobudzenie, 4 "
-                            "wspólne niskie pobudzenie, 5 brak synchronii. Wspólny stan to ten sam stan, Wysoki "
-                            "lub Niski, u obu osób przez zadaną część okna; kolejne okna tego samego kroku tworzą "
-                            "moment. Progi korelacji, długość okna i krok podano w tabeli parametrów.",
-        "method_choice": "Dokument nie rozstrzyga, który moment wybrać, gdy kilka spełnia ten sam krok, ani jak "
-                         "długi jest moment. Program bierze moment, który najmocniej spełnia kryterium kroku "
-                         "(najwyższa korelacja w krokach 1–2, największy udział wspólnego stanu w krokach 3–4, "
-                         "najniższa korelacja w kroku 5) i w uzasadnieniu podaje, ilu było kandydatów. Kroki 1–5 "
-                         "przechodzi się od początku (krok 6), aż wybrano pięć momentów, potem rezerwowe. Momenty "
-                         "nie mogą się nakładać; innej reguły odstępu protokół nie ma, więc jej nie stosujemy. "
-                         "Stany Wysoki i Niski są względne: dotyczą poziomu danej osoby w analizowanym okresie.",
+        "method_selection": "Momenty pochodzą z wyników Analizy, z tymi samymi ustawieniami; krok Wywiady nie ma "
+                            "własnych progów. Epizod należy do pary, gdy obaj uczniowie są w nim (członkowie "
+                            "podgrupy synchronizacji lub uczestnicy epizodu ko-pobudzenia), a do wywiadu z "
+                            "nauczycielem, gdy jest w nim nauczyciel i co najmniej jeden uczeń. Kroki schematu VSR: "
+                            "1 to epizod ko-ruchu (synchronizacji lub ko-ruchu z zakładki Ko-pobudzenie) "
+                            "nakładający się na wspólny stan Wysoki lub Niski, 2 epizod ko-ruchu bez wspólnego "
+                            "stanu, 3 i 4 epizod wspólnego stanu Wysokiego lub Niskiego bez ko-ruchu, 5 odcinek "
+                            "poza tymi epizodami, w którym korelacja w oknach Analizy pozostaje poniżej zera co "
+                            "najmniej przez minimalny czas epizodu.",
+        "method_choice": "Korelacja r momentu to średnia z okien zakładki Synchronizacja (to samo okno, krok i "
+                         "metoda) dla sygnałów pary albo nauczyciela i średniej uczniów (każdy uczeń w z-score, "
+                         "potem średnia ponownie w z-score). Gdy kilka epizodów spełnia ten sam krok, pierwszy jest "
+                         "najsilniejszy: najwyższe r w krokach 1–2, najwięcej osób we wspólnym stanie w krokach "
+                         "3–4, najniższe r w kroku 5, potem dłuższy. Kroki 1–5 przechodzi się od początku (krok 6), "
+                         "aż wybrano momenty główne, potem rezerwowe. Momenty nie mogą się nakładać.",
     },
     "en": {
         "title": "Moments for VSR interviews",
-        "lead": "Moments proposed for discussion in the VSR interviews, selected by the GSR protocol of the "
-                "“VSR Interview Flow Chart”. STEPS 1–5 ask about the types of synchrony in turn, and "
-                "STEP 6 repeats them until 5 moments are selected. This is a proposal for the researcher, not an "
-                "analysis result: the researcher decides what to discuss.",
-        "stale": "The interview participants, the parameters or the analysis changed after these proposals "
-                 "were made. The report describes the last proposals.",
-        "criteria_heading": "Criteria from the document",
-        "settings_heading": "Selection parameters",
-        "parameter": "Parameter",
+        "lead": "Moments to discuss in the VSR interviews, chosen from the Analysis results: the synchronization "
+                "and co-arousal episodes of each pair (or of the teacher with the students) were sorted into "
+                "STEPS 1–5 of the “VSR Interview Flow Chart”, the strongest first, until the primary and reserve "
+                "moments were chosen. This is a proposal for the researcher, not an analysis result: the "
+                "researcher decides what to discuss.",
+        "stale": "The interview participants, the number of moments or the Analysis changed after these moments "
+                 "were chosen. The report describes the last chosen moments.",
+        "steps_heading": "Steps of the VSR flow chart",
+        "source_heading": "Source: the Analysis",
+        "parameter": "Setting",
         "value": "Value",
-        "document_value": "Document value",
+        "analysis_run": "Analysis run",
+        "moment_counts": "Moments per interview",
+        "moment_counts_value": "{primary} primary + {reserve} reserve",
         "video_start": "Video start (sensor clock)",
         "video_start_missing": "not set",
         "times_note": "Lesson time counts from the recordings' common start, as in the Analysis; the sensor clock is "
                       "the clock stored in the recordings; the video timecode needs the video start.",
         "pair": "Pair {left} + {right}",
         "teacher": "Teacher {alias}",
-        "data": "Data",
-        "teacher_against": "Teacher {alias} against the average of the students' signals: {students}.",
+        "teacher_against": "Teacher {alias} against the average of the students' signals (each student z-scored): "
+                           "{students}.",
         "students_average": "Students' average",
-        "step": "STEP",
-        "steps_heading": "Moments meeting each step",
+        "step": "Step",
+        "steps_count_heading": "Analysis episodes per step",
         "col_step": "Step",
-        "col_type": "Synchrony type (document, p. 1)",
-        "col_count": "Moments",
+        "col_name": "Description",
+        "col_count": "Episodes",
         "timeline_heading": "Lesson timeline",
         "timeline_label": "Lesson timeline with the moment numbers",
-        "moments_heading": "Selected moments",
+        "moments_heading": "Chosen moments",
         "col_number": "No.",
         "col_status": "Status",
         "col_lesson": "Lesson time",
         "col_clock": "Sensor clock",
         "col_video": "Video",
-        "col_shared": "Shared state",
+        "col_episode": "Analysis episode",
         "decision": "Decision",
         "accepted": "accepted",
         "undecided": "undecided",
         "manual": "added manually",
         "time_changed": "time changed",
+        "synchrony_episode": "synchronization E{number}",
+        "coarousal_episode": "co-arousal {number}",
         "curated_note": "The list of moments is the researcher's list from the Interviews step: its order decides "
                         "the role (the first moments not rejected are primary, the rest reserve), and it holds the "
                         "accepted, retimed and manually added moments with their reasons and notes. Moments the "
                         "researcher rejected are left out.",
         "rejected": "Rejected by the researcher and left out of the report: {count}.",
         "added_by": "Added by the researcher:",
-        "retimed": "Proposed as {start}\u2013{end}; time changed by the researcher:",
-        "retimed_note": "The justification and the measurements of r and of the shared state describe the "
-                        "proposed time.",
-        "needs_check": "The last proposal run no longer proposes this moment; the researcher's decision was kept. "
-                       "Check it.",
+        "retimed": "Proposed as {start}–{end}; time changed by the researcher:",
+        "needs_check": "The last choice of moments no longer includes this moment; the researcher's decision was "
+                       "kept. Check it.",
         "note_label": "Note:",
         "manual_heading": "Added manually",
         "primary": "primary",
         "reserve": "reserve",
-        "high": "High",
-        "low": "Low",
-        "justification_heading": "Justification of each moment",
-        "pass": "pass {number}",
+        "cards_heading": "Preview and justification of each moment",
         "lesson": "Lesson",
         "before_video": "before the video starts",
-        "chart_note": "Z-scored signals of both people around the moment (shaded).",
-        "chart_label": "Signals of both people around moment {number}",
+        "chart_note": "Signals (z-scores) around the moment (shaded), as on the Interviews step.",
+        "chart_label": "Signals around moment {number}",
         "no_moments": "There are no moments on the list.",
-        "incomplete": "Only {count} of {target} primary moments were selected.",
+        "incomplete": "The Analysis has episodes for only {count} of {target} primary moments.",
         "poor_signal": "The GSR signal of {alias} has poor quality ({pct}% of its samples were rejected on the "
-                       "Cleaning step). The document (page 1):",
-        "check_recording": "Check the recording before discussing these moments.",
+                       "Cleaning step). Check the recording before discussing these moments.",
         "warning": "Note",
         "summary_label": "VSR interviews",
         "summary_unit": "moments",
         "summary_interviews": "interviews: {count}",
-        "summary_stale": "proposals outdated",
+        "summary_stale": "moments outdated",
         "method_title": "8. Moments for VSR interviews",
-        "method_selection": "The proposals follow the GSR protocol of the “VSR Interview Flow Chart”, not "
-                            "statistical inference. For each student pair, and in the teacher interview for the "
-                            "teacher and the students' average signal (each student z-scored, then the average "
-                            "z-scored again), the program computes the Pearson correlation in sliding windows of the "
-                            "z-scored signals of the analysed period. Each window answers one step of the protocol: "
-                            "1 is co-movement and a shared arousal state, 2 co-movement only, 3 shared HIGH arousal, "
-                            "4 shared LOW arousal, 5 not synchronous. A shared state is the same state, High or Low, "
-                            "in both people for a given part of the window; consecutive windows answering the same "
-                            "step form a moment. The correlation thresholds, the window length and the step are in "
-                            "the parameter table.",
-        "method_choice": "The document does not say which moment to take when several meet the same step, nor how "
-                         "long a moment is. The program takes the moment that meets the step's criterion most "
-                         "strongly (highest correlation in steps 1–2, largest share of the shared state in "
-                         "steps 3–4, lowest correlation in step 5) and states in the justification how many "
-                         "candidates there were. Steps 1–5 are walked again (step 6) until five moments are "
-                         "selected, then the reserve moments. Moments may not overlap; the protocol has no other "
-                         "spacing rule, so none is applied. The High and Low states are relative: they refer to a "
-                         "person's own level within the analysed period.",
+        "method_selection": "The moments come from the Analysis results, with the same settings; the Interviews "
+                            "step has no thresholds of its own. An episode belongs to a pair when both students are "
+                            "in it (members of a synchronization subgroup or contributors of a co-arousal episode), "
+                            "and to the teacher interview when the teacher and at least one student are. The steps "
+                            "of the VSR flow chart: 1 is a co-movement episode (synchronization, or co-movement on "
+                            "the Co-arousal tab) overlapping a shared High or Low state, 2 a co-movement episode "
+                            "without a shared state, 3 and 4 a shared High or Low episode without co-movement, 5 a "
+                            "stretch outside those episodes where the correlation in the Analysis windows stays "
+                            "below zero for at least the minimum episode duration.",
+        "method_choice": "A moment's correlation r is the mean over the Synchronization tab's windows (same window, "
+                         "step and method) of the pair's signals, or of the teacher and the students' average (each "
+                         "student z-scored, then the average z-scored again). When several episodes answer the "
+                         "same step, the strongest comes first: the highest r in steps 1–2, the most people in the "
+                         "shared state in steps 3–4, the lowest r in step 5, then the longer one. Steps 1–5 are "
+                         "walked again (step 6) until the primary moments are chosen, then the reserve. Moments "
+                         "may not overlap.",
     },
 }
+
+# The Analysis settings the section states, in the Analysis' own labels.
+_SETTINGS = (
+    "synchrony_threshold", "synchrony_window_seconds", "synchrony_step_seconds",
+    "synchrony_episode_min_duration_seconds", "synchrony_episode_max_gap_seconds", "contagion_high_z",
+    "contagion_low_z",
+)
 
 
 def _t(lang: str, key: str, **values: Any) -> str:
@@ -237,17 +238,6 @@ def _decision(lang: str, moment: dict[str, Any]) -> str:
     return f"{text}, {_t(lang, 'time_changed')}" if moment["time_changed"] else text
 
 
-def _correlation(moment: dict[str, Any]) -> str:
-    return "\u2014" if moment["correlation"] is None else vsr_text.correlation(moment["correlation"])
-
-
-def _shared_state(lang: str, moment: dict[str, Any]) -> str:
-    if not moment["shared_state"]:
-        return "—"
-    name = _t(lang, "high" if moment["shared_state"] == HIGH else "low")
-    return f"{name} {vsr_text.percent(moment['shared_state_fraction'])}%"
-
-
 def _video(lang: str, moment: dict[str, Any], video_start: str | None) -> str:
     if moment["start_video"]:
         return f"{moment['start_video']}–{moment['end_video'] or '…'}"
@@ -266,24 +256,36 @@ def _status(lang: str, moment: dict[str, Any]) -> str:
     return _t(lang, "primary" if moment["status"] == PRIMARY else "reserve")
 
 
-def _step_label(lang: str, number: int) -> str:
-    return f"{_t(lang, 'step')} {number}"
-
-
-def _step_heading(lang: str, moment: dict[str, Any]) -> str:
+def _step_cell(lang: str, moment: dict[str, Any]) -> str:
     """The step the moment answers; a manual moment answers none."""
-    return "\u2014" if moment["step"] is None else _step_label(lang, moment["step"])
+    return "—" if not moment["step"] else f"{_t(lang, 'step')} {moment['step']}"
 
 
-def _settings_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
-    config = vsr["config"]
-    rows = [[str(param.label), display_number(config[param.name]), display_number(param.default)]
-            for param in VSR_PARAMS]
+def _episode_cell(lang: str, moment: dict[str, Any]) -> str:
+    episode = moment["episode"]
+    if not episode:
+        return "—"
+    key = "synchrony_episode" if episode["source"] == "synchrony" else "coarousal_episode"
+    return _t(lang, key, number=episode["number"])
+
+
+def _source_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
+    settings = vsr["analysis_settings"]
+    labels = {param.name: str(param.label) for param in params.ANALYSIS_PARAMS}
+    rows = [[labels.get(name, name), params.display_number(settings[name])] for name in _SETTINGS if name in settings]
+    computed = (vsr.get("analysis_computed_at") or "")[:16].replace("T", " ")
     video_start = (vsr["roles"] or {}).get("video_start_time") or _t(lang, "video_start_missing")
-    rows.append([_t(lang, "video_start"), video_start, "—"])
+    counts = vsr["counts"]
+    rows = [
+        [_t(lang, "analysis_run"), computed or "—"],
+        *rows,
+        [_t(lang, "moment_counts"), _t(lang, "moment_counts_value", primary=counts["primary"],
+                                       reserve=counts["reserve"])],
+        [_t(lang, "video_start"), video_start],
+    ]
     return [
-        {"type": "h2", "text": _t(lang, "settings_heading")},
-        _table([_t(lang, "parameter"), _t(lang, "value"), _t(lang, "document_value")], rows, numeric=(1, 2)),
+        {"type": "h2", "text": _t(lang, "source_heading")},
+        _table([_t(lang, "parameter"), _t(lang, "value")], rows, numeric=(1,)),
     ]
 
 
@@ -291,45 +293,23 @@ def _warnings(vsr: dict[str, Any], interview: dict[str, Any], lang: str) -> list
     blocks = []
     for alias in interview["participants"]:
         quality = vsr["quality"].get(alias) or {}
-        if quality.get("level") != "poor":
-            continue
-        blocks.append({
-            "type": "note",
-            "label": _t(lang, "warning"),
-            "text": format_html(
-                "{} {} {}",
-                _t(lang, "poor_signal", alias=alias, pct=number_format(quality["rejected_pct"], 0)),
-                vsr_text.quote(QUOTE_GSR_DISRUPTION.as_dict(), ellipsis=True),
-                _t(lang, "check_recording"),
-            ),
-            "style": "warning",
-        })
+        if quality.get("level") == "poor":
+            blocks.append({"type": "note", "label": _t(lang, "warning"), "style": "warning",
+                           "text": _t(lang, "poor_signal", alias=alias, pct=number_format(quality["rejected_pct"], 0))})
     stats = interview["stats"]
     if not stats["complete"]:
-        blocks.append({
-            "type": "note",
-            "label": _t(lang, "warning"),
-            "text": _t(lang, "incomplete", count=stats["primary_count"], target=stats["primary_target"]),
-            "style": "warning",
-        })
+        blocks.append({"type": "note", "label": _t(lang, "warning"), "style": "warning",
+                       "text": _t(lang, "incomplete", count=stats["primary_count"], target=stats["primary_target"])})
     return blocks
 
 
 def _step_blocks(interview: dict[str, Any], lang: str) -> list[dict[str, Any]]:
-    rows = [
-        [_step_label(lang, number), vsr_text.quote(step.synchrony_type.as_dict()),
-         str(interview["candidate_counts"].get(str(number), 0))]
-        for number, step in STEPS.items()
+    counts = interview.get("candidate_counts", {})
+    rows = [[str(step["number"]), step["name"], str(counts.get(str(step["number"]), 0))] for step in vsr_text.steps()]
+    return [
+        {"type": "h3", "text": _t(lang, "steps_count_heading")},
+        _table([_t(lang, "col_step"), _t(lang, "col_name"), _t(lang, "col_count")], rows, numeric=(0, 2)),
     ]
-    first_pass = interview["passes"][0]["steps"] if interview["passes"] else []
-    empty = [vsr_text.step_sentence(record["fragments"][0]) for record in first_pass if record["answer"] == "NO"]
-    blocks: list[dict[str, Any]] = [
-        {"type": "h3", "text": _t(lang, "steps_heading")},
-        _table([_t(lang, "col_step"), _t(lang, "col_type"), _t(lang, "col_count")], rows, numeric=(2,)),
-    ]
-    if empty:
-        blocks.append({"type": "list", "items": empty})
-    return blocks
 
 
 def _names(interview: dict[str, Any], lang: str) -> list[str]:
@@ -337,11 +317,11 @@ def _names(interview: dict[str, Any], lang: str) -> list[str]:
     return [first, _t(lang, "students_average") if interview["kind"] == "teacher" else interview["participants"][1]]
 
 
-def _sentences(lang: str, moment: dict[str, Any]) -> list[Any]:
-    """A proposed moment's justification from the document; a manual moment's is the researcher's reason."""
+def _sentence(lang: str, moment: dict[str, Any], kind: str) -> str:
+    """The proposed moment's justification from the Analysis; a manual moment's is the researcher's reason."""
     if moment["source"] == "manual":
-        return [f"{_t(lang, 'added_by')} {moment['reason']}"]
-    return vsr_text.justification(moment["justification"])
+        return f"{_t(lang, 'added_by')} {moment['reason']}"
+    return vsr_text.justification(moment["proposal"], kind)
 
 
 def _change(lang: str, moment: dict[str, Any]) -> list[str]:
@@ -350,38 +330,43 @@ def _change(lang: str, moment: dict[str, Any]) -> list[str]:
         return []
     proposed = _t(lang, "retimed", start=seconds_mmss(moment["original_start_seconds"]),
                   end=seconds_mmss(moment["original_end_seconds"]))
-    return [f"{proposed} {moment['reason']}", _t(lang, "retimed_note")]
+    return [f"{proposed} {moment['reason']}"]
+
+
+def _chart(vsr: dict[str, Any], interview: dict[str, Any], moment: dict[str, Any], lang: str) -> SafeString | None:
+    if not moment.get("preview"):
+        return None
+    settings = vsr["analysis_settings"]
+    state = moment["shared_state"] if moment["source"] != "manual" else None
+    svg = moment_chart_svg(
+        moment["preview"], _names(interview, lang), interview["colors"],
+        _t(lang, "chart_label", number=moment["number"]), moment["number"],
+        high=settings.get("contagion_high_z") if state == HIGH else None,
+        low=settings.get("contagion_low_z") if state == LOW else None,
+    )
+    return SafeString(svg) if svg else None
 
 
 def _moment_cards(interview: dict[str, Any], vsr: dict[str, Any], lang: str) -> dict[str, Any]:
     video_start = (vsr["roles"] or {}).get("video_start_time")
-    names, colors, trace = _names(interview, lang), interview["colors"], interview["trace"]
     cards = []
     for moment in interview["moments"]:
-        chart = None
-        if trace is not None:
-            svg = moment_chart_svg(trace, moment, names, colors,
-                                   _t(lang, "chart_label", number=moment["number"]))
-            chart = SafeString(svg) if svg else None
+        manual = moment["source"] == "manual"
         cards.append({
             "number": moment["number"],
             "primary": moment["status"] == PRIMARY,
             "status": _status(lang, moment),
-            "step": _t(lang, "manual_heading") if moment["source"] == "manual" else _step_heading(lang, moment),
-            "type": vsr_text.quote(moment["synchrony_type"]) if moment["synchrony_type"] else "",
-            "pass": _t(lang, "pass", number=moment["pass_number"]) if (moment["pass_number"] or 0) > 1 else "",
+            "step": _t(lang, "manual_heading") if manual else vsr_text.step_title(moment["step"]),
             "decision": _decision(lang, moment),
             "check": _t(lang, "needs_check") if moment["needs_check"] else "",
             "times": [
                 (_t(lang, "lesson"), _lesson(moment)),
                 (_t(lang, "col_clock"), _clock(moment)),
                 (_t(lang, "col_video"), _video(lang, moment, video_start)),
-                *((("r", _correlation(moment)), (_t(lang, "col_shared"), _shared_state(lang, moment)))
-                  if moment["source"] != "manual" else ()),
             ],
-            "chart": chart,
+            "chart": _chart(vsr, interview, moment, lang),
             "chart_note": _t(lang, "chart_note"),
-            "sentences": _sentences(lang, moment),
+            "sentence": _sentence(lang, moment, interview["kind"]),
             "change": _change(lang, moment),
             "note": moment["note"],
             "note_label": _t(lang, "note_label"),
@@ -393,11 +378,7 @@ def _interview_blocks(interview: dict[str, Any], vsr: dict[str, Any], lang: str)
     video_start = (vsr["roles"] or {}).get("video_start_time")
     lesson = vsr["lesson"]
     moments = interview["moments"]
-    basis = [vsr_text.quote(interview["data_basis"]), *(vsr_text.quote(note) for note in interview["basis_notes"])]
-    blocks: list[dict[str, Any]] = [
-        {"type": "h2", "text": _interview_label(lang, interview)},
-        _p(format_html("<strong>{}:</strong> {}", _t(lang, "data"), SafeString(" · ".join(basis)))),
-    ]
+    blocks: list[dict[str, Any]] = [{"type": "h2", "text": _interview_label(lang, interview)}]
     if interview["kind"] == "teacher":
         blocks.append(_p(_t(lang, "teacher_against", alias=interview["participants"][0],
                             students=", ".join(interview["participants"][1:])), style="muted"))
@@ -414,21 +395,21 @@ def _interview_blocks(interview: dict[str, Any], vsr: dict[str, Any], lang: str)
         {"type": "h3", "text": _t(lang, "moments_heading")},
         _table(
             [_t(lang, key) for key in ("col_number", "col_status", "decision", "col_step", "col_lesson", "col_clock",
-                                       "col_video")]
-            + ["r", _t(lang, "col_shared")],
-            [[str(moment["number"]), _status(lang, moment), _decision(lang, moment), _step_heading(lang, moment),
-              _lesson(moment), _clock(moment), _video(lang, moment, video_start), _correlation(moment),
-              _shared_state(lang, moment)] for moment in moments],
-            numeric=(0, 7),
+                                       "col_video", "col_episode")]
+            + ["r"],
+            [[str(moment["number"]), _status(lang, moment), _decision(lang, moment), _step_cell(lang, moment),
+              _lesson(moment), _clock(moment), _video(lang, moment, video_start), _episode_cell(lang, moment),
+              vsr_text.correlation(moment["correlation"])] for moment in moments],
+            numeric=(0, 8),
         ),
-        {"type": "h3", "text": _t(lang, "justification_heading")},
+        {"type": "h3", "text": _t(lang, "cards_heading")},
         _moment_cards(interview, vsr, lang),
     ]
     return blocks
 
 
 def build_section(vsr: dict[str, Any] | None, lang: str) -> dict[str, Any] | None:
-    """The report section for the stored proposals (``services/vsr.report_data``), or None without any."""
+    """The report section for the stored moments (``services/vsr.report_data``), or None without any."""
     if not vsr:
         return None
     with translation.override(lang):
@@ -438,9 +419,9 @@ def build_section(vsr: dict[str, Any] | None, lang: str) -> dict[str, Any] | Non
         blocks += [
             _p(_t(lang, "lead"), style="lead"),
             *([_p(_t(lang, "curated_note"))] if vsr["curated"] else []),
-            {"type": "h2", "text": _t(lang, "criteria_heading")},
-            {"type": "list", "items": [vsr_text.quote(item) for item in vsr["criteria"].values()]},
-            *_settings_blocks(vsr, lang),
+            {"type": "h2", "text": _t(lang, "steps_heading")},
+            {"type": "list", "items": [vsr_text.step_title(step["number"]) for step in vsr_text.steps()]},
+            *_source_blocks(vsr, lang),
             _p(_t(lang, "times_note"), style="muted"),
         ]
         for interview in vsr["interviews"]:
@@ -467,7 +448,7 @@ def summary_kpi(vsr: dict[str, Any] | None, lang: str) -> dict[str, Any] | None:
 
 
 def methodology_blocks(lang: str) -> list[dict[str, Any]]:
-    """The short note on how the proposals are made, appended to the Methodology."""
+    """The short note on how the moments are chosen, appended to the Methodology."""
     return [
         {"type": "h2", "text": _t(lang, "method_title")},
         _p(_t(lang, "method_selection")),

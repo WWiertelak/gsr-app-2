@@ -30,7 +30,7 @@ class Project(models.Model):
     description = models.TextField(blank=True, default="")
     # Stored PipelineConfig overrides (gsr.pipeline.config field names).
     pipeline_config = models.JSONField(default=dict, blank=True)
-    # Interview roles (teacher, student dyads, video clock) and VSR parameters.
+    # Interview roles (teacher, student dyads, video clock) and the number of interview moments.
     # Outside pipeline_config so role changes do not invalidate analysis results.
     interview_config = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -107,10 +107,10 @@ class AnalysisResult(models.Model):
 class InterviewMoment(models.Model):
     """One moment on an interview's list on the Interviews step, and the researcher's decision about it.
 
-    A ``proposed`` moment comes from the VSR proposals (``AnalysisResult`` kind ``vsr``)
-    and keeps a copy of that proposal, its original times and its justification; a
-    ``manual`` moment is added by the researcher with a required reason, which is its
-    justification. Proposing the moments again keeps every decision (see
+    A ``proposed`` moment comes from the moments chosen from the Analysis (``AnalysisResult``
+    kind ``vsr``) and keeps a copy of that proposal and its original times; a ``manual``
+    moment is added by the researcher with a required reason, which is its justification.
+    Choosing the moments again keeps every decision (see
     ``services.curation.sync_interview_moments``).
     """
 
@@ -139,9 +139,9 @@ class InterviewMoment(models.Model):
     # Why the researcher changed the time or added the moment.
     reason = models.TextField(blank=True, default="")
     note = models.TextField(blank=True, default="")
-    # The proposed moment as the VSR engine returned it (step, measurements, justification fragments).
+    # The proposed moment as it was chosen (step, Analysis episode, correlation, shared state).
     proposal = models.JSONField(default=dict, blank=True)
-    # A decided moment the last proposal run no longer proposes: the researcher should check it.
+    # A decided moment the last choice of moments no longer includes: the researcher should check it.
     needs_check = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

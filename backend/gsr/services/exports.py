@@ -11,8 +11,9 @@ from importlib import metadata
 from typing import Any
 
 import pandas as pd
-from django.utils import timezone
+from django.utils import timezone, translation
 
+from .. import vsr_text
 from ..models import AnalysisResult, Project
 from ..pipeline.config import PipelineConfig
 from ..pipeline.preprocessing import analysed_range, build_stage_export_frame
@@ -142,65 +143,76 @@ def coarousal_state_percentages_csv(coarousal: dict[str, Any]) -> bytes:
 
 
 VSR_MOMENT_COLUMNS = (
-    "interview", "interview_type", "participants", "number", "status", "decision", "source", "step",
-    "synchrony_type", "pass", "lesson_start_s", "lesson_end_s", "time_changed", "proposed_start_s",
-    "proposed_end_s", "clock_start", "clock_end", "video_start", "video_end", "correlation", "shared_state",
-    "shared_state_fraction", "asynchrony_subtype", "candidate_rank", "candidate_count", "justification", "reason",
-    "note", "stale",
+    "interview", "interview_type", "participants", "number", "status", "decision", "source", "step", "step_name",
+    "pass", "lesson_start_s", "lesson_end_s", "time_changed", "proposed_start_s", "proposed_end_s", "clock_start",
+    "clock_end", "video_start", "video_end", "analysis_episode", "correlation", "shared_state", "in_shared_state",
+    "candidate_rank", "candidate_count", "justification", "reason", "note", "stale",
 )
 
 
-def _vsr_justification(moment: dict[str, Any]) -> str:
+def _episode_label(episode: dict[str, Any] | None) -> str | None:
+    """The Analysis episode a moment came from, as the Analysis screen numbers it."""
+    if not episode:
+        return None
+    if episode["source"] == "synchrony":
+        return f"synchronization E{episode['number']}"
+    return f"co-arousal {episode['number']}"
+
+
+def _vsr_justification(moment: dict[str, Any], kind: str) -> str:
     """A proposed moment's justification (it describes the proposed time); a manual moment's is the researcher's reason."""
     if moment["source"] == "manual":
         return f"Added by the researcher: {moment['reason']}"
-    return moment["justification_text"]
+    return vsr_text.justification(moment["proposal"], kind)
 
 
 def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
     """The VSR interview moments of every interview, one row each, with the justification in English.
 
-    The rows are the researcher's list from the Interviews step without its rejected moments (the engine's proposals
-    for an interview nobody has curated): ``decision`` is accepted, undecided or manual; ``status`` is primary or
-    reserve by the place on the list; a retimed moment (``time_changed``) keeps the proposed times and the
-    ``reason``. ``stale`` is True on every row when the participants, the parameters or the analysis changed after
-    the proposals.
+    The rows are the researcher's list from the Interviews step without its rejected moments (the moments chosen
+    from the Analysis for an interview nobody has curated): ``decision`` is accepted, undecided or manual;
+    ``status`` is primary or reserve by the place on the list; a retimed moment (``time_changed``) keeps the
+    proposed times and the ``reason``; ``analysis_episode`` names the Analysis episode the moment came from.
+    ``stale`` is True on every row when the participants, the number of moments or the analysis changed after the
+    moments were chosen.
     """
-    rows = [
-        {
-            "interview": interview["key"],
-            "interview_type": interview["kind"],
-            "participants": _join(interview["participants"]),
-            "number": moment["number"],
-            "status": moment["status"],
-            "decision": moment["decision"],
-            "source": moment["source"],
-            "step": moment["step"],
-            "synchrony_type": moment["synchrony_type"]["text"] if moment["synchrony_type"] else None,
-            "pass": moment["pass_number"],
-            "lesson_start_s": moment["start_seconds"],
-            "lesson_end_s": moment["end_seconds"],
-            "time_changed": moment["time_changed"],
-            "proposed_start_s": moment["original_start_seconds"],
-            "proposed_end_s": moment["original_end_seconds"],
-            "clock_start": moment["start_clock"],
-            "clock_end": moment["end_clock"],
-            "video_start": moment["start_video"],
-            "video_end": moment["end_video"],
-            "correlation": moment["correlation"],
-            "shared_state": moment["shared_state"],
-            "shared_state_fraction": moment["shared_state_fraction"] if moment["shared_state"] else None,
-            "asynchrony_subtype": moment["asynchrony_subtype"],
-            "candidate_rank": moment["candidate_rank"],
-            "candidate_count": moment["candidate_count"],
-            "justification": _vsr_justification(moment),
-            "reason": moment["reason"],
-            "note": moment["note"],
-            "stale": vsr["stale"],
-        }
-        for interview in vsr["interviews"]
-        for moment in interview["moments"]
-    ]
+    with translation.override("en"):
+        rows = [
+            {
+                "interview": interview["key"],
+                "interview_type": interview["kind"],
+                "participants": _join(interview["participants"]),
+                "number": moment["number"],
+                "status": moment["status"],
+                "decision": moment["decision"],
+                "source": moment["source"],
+                "step": moment["step"],
+                "step_name": vsr_text.step_name(moment["step"], moment["shared_state"]) if moment["step"] else None,
+                "pass": moment["pass_number"],
+                "lesson_start_s": moment["start_seconds"],
+                "lesson_end_s": moment["end_seconds"],
+                "time_changed": moment["time_changed"],
+                "proposed_start_s": moment["original_start_seconds"],
+                "proposed_end_s": moment["original_end_seconds"],
+                "clock_start": moment["start_clock"],
+                "clock_end": moment["end_clock"],
+                "video_start": moment["start_video"],
+                "video_end": moment["end_video"],
+                "analysis_episode": _episode_label(moment["episode"]),
+                "correlation": moment["correlation"],
+                "shared_state": moment["shared_state"],
+                "in_shared_state": (f"{moment['in_state']}/{moment['people']}"
+                                    if moment["shared_state"] and moment["in_state"] is not None else None),
+                "candidate_rank": moment["candidate_rank"],
+                "candidate_count": moment["candidate_count"],
+                "justification": _vsr_justification(moment, interview["kind"]),
+                "reason": moment["reason"],
+                "note": moment["note"],
+                "stale": vsr["stale"],
+            }
+            for interview in vsr["interviews"]
+            for moment in interview["moments"]
+        ]
     # Object columns keep a whole number whole when a manual moment leaves the cell empty.
     return _csv(pd.DataFrame(rows, columns=list(VSR_MOMENT_COLUMNS), dtype=object))
 
