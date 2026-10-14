@@ -141,6 +141,47 @@ def coarousal_state_percentages_csv(coarousal: dict[str, Any]) -> bytes:
     return _csv(pd.DataFrame(coarousal.get("state_percentages", []), columns=columns))
 
 
+VSR_MOMENT_COLUMNS = (
+    "interview", "interview_type", "participants", "number", "status", "step", "synchrony_type", "pass",
+    "lesson_start_s", "lesson_end_s", "clock_start", "clock_end", "video_start", "video_end", "correlation",
+    "shared_state", "shared_state_fraction", "asynchrony_subtype", "candidate_rank", "candidate_count",
+    "justification", "note",
+)
+
+
+def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
+    """The VSR interview moments of every interview, one row each, with the justification in English."""
+    rows = [
+        {
+            "interview": interview["key"],
+            "interview_type": interview["kind"],
+            "participants": _join(interview["participants"]),
+            "number": moment["number"],
+            "status": moment["status"],
+            "step": moment["step"],
+            "synchrony_type": moment["synchrony_type"]["text"],
+            "pass": moment["pass_number"],
+            "lesson_start_s": moment["start_seconds"],
+            "lesson_end_s": moment["end_seconds"],
+            "clock_start": moment["start_clock"],
+            "clock_end": moment["end_clock"],
+            "video_start": moment["start_video"],
+            "video_end": moment["end_video"],
+            "correlation": moment["correlation"],
+            "shared_state": moment["shared_state"],
+            "shared_state_fraction": moment["shared_state_fraction"] if moment["shared_state"] else None,
+            "asynchrony_subtype": moment["asynchrony_subtype"],
+            "candidate_rank": moment["candidate_rank"],
+            "candidate_count": moment["candidate_count"],
+            "justification": moment["justification_text"],
+            "note": moment["note"],
+        }
+        for interview in vsr["interviews"]
+        for moment in interview["moments"]
+    ]
+    return _csv(pd.DataFrame(rows, columns=list(VSR_MOMENT_COLUMNS)))
+
+
 def versions() -> dict[str, str]:
     found = {"python": platform.python_version()}
     for package in VERSIONED_PACKAGES:
@@ -191,13 +232,16 @@ def table_exports(stored: AnalysisResult) -> dict[str, bytes]:
     }
 
 
-def build_zip(project: Project, stored: AnalysisResult, charts: dict[str, bytes], json_bytes: bytes) -> bytes:
+def build_zip(project: Project, stored: AnalysisResult, charts: dict[str, bytes], json_bytes: bytes,
+              vsr: dict[str, Any] | None = None) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("clean_signals.csv", clean_signals_csv(project, stored))
         archive.writestr("analysis_input_merged.csv", merged_csv(project, stored))
         for name, content in table_exports(stored).items():
             archive.writestr(name, content)
+        if vsr is not None:
+            archive.writestr("vsr_moments.csv", vsr_moments_csv(vsr))
         archive.writestr("run_settings_and_results.json", json_bytes)
         for key, image in charts.items():
             archive.writestr(f"charts/{key}.png", image)

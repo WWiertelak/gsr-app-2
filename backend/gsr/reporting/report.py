@@ -25,6 +25,7 @@ from typing import Any
 from django.template.loader import render_to_string
 
 from ..pipeline.preprocessing import analysed_range
+from . import interviews
 from .methodology import METHODOLOGY, METHODS_COMPARISON
 
 FONT_DIR = Path(__file__).resolve().parent / "fonts"
@@ -606,6 +607,9 @@ def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, 
                  f"{_tr(lang, 'summary_comovement')}={_fmt(coarousal_stats.get('comovement_episode_count'))}",
              ] if coarousal else []),
     ]
+    interviews_kpi = interviews.summary_kpi(payload.get("vsr"), lang)
+    if interviews_kpi is not None:
+        kpis.append(interviews_kpi)
     charts = {chart["key"]: chart for chart in _charts(payload, "summary", lang)}
     blocks: list[dict[str, Any]] = [{"type": "kpis", "items": kpis}]
     if "sync_signals" in charts:
@@ -919,6 +923,8 @@ def _section_methodology(payload: dict[str, Any], lang: str) -> dict[str, Any]:
         blocks.append(_h2(section["title"]))
         for block in section["blocks"]:
             blocks += _methodology_blocks(block)
+    if payload.get("vsr"):
+        blocks += interviews.methodology_blocks(lang)
 
     comparison = METHODS_COMPARISON.get(lang, METHODS_COMPARISON["pl"])
     blocks += [
@@ -1007,6 +1013,7 @@ def build_report(payload: dict[str, Any]) -> dict[str, Any]:
         _section_cleaning(payload, lang),
         _section_synchrony(payload, lang),
         _section_coarousal(payload, lang),
+        interviews.build_section(payload.get("vsr"), lang),
         _section_methodology(payload, lang),
         _section_appendix(payload, lang),
     ]

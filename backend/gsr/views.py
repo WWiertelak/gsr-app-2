@@ -43,6 +43,7 @@ from .pipeline.vsr import (
 from .pipeline.vsr import STEPS as VSR_STEPS
 from .pipeline.vsr_config import VsrConfig
 from .reporting.report import render_report_pdf, report_text, resolve_lang
+from .reporting.vsr_charts import lesson_ticks
 from .services import curation, exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
@@ -67,6 +68,7 @@ from .services.results import (
     signal_colors,
 )
 from .services.vsr import compute_interviews
+from .services.vsr import report_data as vsr_report_data
 from .vsr_params import VSR_PARAMS, vsr_summary
 
 STEPS = (
@@ -759,7 +761,6 @@ def analysis_reset(request: HttpRequest, pk: Any) -> HttpResponse:
 # The page-1 criteria the Interviews screen states above the proposals.
 VSR_CRITERIA = (QUOTE_FIVE_MOMENTS, QUOTE_RESERVE, QUOTE_SYNCHRONOUS, QUOTE_ASYNCHRONOUS)
 MIN_PAIR_ROWS = 3  # the document's three student dyads (page 1: "6 students, 3 dyads")
-TICK_STEPS_MINUTES = (1, 2, 5, 10, 15, 20, 30, 60)
 
 
 def _interview_config(project: Project) -> InterviewConfig:
@@ -798,21 +799,6 @@ def _interview_label(interview: dict[str, Any]) -> str:
     if interview["kind"] == "teacher":
         return _("Teacher %(alias)s") % {"alias": interview["participants"][0]}
     return _("Pair %(left)s + %(right)s") % {"left": interview["participants"][0], "right": interview["participants"][1]}
-
-
-def _lesson_ticks(start: float, end: float, max_ticks: int = 8) -> list[dict[str, Any]]:
-    """Whole-minute ticks of the lesson timeline (relative seconds), as % positions."""
-    span = end - start
-    if span <= 0:
-        return []
-    step = next((step * 60 for step in TICK_STEPS_MINUTES if span / (step * 60) <= max_ticks), 3600)
-    first = -(-start // step) * step
-    ticks = []
-    seconds = first
-    while seconds <= end:
-        ticks.append({"seconds": seconds, "pct": f"{100.0 * (seconds - start) / span:.2f}"})
-        seconds += step
-    return ticks
 
 
 def _moment_view(item: curation.CuratedMoment, start: float, span: float) -> dict[str, Any]:
@@ -880,7 +866,7 @@ def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, An
         "rejected_count": sum(1 for item in curated if item.role is None),
         "kept_count": sum(1 for item in curated if item.role is not None),
         "stats": interview["stats"],
-        "ticks": _lesson_ticks(start, end),
+        "ticks": lesson_ticks(start, end),
         "poor_signals": [{"alias": alias, "pct": number_format(quality[alias]["rejected_pct"], 0)}
                          for alias in interview["participants"]
                          if quality.get(alias, {}).get("level") == "poor"],
@@ -1097,6 +1083,7 @@ EXPORT_FILES = {
         "coarousal_state_timeline.csv",
         "coarousal_state_percentages.csv",
     )},
+    "vsr_moments.csv": "vsr",
 }
 
 
@@ -1141,11 +1128,14 @@ def _export_file(project: Project, name: str, label: str = "") -> dict[str, str]
             "url": reverse("gsr:export_file", args=[project.pk, name])}
 
 
-def _export_groups(project: Project, chart_count: int) -> list[dict[str, Any]]:
+def _export_groups(project: Project, chart_count: int, has_vsr: bool) -> list[dict[str, Any]]:
     """The Data card's rows: each with its download name(s); grouped CSVs share one menu."""
     def row(title: str, description: str, kind: str, files: list[dict[str, str]]) -> dict[str, Any]:
         return {"title": title, "description": description, "kind": kind, "files": files}
 
+    vsr_rows = [row(_("VSR interview moments"),
+                    _("per interview: step, lesson, sensor clock and video times, correlation, justification"), "CSV",
+                    [_export_file(project, "vsr_moments.csv")])] if has_vsr else []
     return [
         row(_("Cleaned signals"), _("per participant, relative time, full resolution"), "CSV",
             [_export_file(project, "clean_signals.csv")]),
@@ -1161,6 +1151,7 @@ def _export_groups(project: Project, chart_count: int) -> list[dict[str, Any]]:
             _export_file(project, "coarousal_state_timeline.csv", _("state timeline")),
             _export_file(project, "coarousal_state_percentages.csv", _("time in states")),
         ]),
+        *vsr_rows,
         row(_("Run settings and results"), _("for reproducibility: settings, library versions, file SHA-256"),
             "JSON", [_export_file(project, "run_settings_and_results.json")]),
         row(_("Charts"), ngettext("%(count)d report chart, 2× resolution, white background, in the ZIP",
@@ -1169,7 +1160,7 @@ def _export_groups(project: Project, chart_count: int) -> list[dict[str, Any]]:
     ]
 
 
-def _report_contents(result: AnalysisResult, chart_count: int) -> list[str]:
+def _report_contents(result: AnalysisResult, chart_count: int, has_vsr: bool) -> list[str]:
     """The PDF report's sections as the report card lists them (the report skips analyses that did not run)."""
     payload = result.payload
     contents = [_("Summary page"), _("Import"), _("Cleaning")]
@@ -1177,6 +1168,8 @@ def _report_contents(result: AnalysisResult, chart_count: int) -> list[str]:
         contents.append(_("Synchronization"))
     if payload.get("coarousal"):
         contents.append(_("Co-arousal"))
+    if has_vsr:
+        contents.append(_("VSR interview moments"))
     contents += [_("Methodology"), _("Reproducibility"),
                  ngettext("%(count)d chart", "%(count)d charts", chart_count) % {"count": chart_count}]
     return contents
@@ -1217,13 +1210,14 @@ def _export_context(project: Project, error: UserError | None = None) -> dict[st
         values = PipelineConfig.from_dict(result.config).model_dump()
         report_charts = charts.report_charts(result.payload, signal_colors(project), values)
         languages = _report_languages(project, result)
+        has_vsr = vsr_report_data(project, with_traces=False) is not None
         context.update(
             report_charts=report_charts,
-            report_contents=_report_contents(result, len(report_charts)),
+            report_contents=_report_contents(result, len(report_charts), has_vsr),
             report_languages=languages,
             report_lang=resolve_lang(get_language()),
             report_chart_labels={lang["code"]: lang["chart_labels"] for lang in languages},
-            export_groups=_export_groups(project, len(report_charts)),
+            export_groups=_export_groups(project, len(report_charts), has_vsr),
             zip_name=_download_name(project, "results.zip"),
             computed_time=_computed_time(result),
             stale_causes=_stale_causes(project, result) if stale else [],
@@ -1261,6 +1255,11 @@ def export_file(request: HttpRequest, pk: Any, name: str) -> HttpResponse:
             content = exports.merged_csv(project, result)
         elif kind == "json":
             content = _results_json(project, result)
+        elif kind == "vsr":
+            vsr = vsr_report_data(project, with_traces=False)
+            if vsr is None:
+                raise Http404("Propose the interview moments before exporting them.")
+            content = exports.vsr_moments_csv(vsr)
         else:
             content = exports.table_exports(result)[name]
     except AnalysisError as exc:
@@ -1277,7 +1276,8 @@ def export_zip(request: HttpRequest, pk: Any) -> HttpResponse:
     result = _analysis_result_or_404(project)
     chart_images = exports.parse_chart_images(request.POST) if request.method == "POST" else {}
     try:
-        content = exports.build_zip(project, result, chart_images, _results_json(project, result))
+        content = exports.build_zip(project, result, chart_images, _results_json(project, result),
+                                    vsr_report_data(project, with_traces=False))
     except AnalysisError as exc:
         messages.error(request, describe(exc, project, "export").message)
         return redirect("gsr:export", project.pk)
@@ -1300,6 +1300,7 @@ def report_payload(project: Project, result: AnalysisResult, chart_images: dict[
         "preview": payload.get("preview", {}),
         "synchrony": payload.get("synchrony"),
         "coarousal": payload.get("coarousal"),
+        "vsr": vsr_report_data(project),
         "versions": exports.versions(),
         "chart_images": chart_images,
     }
