@@ -95,6 +95,8 @@ QUOTE_TEACHER_DATA = Quote(
 QUOTE_TEACHER_AGGREGATION = Quote(
     "Student data will be aggregated to create average GSR values for the 6 students", CRITERIA_PAGE
 )
+# The sentence goes on to the ESM steps, which are out of scope: only its GSR half is quoted.
+QUOTE_GSR_DISRUPTION = Quote("If GSR does not work or there is significant disruption in the data", CRITERIA_PAGE)
 QUOTE_SYNCHRONOUS = Quote("Synchronous = above 0.8", CRITERIA_PAGE)
 QUOTE_ASYNCHRONOUS = Quote("Asynchronous = below 0.1", CRITERIA_PAGE)
 

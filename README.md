@@ -31,20 +31,24 @@ for how the pipeline works and what was carried over.
 The UI is server-rendered Django templates with HTMX and ECharts (no Node build), in
 Polish or English (switch in the left rail). The workflow is
 Projects → 1 Import → 2 Cleaning → 3 Analysis (Synchronization | Co-arousal tabs, one run)
-→ 4 Export (bilingual PDF report for other researchers, CSV tables, a run settings +
-results JSON, chart PNGs, or all of it as a ZIP). There is no login yet: add Django
+→ 4 Interviews (proposed VSR interview moments per student pair and for the teacher, each
+justified with quotes from the "VSR Interview Flow Chart") → 5 Export (bilingual PDF report
+for other researchers, CSV tables, a run settings + results JSON, chart PNGs, or all of it
+as a ZIP). There is no login yet: add Django
 authentication before hosting the app for more than one person.
 
 ## Layout
 
 - `backend/gsr/pipeline/` - Django-free pipeline: `parser` (eSense CSV), `preprocessing`
   (synchronization, cleaning, scaling, merge, downsampling), `synchrony` (joint
-  synchronization), `coarousal` (co-arousal), `vsr` (VSR interview moment selection; no UI yet),
+  synchronization), `coarousal` (co-arousal), `vsr` (VSR interview moment selection),
   `config` (`PipelineConfig`), `vsr_config` (`VsrConfig`, VSR interview parameters).
 - `backend/gsr/models.py`, `backend/gsr/services/` - projects, dataset upload, analysis service,
   stored last results per screen (`results`), exports (`exports`), interview roles and VSR
-  parameters kept outside the analysis signature (`interview`).
-- `backend/gsr/views.py`, `backend/gsr/templates/gsr/`, `backend/gsr/static/gsr/` - UI screens;
+  parameters kept outside the analysis signature (`interview`), the Interviews step's
+  proposals computed from the stored analysis run (`vsr`).
+- `backend/gsr/views.py`, `backend/gsr/templates/gsr/`, `backend/gsr/static/gsr/` - UI screens
+  (`vsr_text.py` renders the VSR justifications in the UI language, document quotes verbatim);
   `static/gsr/js/charts.js` holds the ECharts option builders ported from GSRv2,
   `static/gsr/vendor/` the pinned htmx and ECharts builds and the IBM Plex web fonts (`fonts/`, SIL OFL).
 - `backend/gsr/reporting/` - PDF report (HTML template converted to PDF by WeasyPrint; shares the app's `static/gsr/css/tokens.css` and IBM Plex fonts, with bundled DejaVu fonts as the glyph fallback) and its methodology text.

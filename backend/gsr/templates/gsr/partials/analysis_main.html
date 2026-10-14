@@ -267,7 +267,7 @@
   <div class="action-bar">
     <span class="muted">{% translate "The results go into the PDF report and the ZIP." %}</span>
     <span class="grow"></span>
-    <a class="button lg" href="{% url 'gsr:export' project.pk %}">{% translate "Next: Export" %} →</a>
+    <a class="button lg" href="{% url 'gsr:interviews' project.pk %}">{% translate "Next: Interviews" %} →</a>
   </div>
 {% endif %}
 {% if htmx %}{% include "gsr/partials/rail_steps.html" with oob=True %}
