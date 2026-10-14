@@ -104,6 +104,66 @@ class AnalysisResult(models.Model):
         return f"{self.project_id}/{self.kind}"
 
 
+class InterviewMoment(models.Model):
+    """One moment on an interview's list on the Interviews step, and the researcher's decision about it.
+
+    A ``proposed`` moment comes from the VSR proposals (``AnalysisResult`` kind ``vsr``)
+    and keeps a copy of that proposal, its original times and its justification; a
+    ``manual`` moment is added by the researcher with a required reason, which is its
+    justification. Proposing the moments again keeps every decision (see
+    ``services.curation.sync_interview_moments``).
+    """
+
+    SOURCE_PROPOSED = "proposed"
+    SOURCE_MANUAL = "manual"
+    SOURCE_CHOICES = [(SOURCE_PROPOSED, "Proposed"), (SOURCE_MANUAL, "Added manually")]
+
+    STATUS_PENDING = "pending"
+    STATUS_ACCEPTED = "accepted"
+    STATUS_REJECTED = "rejected"
+    STATUS_CHOICES = [(STATUS_PENDING, "Not decided"), (STATUS_ACCEPTED, "Accepted"), (STATUS_REJECTED, "Rejected")]
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="interview_moments")
+    # The interview's key in the proposals: "S1+S2" for a student pair, the teacher's alias for the teacher.
+    interview_key = models.CharField(max_length=255)
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    # Order on the interview's list; the first moments not rejected are the primary ones, the rest the reserve.
+    position = models.PositiveIntegerField(default=0)
+    # Lesson times in seconds from the recordings' common start: as proposed, and as the researcher set them.
+    original_start_seconds = models.FloatField(null=True, blank=True)
+    original_end_seconds = models.FloatField(null=True, blank=True)
+    start_seconds = models.FloatField()
+    end_seconds = models.FloatField()
+    # Why the researcher changed the time or added the moment.
+    reason = models.TextField(blank=True, default="")
+    note = models.TextField(blank=True, default="")
+    # The proposed moment as the VSR engine returned it (step, measurements, justification fragments).
+    proposal = models.JSONField(default=dict, blank=True)
+    # A decided moment the last proposal run no longer proposes: the researcher should check it.
+    needs_check = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["interview_key", "position", "created_at"]
+        indexes = [models.Index(fields=["project", "interview_key"], name="gsr_moment_interview_idx")]
+
+    def __str__(self) -> str:
+        return f"{self.project_id}/{self.interview_key}/{self.position}"
+
+    @property
+    def is_manual(self) -> bool:
+        return self.source == self.SOURCE_MANUAL
+
+    @property
+    def time_changed(self) -> bool:
+        return not self.is_manual and (
+            self.start_seconds != self.original_start_seconds or self.end_seconds != self.original_end_seconds
+        )
+
+
 @receiver(post_delete, sender=Dataset)
 def _delete_dataset_file(sender, instance: Dataset, **kwargs) -> None:
     if instance.file:

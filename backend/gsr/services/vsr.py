@@ -17,7 +17,7 @@ from django.utils.translation import gettext
 from ..models import AnalysisResult, Project
 from ..pipeline.common import PipelineError
 from ..pipeline.preprocessing import _signal_quality_level
-from ..pipeline.vsr import compute_vsr
+from ..pipeline.vsr import _clock_start, compute_vsr
 from .analysis import AnalysisError
 from .interview import InterviewRoles, compute_vsr_signature, load_interview_config
 from .results import get_result, stored_pipeline_result
@@ -70,7 +70,10 @@ def _signal_quality(result: Any, aliases: list[str]) -> dict[str, dict[str, Any]
 
 
 def compute_interviews(project: Project) -> AnalysisResult:
-    """Propose the moments for every student pair and the teacher, and store them."""
+    """Propose the moments for every student pair and the teacher, and store them.
+
+    The researcher's decisions on the interview lists are kept (``curation.sync_interview_moments``).
+    """
     started = time.perf_counter()
     analysis = get_result(project, AnalysisResult.KIND_ANALYSIS)
     if analysis is None:
@@ -116,8 +119,13 @@ def compute_interviews(project: Project) -> AnalysisResult:
             "students": students,
             "video_start_time": roles.video_start_time,
         },
-        # The analysed period on the moments' time axis (relative seconds), for the lesson timeline.
-        lesson={"start_seconds": float(times.min()) * 60.0, "end_seconds": float(times.max()) * 60.0},
+        # The analysed period on the moments' time axis (relative seconds), for the lesson timeline, and the
+        # sensor clock at lesson time 0, for the clock times of moments the researcher adds or moves.
+        lesson={
+            "start_seconds": float(times.min()) * 60.0,
+            "end_seconds": float(times.max()) * 60.0,
+            "start_clock": clock_start.strftime("%H:%M:%S") if (clock_start := _clock_start(result)) else None,
+        },
         quality=_signal_quality(result, result.aliases),
         analysis_computed_at=analysis.computed_at.isoformat(),
     )
@@ -133,4 +141,7 @@ def compute_interviews(project: Project) -> AnalysisResult:
             "computed_at": timezone.now(),
         },
     )
+    from .curation import sync_interview_moments  # curation imports this module
+
+    sync_interview_moments(project, stored)
     return stored

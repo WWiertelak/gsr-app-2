@@ -710,3 +710,24 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
   .drawer-body { padding: 0 var(--s4); }
   .drawer-close { width: 36px; height: 36px; }
 }
+
+/* Interviews: the researcher's curation of the moments (accept, reject, change time, note, add) */
+.lt-moment { text-decoration: none; }
+.moment-card.rejected { border-left-color: var(--line-2); background: var(--sunken); color: var(--ink-2); }
+.moment-card.rejected .moment-n { background: var(--line-2); color: var(--ink-2); box-shadow: none; }
+.moment-card.manual { border-left-style: double; border-left-width: 4px; }
+.moment-check { margin: 0 0 var(--s2); padding: var(--s2) var(--s3); }
+.moment-change { margin: 0 0 var(--s1); color: var(--warn); }
+.moment-note { margin: var(--s2) 0 0; padding: var(--s2) var(--s3); border-radius: var(--r-sm); background: var(--sunken); }
+.moment-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s2); margin-top: var(--s3); padding-top: var(--s2); border-top: 1px solid var(--line); }
+.moment-actions > .alert { flex-basis: 100%; margin: 0; }
+.moment-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.moment-move { display: inline-flex; gap: 2px; }
+.moment-edit > summary, .moment-add > summary { list-style: none; cursor: pointer; }
+.moment-edit > summary::-webkit-details-marker, .moment-add > summary::-webkit-details-marker { display: none; }
+.moment-edit[open] { flex-basis: 100%; }
+.moment-add { margin-top: var(--s3); }
+.moment-form { display: grid; gap: var(--s2); max-width: 36rem; margin-top: var(--s2); }
+.moment-form .alert { margin: 0; }
+.moment-form textarea { width: 100%; }
+.moment-form-times { display: grid; grid-template-columns: repeat(2, minmax(0, 9rem)); gap: var(--s3); }

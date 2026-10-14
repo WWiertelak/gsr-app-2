@@ -29,7 +29,7 @@ from django.views.decorators.http import require_POST
 
 from . import charts, params, vsr_text
 from .errors import UserError, describe, no_overlap_message
-from .models import AnalysisResult, Dataset, Project
+from .models import AnalysisResult, Dataset, InterviewMoment, Project
 from .pipeline.config import PipelineConfig
 from .pipeline.vsr import (
     PRIMARY,
@@ -38,11 +38,12 @@ from .pipeline.vsr import (
     QUOTE_GSR_DISRUPTION,
     QUOTE_RESERVE,
     QUOTE_SYNCHRONOUS,
+    RESERVE,
 )
 from .pipeline.vsr import STEPS as VSR_STEPS
 from .pipeline.vsr_config import VsrConfig
 from .reporting.report import render_report_pdf, report_text, resolve_lang
-from .services import exports
+from .services import curation, exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
 from .services.interview import (
@@ -814,21 +815,49 @@ def _lesson_ticks(start: float, end: float, max_ticks: int = 8) -> list[dict[str
     return ticks
 
 
-def _moment_view(moment: dict[str, Any], start: float, span: float) -> dict[str, Any]:
-    left = min(max((moment["start_seconds"] - start) / span, 0.0), 1.0) * 100 if span > 0 else 0.0
-    width = min(max(moment["duration_seconds"] / span * 100, 0.6), 100 - left) if span > 0 else 100.0
-    return {
-        **moment,
-        "primary": moment["status"] == PRIMARY,
-        "step_type": vsr_text.quote(moment["synchrony_type"]),
-        "sentences": vsr_text.justification(moment["justification"]),
-        "r": vsr_text.correlation(moment["correlation"]),
-        "shared_pct": vsr_text.percent(moment["shared_state_fraction"]) if moment["shared_state"] else None,
+def _moment_view(item: curation.CuratedMoment, start: float, span: float) -> dict[str, Any]:
+    """One card of an interview's list: the moment as the researcher kept it, with its proposal's justification."""
+    row = item.row
+    proposal = row.proposal
+    duration = row.end_seconds - row.start_seconds
+    left = min(max((row.start_seconds - start) / span, 0.0), 1.0) * 100 if span > 0 else 0.0
+    width = min(max(duration / span * 100, 0.6), 100 - left) if span > 0 else 100.0
+    view = {
+        "id": str(row.pk),
+        "row": row,
+        "number": item.number,
+        "primary": item.role == PRIMARY,
+        "role": item.role,
+        "rejected": row.status == InterviewMoment.STATUS_REJECTED,
+        "accepted": row.status == InterviewMoment.STATUS_ACCEPTED,
+        "manual": row.is_manual,
+        "time_changed": row.time_changed,
+        # A proposed reserve moment that moved up, or a primary one that moved down, says what the engine proposed.
+        "proposed_role": item.proposed_role if item.role and item.proposed_role not in (None, item.role) else None,
+        "start_seconds": row.start_seconds,
+        "end_seconds": row.end_seconds,
+        "duration_seconds": duration,
+        "start_clock": item.start_clock,
+        "end_clock": item.end_clock,
+        "start_video": item.start_video,
+        "end_video": item.end_video,
         "bar": {"left": f"{left:.2f}", "width": f"{width:.2f}"},
     }
+    if not row.is_manual:
+        view.update(
+            step=proposal["step"],
+            step_type=vsr_text.quote(proposal["synchrony_type"]),
+            pass_number=proposal["pass_number"],
+            sentences=vsr_text.justification(proposal["justification"]),
+            r=vsr_text.correlation(proposal["correlation"]),
+            shared_state=proposal["shared_state"],
+            shared_pct=vsr_text.percent(proposal["shared_state_fraction"]) if proposal["shared_state"] else None,
+        )
+    return view
 
 
-def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, Any],
+                    curated: list[curation.CuratedMoment]) -> dict[str, Any]:
     lesson = payload.get("lesson") or {"start_seconds": 0.0, "end_seconds": 0.0}
     start, end = lesson["start_seconds"], lesson["end_seconds"]
     quality = payload.get("quality", {})
@@ -844,7 +873,12 @@ def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, An
                    "count": interview["candidate_counts"].get(str(number), 0)} for number, step in VSR_STEPS.items()],
         "empty_steps": [vsr_text.step_sentence(record["fragments"][0]) for record in first_pass
                         if record["answer"] == "NO"],
-        "moments": [_moment_view(moment, start, end - start) for moment in interview["moments"]],
+        "key": interview["key"],
+        "moments": [_moment_view(item, start, end - start) for item in curated],
+        "primary_count": sum(1 for item in curated if item.role == PRIMARY),
+        "reserve_count": sum(1 for item in curated if item.role == RESERVE),
+        "rejected_count": sum(1 for item in curated if item.role is None),
+        "kept_count": sum(1 for item in curated if item.role is not None),
         "stats": interview["stats"],
         "ticks": _lesson_ticks(start, end),
         "poor_signals": [{"alias": alias, "pct": number_format(quality[alias]["rejected_pct"], 0)}
@@ -854,7 +888,8 @@ def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, An
 
 
 def _interviews_context(project: Project, tab: str | None = None, error: UserError | None = None,
-                        posted_roles: dict[str, Any] | None = None) -> dict[str, Any]:
+                        posted_roles: dict[str, Any] | None = None,
+                        moment_form: dict[str, Any] | None = None) -> dict[str, Any]:
     config = _interview_config(project)
     values = config.vsr.model_dump()
     result = get_result(project, AnalysisResult.KIND_VSR)
@@ -887,10 +922,14 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
         "error": error,
         "criteria": [vsr_text.quote(item.as_dict()) for item in VSR_CRITERIA],
         "gsr_disruption_quote": vsr_text.quote(QUOTE_GSR_DISRUPTION.as_dict(), ellipsis=True),
+        # The card form the last action came from, reopened with its values and its error.
+        "moment_form": moment_form or {},
     }
     if result is not None:
         payload = result.payload
-        interviews = [_interview_view(index, interview, payload)
+        curation.ensure_synced(project, result)
+        curated = curation.curated_interviews(project, result)
+        interviews = [_interview_view(index, interview, payload, curated.get(interview["key"], []))
                       for index, interview in enumerate(payload.get("interviews", []))]
         tabs = [interview["tab"] for interview in interviews]
         context.update(
@@ -902,9 +941,10 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
 
 
 def _interviews_page(request: HttpRequest, project: Project, tab: str | None = None,
-                     error: UserError | None = None, posted_roles: dict[str, Any] | None = None) -> HttpResponse:
+                     error: UserError | None = None, posted_roles: dict[str, Any] | None = None,
+                     moment_form: dict[str, Any] | None = None) -> HttpResponse:
     return _page(request, project, "interviews", "gsr/partials/interviews_main.html",
-                 _interviews_context(project, tab, error, posted_roles))
+                 _interviews_context(project, tab, error, posted_roles, moment_form))
 
 
 def _save_interview_config(project: Project, updates: dict[str, Any]) -> UserError | None:
@@ -916,12 +956,13 @@ def _save_interview_config(project: Project, updates: dict[str, Any]) -> UserErr
     return None
 
 
-def _interviews_redirect(request: HttpRequest, project: Project, error: UserError | None) -> HttpResponse:
+def _interviews_redirect(request: HttpRequest, project: Project, error: UserError | None,
+                         anchor: str = "") -> HttpResponse:
     if error:
         messages.error(request, error.message)
     tab = request.POST.get("tab")
     url = reverse("gsr:interviews", args=[project.pk])
-    return redirect(f"{url}?tab={tab}" if tab else url)
+    return redirect((f"{url}?tab={tab}" if tab else url) + (f"#{anchor}" if anchor else ""))
 
 
 def interviews(request: HttpRequest, pk: Any) -> HttpResponse:
@@ -961,6 +1002,85 @@ def interviews_reset(request: HttpRequest, pk: Any) -> HttpResponse:
     if not _is_htmx(request):
         return _interviews_redirect(request, project, None)
     return _interviews_page(request, project, request.POST.get("tab"))
+
+
+# The card actions on an interview's list; "time" and "note" also post their form fields.
+MOMENT_STATUS_ACTIONS = {
+    "accept": InterviewMoment.STATUS_ACCEPTED,
+    "reject": InterviewMoment.STATUS_REJECTED,
+    "restore": InterviewMoment.STATUS_PENDING,
+}
+MOMENT_MOVES = {"up": -1, "down": 1}
+
+
+def _vsr_result_or_404(project: Project) -> AnalysisResult:
+    result = get_result(project, AnalysisResult.KIND_VSR)
+    if result is None:
+        raise Http404("Propose the moments first.")
+    return result
+
+
+def _moment_times(request: HttpRequest) -> tuple[float, float]:
+    return (curation.parse_lesson_time(request.POST.get("start", "")),
+            curation.parse_lesson_time(request.POST.get("end", "")))
+
+
+def _moment_response(request: HttpRequest, project: Project, error: str | None, form: dict[str, Any],
+                     anchor: str) -> HttpResponse:
+    """The Interviews page after a card action; a failed form comes back open with its values and error."""
+    if not _is_htmx(request):
+        return _interviews_redirect(request, project, UserError(error) if error else None, anchor)
+    return _interviews_page(request, project, request.POST.get("tab"),
+                            moment_form={**form, "error": error} if error else None)
+
+
+@require_POST
+def interview_moment(request: HttpRequest, pk: Any, moment_pk: Any) -> HttpResponse:
+    """A card action on one moment: accept, reject, restore, move up or down, change the time, note, remove."""
+    project = _project(pk)
+    result = _vsr_result_or_404(project)
+    moment = get_object_or_404(InterviewMoment, pk=moment_pk, project=project)
+    action = request.POST.get("action", "")
+    form = {"id": str(moment.pk), "action": action, "start": request.POST.get("start", ""),
+            "end": request.POST.get("end", ""), "reason": request.POST.get("reason", ""),
+            "note": request.POST.get("note", "")}
+    anchor = f"moment-{moment.pk}"
+    try:
+        if action in MOMENT_STATUS_ACTIONS:
+            curation.set_status(moment, MOMENT_STATUS_ACTIONS[action])
+        elif action in MOMENT_MOVES:
+            curation.move(moment, MOMENT_MOVES[action])
+        elif action == "time":
+            start, end = _moment_times(request)
+            curation.change_time(moment, result, start, end, request.POST.get("reason", ""))
+        elif action == "note":
+            curation.set_note(moment, request.POST.get("note", ""))
+        elif action == "remove":
+            curation.remove_manual(moment)
+            anchor = ""
+        else:
+            raise Http404("Unknown moment action.")
+    except ValueError as exc:
+        return _moment_response(request, project, str(exc), form, anchor)
+    return _moment_response(request, project, None, form, anchor)
+
+
+@require_POST
+def interview_moment_add(request: HttpRequest, pk: Any) -> HttpResponse:
+    """Add a moment to an interview's list by hand; the researcher's reason is its justification."""
+    project = _project(pk)
+    result = _vsr_result_or_404(project)
+    key = request.POST.get("interview", "")
+    form = {"id": f"add-{key}", "action": "add", "start": request.POST.get("start", ""),
+            "end": request.POST.get("end", ""), "reason": request.POST.get("reason", ""),
+            "note": request.POST.get("note", "")}
+    try:
+        start, end = _moment_times(request)
+        moment = curation.add_manual(project, result, key, start, end, request.POST.get("reason", ""),
+                                     request.POST.get("note", ""))
+    except ValueError as exc:
+        return _moment_response(request, project, str(exc), form, "")
+    return _moment_response(request, project, None, form, f"moment-{moment.pk}")
 
 
 # ─── 5 Export ────────────────────────────────────────────────────────────────
