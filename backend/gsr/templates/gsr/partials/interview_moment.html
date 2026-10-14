@@ -1,0 +1,102 @@
+{% load i18n gsr_tags %}{% comment %}One moment on an interview's list (Interviews step): its times, its justification and the researcher's
+actions. Every action posts to gsr:interview_moment and swaps the main area; without JavaScript it reloads the page.{% endcomment %}
+{% url 'gsr:interview_moment' project.pk moment.id as moment_url %}
+<li class="moment-card{% if not moment.primary %} reserve{% endif %}{% if moment.rejected %} rejected{% endif %}{% if moment.manual %} manual{% endif %}" id="moment-{{ moment.id }}">
+  <div class="moment-head">
+    <span class="moment-n">{% if moment.number %}{{ moment.number }}{% else %}×{% endif %}</span>
+    {% if moment.rejected %}<span class="badge poor">{% translate "rejected" %}</span>
+    {% elif moment.primary %}<span class="badge sig">{% translate "primary" %}</span>
+    {% else %}<span class="badge neutral">{% translate "reserve" %}</span>{% endif %}
+    {% if moment.accepted %}<span class="badge good">✓ {% translate "accepted" %}</span>{% endif %}
+    {% if moment.manual %}
+      <strong>{% translate "Added manually" %}</strong>
+    {% else %}
+      <strong>{% blocktranslate with number=moment.step %}STEP {{ number }}{% endblocktranslate %}</strong>
+      <span class="step-type">{{ moment.step_type }}</span>
+      {% if moment.pass_number > 1 %}<span class="muted small">{% blocktranslate with number=moment.pass_number %}pass {{ number }}{% endblocktranslate %}</span>{% endif %}
+    {% endif %}
+    {% if moment.proposed_role == "reserve" %}<span class="muted small">{% translate "proposed as reserve" %}</span>
+    {% elif moment.proposed_role == "primary" %}<span class="muted small">{% translate "proposed as primary" %}</span>{% endif %}
+    {% if moment.time_changed %}<span class="badge changed">{% translate "time changed" %}</span>{% endif %}
+    {% if moment.row.needs_check %}<span class="badge warning">{% translate "check" %}</span>{% endif %}
+  </div>
+  {% if moment.row.needs_check %}
+    <p class="alert warning moment-check">{% translate "The last proposal run no longer proposes this moment; your decision is kept. Check it, then accept or reject it." %}</p>
+  {% endif %}
+  <dl class="moment-times">
+    <div><dt>{% translate "Lesson" %}</dt><dd>{{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }} <span class="muted">({{ moment.duration_seconds|seconds_mmss }})</span></dd></div>
+    <div><dt>{% translate "Sensor clock" %}</dt><dd>{% if moment.start_clock %}{{ moment.start_clock }}–{{ moment.end_clock }}{% else %}—{% endif %}</dd></div>
+    <div><dt>{% translate "Video" %}</dt><dd>{% if moment.start_video %}{{ moment.start_video }}–{{ moment.end_video|default:"…" }}{% elif result_roles.video_start_time %}<span class="muted">{% translate "before the video starts" %}</span>{% else %}<span class="muted">{% translate "set the video start" %}</span>{% endif %}</dd></div>
+    {% if not moment.manual %}
+      <div><dt>r</dt><dd>{{ moment.r }}</dd></div>
+      <div><dt>{% translate "Shared state" %}</dt><dd>{% if moment.shared_state == "HIGH" %}<span class="badge high">{% translate "High ↑" %} {{ moment.shared_pct }}%</span>{% elif moment.shared_state == "LOW" %}<span class="badge low">{% translate "Low ↓" %} {{ moment.shared_pct }}%</span>{% else %}—{% endif %}</dd></div>
+    {% endif %}
+  </dl>
+  <h4 class="sr-only">{% translate "Justification" %}</h4>
+  {% if moment.manual %}
+    <ul class="justification"><li>{% translate "Added by the researcher:" %} {{ moment.row.reason }}</li></ul>
+  {% else %}
+    {% if moment.time_changed %}
+      <p class="moment-change small">{% blocktranslate with start=moment.row.original_start_seconds|seconds_mmss end=moment.row.original_end_seconds|seconds_mmss %}Proposed as {{ start }}–{{ end }}; time changed by the researcher:{% endblocktranslate %} {{ moment.row.reason }}</p>
+      <p class="muted small">{% translate "The justification describes the proposed time." %}</p>
+    {% endif %}
+    <ul class="justification">{% for sentence in moment.sentences %}<li>{{ sentence }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if moment.row.note %}<p class="moment-note small"><b>{% translate "Note:" %}</b> {{ moment.row.note|linebreaksbr }}</p>{% endif %}
+
+  <div class="moment-actions">
+    {% if moment_form.id == moment.id and moment_form.error and moment_form.action != "time" and moment_form.action != "note" %}<p class="alert error" role="alert">{{ moment_form.error }}</p>{% endif %}
+    <form class="moment-buttons" method="post" action="{{ moment_url }}" hx-post="{{ moment_url }}" hx-target="#main" hx-swap="innerHTML" hx-disabled-elt="find button">
+      {% csrf_token %}
+      <input type="hidden" name="tab" value="{{ interview.tab }}">
+      {% if moment.rejected %}
+        <button type="submit" name="action" value="restore" class="secondary small">{% translate "Restore" %}</button>
+      {% else %}
+        {% if moment.accepted %}
+          {% if not moment.manual %}<button type="submit" name="action" value="restore" class="secondary small">{% translate "Undo acceptance" %}</button>{% endif %}
+        {% else %}
+          <button type="submit" name="action" value="accept" class="small">✓ {% translate "Accept" %}</button>
+        {% endif %}
+        {% if moment.manual %}
+          <button type="submit" name="action" value="remove" class="danger small">{% translate "Remove" %}</button>
+        {% else %}
+          <button type="submit" name="action" value="reject" class="danger small">× {% translate "Reject" %}</button>
+        {% endif %}
+        <span class="moment-move">
+          <button type="submit" name="action" value="up" class="ghost small icon"{% if moment.number == 1 %} disabled{% endif %} aria-label="{% blocktranslate with number=moment.number %}Move moment {{ number }} up{% endblocktranslate %}" title="{% translate 'Move up' %}">↑</button>
+          <button type="submit" name="action" value="down" class="ghost small icon"{% if moment.number == interview.kept_count %} disabled{% endif %} aria-label="{% blocktranslate with number=moment.number %}Move moment {{ number }} down{% endblocktranslate %}" title="{% translate 'Move down' %}">↓</button>
+        </span>
+      {% endif %}
+    </form>
+    {% if not moment.rejected %}
+      <details class="moment-edit"{% if moment_form.id == moment.id and moment_form.action == "time" %} open{% endif %}>
+        <summary class="button ghost small">{% translate "Change time" %}</summary>
+        <form class="moment-form" method="post" action="{{ moment_url }}" hx-post="{{ moment_url }}" hx-target="#main" hx-swap="innerHTML" hx-disabled-elt="find button">
+          {% csrf_token %}
+          <input type="hidden" name="tab" value="{{ interview.tab }}">
+          {% if moment_form.id == moment.id and moment_form.action == "time" and moment_form.error %}<p class="alert error" role="alert">{{ moment_form.error }}</p>{% endif %}
+          <div class="moment-form-times">
+            <div class="f"><label for="time-start-{{ moment.id }}">{% translate "Start (lesson time)" %}</label>
+              <input id="time-start-{{ moment.id }}" type="text" name="start" required placeholder="m:ss" inputmode="numeric" autocomplete="off" value="{% if moment_form.id == moment.id and moment_form.action == 'time' %}{{ moment_form.start }}{% else %}{{ moment.start_seconds|seconds_mmss }}{% endif %}"></div>
+            <div class="f"><label for="time-end-{{ moment.id }}">{% translate "End (lesson time)" %}</label>
+              <input id="time-end-{{ moment.id }}" type="text" name="end" required placeholder="m:ss" inputmode="numeric" autocomplete="off" value="{% if moment_form.id == moment.id and moment_form.action == 'time' %}{{ moment_form.end }}{% else %}{{ moment.end_seconds|seconds_mmss }}{% endif %}"></div>
+          </div>
+          <div class="f"><label for="time-reason-{{ moment.id }}">{% if moment.manual %}{% translate "Reason (required, shown as the moment's justification)" %}{% else %}{% translate "Reason for the change (required unless you go back to the proposed time)" %}{% endif %}</label>
+            <textarea id="time-reason-{{ moment.id }}" name="reason" rows="2" maxlength="1000"{% if moment.manual %} required{% endif %}>{% if moment_form.id == moment.id and moment_form.action == 'time' %}{{ moment_form.reason }}{% else %}{{ moment.row.reason }}{% endif %}</textarea></div>
+          <div><button type="submit" name="action" value="time" class="small">{% translate "Save the time" %}</button></div>
+        </form>
+      </details>
+    {% endif %}
+    <details class="moment-edit"{% if moment_form.id == moment.id and moment_form.action == "note" %} open{% endif %}>
+      <summary class="button ghost small">{% if moment.row.note %}{% translate "Edit note" %}{% else %}{% translate "Add note" %}{% endif %}</summary>
+      <form class="moment-form" method="post" action="{{ moment_url }}" hx-post="{{ moment_url }}" hx-target="#main" hx-swap="innerHTML" hx-disabled-elt="find button">
+        {% csrf_token %}
+        <input type="hidden" name="tab" value="{{ interview.tab }}">
+        {% if moment_form.id == moment.id and moment_form.action == "note" and moment_form.error %}<p class="alert error" role="alert">{{ moment_form.error }}</p>{% endif %}
+        <div class="f"><label for="note-{{ moment.id }}">{% translate "Note for the interview" %}</label>
+          <textarea id="note-{{ moment.id }}" name="note" rows="2" maxlength="2000">{% if moment_form.id == moment.id and moment_form.action == 'note' %}{{ moment_form.note }}{% else %}{{ moment.row.note }}{% endif %}</textarea></div>
+        <div><button type="submit" name="action" value="note" class="small">{% translate "Save the note" %}</button></div>
+      </form>
+    </details>
+  </div>
+</li>

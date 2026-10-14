@@ -32,7 +32,8 @@ The UI is server-rendered Django templates with HTMX and ECharts (no Node build)
 Polish or English (switch in the left rail). The workflow is
 Projects → 1 Import → 2 Cleaning → 3 Analysis (Synchronization | Co-arousal tabs, one run)
 → 4 Interviews (proposed VSR interview moments per student pair and for the teacher, each
-justified with quotes from the "VSR Interview Flow Chart") → 5 Export (bilingual PDF report
+justified with quotes from the "VSR Interview Flow Chart"; the researcher accepts, rejects,
+reorders, retimes or adds moments, and proposing again keeps those decisions) → 5 Export (bilingual PDF report
 for other researchers, CSV tables, a run settings + results JSON, chart PNGs, or all of it
 as a ZIP). There is no login yet: add Django
 authentication before hosting the app for more than one person.
@@ -46,7 +47,8 @@ authentication before hosting the app for more than one person.
 - `backend/gsr/models.py`, `backend/gsr/services/` - projects, dataset upload, analysis service,
   stored last results per screen (`results`), exports (`exports`), interview roles and VSR
   parameters kept outside the analysis signature (`interview`), the Interviews step's
-  proposals computed from the stored analysis run (`vsr`).
+  proposals computed from the stored analysis run (`vsr`), the researcher's decisions on each
+  interview's list of moments (`curation`, model `InterviewMoment`).
 - `backend/gsr/views.py`, `backend/gsr/templates/gsr/`, `backend/gsr/static/gsr/` - UI screens
   (`vsr_text.py` renders the VSR justifications in the UI language, document quotes verbatim);
   `static/gsr/js/charts.js` holds the ECharts option builders ported from GSRv2,

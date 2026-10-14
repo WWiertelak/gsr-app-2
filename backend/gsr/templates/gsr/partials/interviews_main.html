@@ -78,7 +78,7 @@
         <div class="tabs interview-tabs" role="tablist" aria-labelledby="vsr-results-title">
           {% for interview in interviews %}
             <a href="?tab={{ interview.tab }}" role="tab" id="tab-{{ interview.tab }}" aria-controls="panel-{{ interview.tab }}" data-tab="{{ interview.tab }}" class="{% if tab == interview.tab %}active{% endif %}" aria-selected="{% if tab == interview.tab %}true{% else %}false{% endif %}" tabindex="{% if tab == interview.tab %}0{% else %}-1{% endif %}">
-              <span class="tab-title">{{ interview.label }} <span class="count">{{ interview.stats.primary_count }} + {{ interview.stats.reserve_count }}</span></span>
+              <span class="tab-title">{{ interview.label }} <span class="count">{{ interview.primary_count }} + {{ interview.reserve_count }}</span></span>
               <span class="tab-desc">{% if interview.kind == "teacher" %}{% translate "teacher and the students' average GSR" %}{% else %}{% translate "student pair" %}{% endif %}</span>
             </a>
           {% endfor %}
@@ -113,40 +113,53 @@
             <h3>{% translate "Lesson timeline" %}</h3>
             <span class="subtitle"><span class="legend primary"></span>{% translate "primary" %} <span class="legend reserve"></span>{% translate "reserve" %}</span>
           </div>
-          <div class="lesson-timeline" role="img" aria-label="{% translate 'Lesson timeline' %}: {% for moment in interview.moments %}{{ moment.number }} {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+          <div class="lesson-timeline" role="img" aria-label="{% translate 'Lesson timeline' %}: {% for moment in interview.moments %}{% if not moment.rejected %}{{ moment.number }} {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}">
             <div class="lt-track">
               {% for tick in interview.ticks %}<span class="lt-grid" style="left: {{ tick.pct }}%"></span>{% endfor %}
-              {% for moment in interview.moments %}
-                <span class="lt-moment{% if not moment.primary %} reserve{% endif %}" style="left: {{ moment.bar.left }}%; width: {{ moment.bar.width }}%" title="{{ moment.number }} · {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}"><b>{{ moment.number }}</b></span>
-              {% endfor %}
+              {% for moment in interview.moments %}{% if not moment.rejected %}
+                <a class="lt-moment{% if not moment.primary %} reserve{% endif %}" href="#moment-{{ moment.id }}" style="left: {{ moment.bar.left }}%; width: {{ moment.bar.width }}%" title="{{ moment.number }} · {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}"><b>{{ moment.number }}</b></a>
+              {% endif %}{% endfor %}
             </div>
             <div class="lt-axis" aria-hidden="true">{% for tick in interview.ticks %}<span style="left: {{ tick.pct }}%">{{ tick.seconds|seconds_mmss }}</span>{% endfor %}</div>
           </div>
 
+          <div class="section-head section-gap">
+            <h3>{% translate "Moments for the interview" %}</h3>
+            <span class="subtitle">{% blocktranslate with primary=interview.primary_count reserve=interview.reserve_count %}{{ primary }} primary + {{ reserve }} reserve{% endblocktranslate %}{% if interview.rejected_count %} · {% blocktranslate count counter=interview.rejected_count %}{{ counter }} rejected{% plural %}{{ counter }} rejected{% endblocktranslate %}{% endif %}</span>
+          </div>
+          <p class="muted small">{% translate "The first moments on the list that are not rejected are the primary ones; rejecting one moves the first reserve moment up. Use ↑ ↓ to change the order." %}</p>
           <ol class="moment-list">
             {% for moment in interview.moments %}
-              <li class="moment-card{% if not moment.primary %} reserve{% endif %}" id="{{ interview.tab }}-moment-{{ moment.number }}">
-                <div class="moment-head">
-                  <span class="moment-n">{{ moment.number }}</span>
-                  <span class="badge {% if moment.primary %}sig{% else %}neutral{% endif %}">{% if moment.primary %}{% translate "primary" %}{% else %}{% translate "reserve" %}{% endif %}</span>
-                  <strong>{% blocktranslate with number=moment.step %}STEP {{ number }}{% endblocktranslate %}</strong>
-                  <span class="step-type">{{ moment.step_type }}</span>
-                  {% if moment.pass_number > 1 %}<span class="muted small">{% blocktranslate with number=moment.pass_number %}pass {{ number }}{% endblocktranslate %}</span>{% endif %}
-                </div>
-                <dl class="moment-times">
-                  <div><dt>{% translate "Lesson" %}</dt><dd>{{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }} <span class="muted">({{ moment.duration_seconds|seconds_mmss }})</span></dd></div>
-                  <div><dt>{% translate "Sensor clock" %}</dt><dd>{% if moment.start_clock %}{{ moment.start_clock }}–{{ moment.end_clock }}{% else %}—{% endif %}</dd></div>
-                  <div><dt>{% translate "Video" %}</dt><dd>{% if moment.start_video %}{{ moment.start_video }}–{{ moment.end_video|default:"…" }}{% elif result_roles.video_start_time %}<span class="muted">{% translate "before the video starts" %}</span>{% else %}<span class="muted">{% translate "set the video start" %}</span>{% endif %}</dd></div>
-                  <div><dt>r</dt><dd>{{ moment.r }}</dd></div>
-                  <div><dt>{% translate "Shared state" %}</dt><dd>{% if moment.shared_state == "HIGH" %}<span class="badge high">{% translate "High ↑" %} {{ moment.shared_pct }}%</span>{% elif moment.shared_state == "LOW" %}<span class="badge low">{% translate "Low ↓" %} {{ moment.shared_pct }}%</span>{% else %}—{% endif %}</dd></div>
-                </dl>
-                <h4 class="sr-only">{% translate "Justification" %}</h4>
-                <ul class="justification">{% for sentence in moment.sentences %}<li>{{ sentence }}</li>{% endfor %}</ul>
-              </li>
+              {% include "gsr/partials/interview_moment.html" %}
             {% empty %}
               <li class="muted">{% translate "No moment answers a step of the protocol." %}</li>
             {% endfor %}
           </ol>
+
+          {% with form_id="add-"|add:interview.key %}
+          <details class="moment-add"{% if moment_form.id == form_id %} open{% endif %}>
+            <summary class="button secondary small">+ {% translate "Add a moment manually" %}</summary>
+            <form class="moment-form" method="post" action="{% url 'gsr:interview_moment_add' project.pk %}"
+                  hx-post="{% url 'gsr:interview_moment_add' project.pk %}" hx-target="#main" hx-swap="innerHTML"
+                  hx-disabled-elt="find button">
+              {% csrf_token %}
+              <input type="hidden" name="tab" value="{{ interview.tab }}">
+              <input type="hidden" name="interview" value="{{ interview.key }}">
+              {% if moment_form.id == form_id and moment_form.error %}<p class="alert error" role="alert">{{ moment_form.error }}</p>{% endif %}
+              <div class="moment-form-times">
+                <div class="f"><label for="{{ interview.tab }}-add-start">{% translate "Start (lesson time)" %}</label>
+                  <input id="{{ interview.tab }}-add-start" type="text" name="start" required placeholder="m:ss" inputmode="numeric" autocomplete="off" value="{% if moment_form.id == form_id %}{{ moment_form.start }}{% endif %}"></div>
+                <div class="f"><label for="{{ interview.tab }}-add-end">{% translate "End (lesson time)" %}</label>
+                  <input id="{{ interview.tab }}-add-end" type="text" name="end" required placeholder="m:ss" inputmode="numeric" autocomplete="off" value="{% if moment_form.id == form_id %}{{ moment_form.end }}{% endif %}"></div>
+              </div>
+              <div class="f"><label for="{{ interview.tab }}-add-reason">{% translate "Reason (required, shown as the moment's justification)" %}</label>
+                <textarea id="{{ interview.tab }}-add-reason" name="reason" rows="2" required maxlength="1000">{% if moment_form.id == form_id %}{{ moment_form.reason }}{% endif %}</textarea></div>
+              <div class="f"><label for="{{ interview.tab }}-add-note">{% translate "Note (optional)" %}</label>
+                <textarea id="{{ interview.tab }}-add-note" name="note" rows="2" maxlength="2000">{% if moment_form.id == form_id %}{{ moment_form.note }}{% endif %}</textarea></div>
+              <div><button type="submit" class="small">{% translate "Add the moment" %}</button></div>
+            </form>
+          </details>
+          {% endwith %}
         </div>
       {% empty %}
         <p class="muted">{% translate "No interviews: choose the teacher or a student pair." %}</p>
