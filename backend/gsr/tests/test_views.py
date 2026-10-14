@@ -165,6 +165,15 @@ def test_upload_screen_empty_state_offers_a_translated_drop_zone(client) -> None
 
 
 @pytest.mark.django_db
+def test_rail_keeps_text_names_when_it_collapses_to_icons_or_a_top_bar(client, project) -> None:
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    # Narrow screens hide the brand name and the project name visually; both stay in the markup for screen readers,
+    # and the collapsed project switcher shows the project's initial instead.
+    assert '<span class="brand-name">GSR Analyzer</span>' in page
+    assert '<span class="initial" aria-hidden="true">S</span><span class="name">Sesja łódzka</span>' in page
+
+
+@pytest.mark.django_db
 def test_upload_screen_lists_recordings_in_one_table_with_inline_alias(client, project) -> None:
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
@@ -599,6 +608,7 @@ def test_analysis_screen_has_landmarks_aria_tabs_and_labelled_charts(client, pro
     assert '<aside class="rail"' in page and "<h1>Analysis</h1>" in page
     assert '<small class="step-status">3 recordings</small>' in page and "outdated" not in page
     assert '<small class="step-status">ready</small>' in page
+    assert '<span class="n" aria-hidden="true">!</span>' not in page
     # The settings drawer mounts outside the HTMX swap target.
     assert page.index('id="main"') < page.index("</main>") < page.index('id="drawer-root"')
 
@@ -606,6 +616,8 @@ def test_analysis_screen_has_landmarks_aria_tabs_and_labelled_charts(client, pro
     project.datasets.filter(alias="C").update(included=False)
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
     assert '<small class="step-status">outdated</small>' in page
+    # Outdated steps also carry a glyph on the badge, so the collapsed rail never tells them apart by colour alone.
+    assert '<span class="n" aria-hidden="true">!</span>' in page
 
     client.post(reverse("set_language"), {"language": "pl", "next": "/"})
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
