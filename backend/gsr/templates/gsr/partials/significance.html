@@ -1,0 +1,1 @@
+{% load i18n %}{% comment %}Surrogate test verdict at p < 0.05. Worded so a high p-value is not read as proof of no effect.{% endcomment %}{% if significant %}<span class="badge sig">{% translate "above chance" %}</span>{% else %}<span class="badge neutral">{% translate "not above chance" %}</span>{% endif %}

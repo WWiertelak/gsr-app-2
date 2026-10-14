@@ -341,7 +341,11 @@ def _cleaning_context(project: Project, error: UserError | None = None) -> dict[
         context["alignment"] = preview["alignment"]
         context["preview_range"] = preview["range"]
         context["quality_rows"] = [
-            {**row, "color": colors.get(row["alias"], FALLBACK_SIGNAL_COLOR)} for row in preview["cleaning_summary"]["per_alias"]
+            {**row, "color": colors.get(row["alias"], FALLBACK_SIGNAL_COLOR),
+             "tile_note": _("rejected %(rejected)s of %(total)s samples") % {
+                 "rejected": number_format(row["artifact_rejected_points"], force_grouping=True),
+                 "total": number_format(row["synced_points"], force_grouping=True)}}
+            for row in preview["cleaning_summary"]["per_alias"]
         ]
     return context
 
@@ -430,6 +434,24 @@ def _run(compute: Any, project: Project, step: str) -> UserError | None:
 # ─── 3 Analysis ──────────────────────────────────────────────────────────────
 
 
+SIGNIFICANCE_LEVEL = 0.05
+
+
+def _significant(p_value: Any) -> bool | None:
+    """Whether a surrogate p-value is below 0.05; None when there was no test."""
+    return None if p_value is None else p_value < SIGNIFICANCE_LEVEL
+
+
+def _mini_bar(start: float, end: float, span: list[float] | None) -> dict[str, str] | None:
+    """Where an episode sits on the timeline, as CSS percentages for the episode table's mini bar."""
+    if not span or span[1] <= span[0]:
+        return None
+    width = span[1] - span[0]
+    left = min(max((start - span[0]) / width, 0.0), 1.0) * 100
+    size = min(max((end - start) / width * 100, 1.0), 100 - left)
+    return {"left": f"{left:.2f}", "width": f"{size:.2f}"}
+
+
 def _analysis_context(project: Project, tab: str, error: UserError | None = None) -> dict[str, Any]:
     values = _current_values(project)
     result = get_result(project, AnalysisResult.KIND_ANALYSIS)
@@ -452,25 +474,46 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         payload = result.payload
         synchrony = payload.get("synchrony", {})
         coarousal = payload.get("coarousal", {})
+        config = PipelineConfig.from_dict(result.config)
+        timeline = charts.sync_timeline(synchrony)
+        coarousal_chart = charts.coarousal_states(coarousal)
+        sync_episodes = [
+            {**episode, "number": index + 1,
+             "duration": episode["end_relative"] - episode["start_relative"],
+             "bar": _mini_bar(episode["start_relative"], episode["end_relative"], timeline["span"])}
+            for index, episode in enumerate(synchrony.get("episodes", []))
+        ]
         context.update(
             synchrony=synchrony,
             coarousal=coarousal,
-            sync_timeline=charts.sync_timeline(synchrony),
+            sync_timeline=timeline,
             sync_signals=charts.sync_signals(synchrony, payload.get("preview", {}), colors),
             sync_matrix=charts.sync_matrix(synchrony),
-            coarousal_states=charts.coarousal_states(coarousal),
-            sync_episodes=[
-                {**episode, "number": index + 1,
-                 "duration": episode["end_relative"] - episode["start_relative"]}
-                for index, episode in enumerate(synchrony.get("episodes", []))
-            ],
+            coarousal_states=coarousal_chart,
+            sync_episodes=sync_episodes,
+            sync_episode_minutes=sum(episode["duration"] for episode in sync_episodes),
+            sync_episode_rule=_("subgroups of ≥ %(size)s people above %(threshold)s") % {
+                "size": config.synchrony_episode_min_size,
+                "threshold": params.display_number(config.synchrony_threshold)},
+            cluster_members=" | ".join(" · ".join(cluster["members"])
+                                       for cluster in synchrony.get("clusters", {}).get("clusters", [])),
+            pairs=[{**pair, "significant": _significant(pair.get("p_value"))} for pair in synchrony.get("pairs", [])],
             coarousal_episodes=[
                 {**episode, "number": index + 1} for index, episode in enumerate(coarousal.get("episodes", []))
             ],
+            state_bars=[
+                {**row, "high_width": f"{row['high_pct']:.2f}", "neutral_width": f"{row['neutral_pct']:.2f}",
+                 "low_width": f"{row['low_pct']:.2f}"}
+                for row in coarousal.get("state_percentages", [])
+            ],
             has_pair_p=any("p_value" in pair for pair in synchrony.get("pairs", [])),
-            coarousal_height=max(180, len(coarousal.get("aliases", [])) * 60 + 100),
+            sync_significant=_significant(synchrony.get("stats", {}).get("mean_synchrony_p_value")),
+            # The episode track adds a lane per overlapping episode above the state map.
+            coarousal_height=max(180, len(coarousal.get("aliases", [])) * 60 + 112)
+            + (coarousal_chart["lanes"] * 22 + 16 if coarousal_chart["lanes"] else 0),
         )
     return context
+
 
 
 def analysis(request: HttpRequest, pk: Any) -> HttpResponse:
