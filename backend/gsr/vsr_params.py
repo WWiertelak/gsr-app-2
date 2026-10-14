@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
-from .params import Param
+from .params import Param, _summary, display_number
 from .pipeline.vsr_config import VsrConfig
 
 DEFAULTS = VsrConfig().model_dump()
@@ -57,3 +58,22 @@ VSR_PARAMS = (
         step="1",
     ),
 )
+
+
+def vsr_summary(values: dict[str, Any], applied: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Run bar chips of the Interviews step; ``applied`` = the VSR parameters of the shown proposals."""
+    value = {name: display_number(values.get(name)) for name in DEFAULTS}
+    return _summary(
+        [
+            (gettext("Synchronous: r > %(value)s") % {"value": value["vsr_sync_threshold"]}, ("vsr_sync_threshold",)),
+            (gettext("Asynchronous: r < %(value)s") % {"value": value["vsr_async_threshold"]},
+             ("vsr_async_threshold",)),
+            (gettext("Window: %(window)s s, step %(step)s s") % {"window": value["vsr_window_seconds"],
+                                                               "step": value["vsr_step_seconds"]},
+             ("vsr_window_seconds", "vsr_step_seconds")),
+            (gettext("Moments: %(primary)s + %(reserve)s") % {"primary": value["vsr_primary_moment_count"],
+                                                           "reserve": value["vsr_reserve_moment_count"]},
+             ("vsr_primary_moment_count", "vsr_reserve_moment_count")),
+        ],
+        VSR_PARAMS, values, applied, {param.name: gettext("Interviews") for param in VSR_PARAMS},
+    )

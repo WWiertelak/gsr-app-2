@@ -93,6 +93,13 @@ def _fields_for(kind: str) -> tuple[str, ...]:
 
 
 def current_signature(project: Project, kind: str) -> str | None:
+    if kind == AnalysisResult.KIND_VSR:
+        from .interview import compute_vsr_signature  # interview imports this module
+
+        try:
+            return compute_vsr_signature(project)
+        except ValueError:
+            return None
     try:
         config = run_config(project)
     except AnalysisError:

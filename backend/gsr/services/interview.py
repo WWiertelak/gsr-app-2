@@ -14,7 +14,7 @@ from typing import Any
 
 from django.utils.translation import gettext
 
-from ..models import Project
+from ..models import AnalysisResult, Project
 from ..params import changed_label, field_rows
 from ..pipeline.vsr_config import VsrConfig, parse_video_start_time
 from .results import included_datasets
@@ -141,10 +141,16 @@ def vsr_changed_label(values: dict[str, Any]) -> str | None:
 
 
 def compute_vsr_signature(project: Project) -> str:
-    """Hash of datasets plus interview roles and VSR parameters (for ``AnalysisResult`` kind ``vsr``)."""
+    """Hash of datasets, interview roles, VSR parameters and the analysis run (for ``AnalysisResult`` kind ``vsr``).
+
+    The proposals are computed from the stored analysis run's signals, so running the
+    analysis again makes them stale too.
+    """
     datasets = included_datasets(project)
     config = load_interview_config(project)
+    analysis = project.results.filter(kind=AnalysisResult.KIND_ANALYSIS).first()
     document = {
+        "analysis": analysis.signature if analysis is not None else None,
         "datasets": [[str(dataset.id), dataset.alias, dataset.file_sha256] for dataset in datasets],
         "teacher_alias": config.roles.teacher_alias,
         "student_pairs": [list(pair) for pair in config.roles.student_pairs],

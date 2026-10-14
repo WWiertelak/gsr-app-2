@@ -1,4 +1,4 @@
-"""UI screens: Projects → Upload → Cleaning → Analysis (Synchronization | Co-arousal) → Export.
+"""UI screens: Projects → Upload → Cleaning → Analysis (Synchronization | Co-arousal) → Interviews → Export.
 
 Server-rendered pages; HTMX posts swap the main area of the current screen
 (``HX-Request`` requests get the partial template). Every form also works as a
@@ -27,15 +27,34 @@ from django.utils.translation import get_language, ngettext
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
-from . import charts, params
+from . import charts, params, vsr_text
 from .errors import UserError, describe, no_overlap_message
 from .models import AnalysisResult, Dataset, Project
 from .pipeline.config import PipelineConfig
+from .pipeline.vsr import (
+    PRIMARY,
+    QUOTE_ASYNCHRONOUS,
+    QUOTE_FIVE_MOMENTS,
+    QUOTE_GSR_DISRUPTION,
+    QUOTE_RESERVE,
+    QUOTE_SYNCHRONOUS,
+)
+from .pipeline.vsr import STEPS as VSR_STEPS
+from .pipeline.vsr_config import VsrConfig
 from .reporting.report import render_report_pdf, report_text, resolve_lang
 from .services import exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
-from .services.interview import forget_interview_alias, rename_interview_alias
+from .services.interview import (
+    InterviewConfig,
+    InterviewRoles,
+    apply_interview_config,
+    forget_interview_alias,
+    load_interview_config,
+    rename_interview_alias,
+    vsr_changed_label,
+    vsr_field_rows,
+)
 from .services.results import (
     FALLBACK_SIGNAL_COLOR,
     compute_analysis,
@@ -46,11 +65,14 @@ from .services.results import (
     recording_overview,
     signal_colors,
 )
+from .services.vsr import compute_interviews
+from .vsr_params import VSR_PARAMS, vsr_summary
 
 STEPS = (
     ("upload", "gsr:upload"),
     ("cleaning", "gsr:cleaning"),
     ("analysis", "gsr:analysis"),
+    ("interviews", "gsr:interviews"),
     ("export", "gsr:export"),
 )
 ANALYSIS_TABS = ("synchronization", "coarousal")
@@ -84,22 +106,28 @@ def _applied_values(result: AnalysisResult | None) -> dict[str, Any] | None:
 
 def _steps(project: Project, current: str) -> list[dict[str, Any]]:
     """The project steps for the left rail, each with a one-line text status (not only a colour)."""
-    labels = {"upload": _("Import"), "cleaning": _("Cleaning"), "analysis": _("Analysis"), "export": _("Export")}
+    labels = {"upload": _("Import"), "cleaning": _("Cleaning"), "analysis": _("Analysis"),
+              "interviews": _("Interviews"), "export": _("Export")}
     cleaning = get_result(project, AnalysisResult.KIND_CLEANING)
     analysis = get_result(project, AnalysisResult.KIND_ANALYSIS)
+    interviews = get_result(project, AnalysisResult.KIND_VSR)
     recordings = project.datasets.count()
     done = {
         "upload": recordings > 0,
         "cleaning": cleaning is not None,
         "analysis": analysis is not None,
+        "interviews": interviews is not None,
         "export": False,
     }
-    stale = {"cleaning": is_stale(project, cleaning), "analysis": is_stale(project, analysis)}
+    stale = {"cleaning": is_stale(project, cleaning), "analysis": is_stale(project, analysis),
+             "interviews": is_stale(project, interviews)}
     stale["export"] = stale["analysis"]
     status = {
         "upload": _recordings_label(recordings) if recordings else _("no recordings"),
         "cleaning": _cleaning_status(cleaning),
         "analysis": _("computed %(time)s") % {"time": _computed_time(analysis)} if analysis else _("not run"),
+        "interviews": _interviews_status(interviews) if interviews else (
+            _("not proposed") if analysis else _("needs analysis")),
         "export": _("ready") if analysis else _("needs analysis"),
     }
     return [
@@ -121,6 +149,11 @@ def _cleaning_status(result: AnalysisResult | None) -> str:
     if result is None:
         return _("not run")
     return _rejected_label(result.payload["preview"]["cleaning_summary"]["totals"]["artifact_rejected_points"])
+
+
+def _interviews_status(result: AnalysisResult) -> str:
+    count = len(result.payload.get("interviews", []))
+    return ngettext("%(count)s interview", "%(count)s interviews", count) % {"count": count}
 
 
 def _recordings_label(count: int) -> str:
@@ -419,7 +452,8 @@ def dataset_exclude(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespo
         messages.success(request, _("Signal %(alias)s excluded from cleaning and analysis.") % {"alias": dataset.alias})
     if step == "cleaning":
         error = _run(compute_cleaning, project, step)
-    elif step in ("analysis", "export"):
+    elif step in ("analysis", "interviews", "export"):
+        # Interview proposals use the analysis run's signals: rerun the analysis, then propose again on the screen.
         error = _run(compute_analysis, project, step)
     else:
         return redirect("gsr:upload", project.pk)
@@ -431,6 +465,8 @@ def dataset_exclude(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespo
         return _page(request, project, step, "gsr/partials/cleaning_main.html", _cleaning_context(project, error))
     if step == "export":
         return _page(request, project, step, "gsr/partials/export_main.html", _export_context(project, error))
+    if step == "interviews":
+        return _interviews_page(request, project, error=error)
     return _page(
         request, project, step, "gsr/partials/analysis_main.html", _analysis_context(project, ANALYSIS_TABS[0], error)
     )
@@ -717,7 +753,224 @@ def analysis_reset(request: HttpRequest, pk: Any) -> HttpResponse:
                  _analysis_context(project, tab))
 
 
-# ─── 4 Export ────────────────────────────────────────────────────────────────
+# ─── 4 Interviews ────────────────────────────────────────────────────────────
+
+# The page-1 criteria the Interviews screen states above the proposals.
+VSR_CRITERIA = (QUOTE_FIVE_MOMENTS, QUOTE_RESERVE, QUOTE_SYNCHRONOUS, QUOTE_ASYNCHRONOUS)
+MIN_PAIR_ROWS = 3  # the document's three student dyads (page 1: "6 students, 3 dyads")
+TICK_STEPS_MINUTES = (1, 2, 5, 10, 15, 20, 30, 60)
+
+
+def _interview_config(project: Project) -> InterviewConfig:
+    """The stored roles and VSR parameters; defaults when the stored value no longer validates."""
+    try:
+        return load_interview_config(project)
+    except ValueError:
+        return InterviewConfig(roles=InterviewRoles(None, (), None), vsr=VsrConfig())
+
+
+def _role_form(project: Project, roles: dict[str, Any]) -> dict[str, Any]:
+    """The interview participants card: teacher, student pair rows (plus empty rows to add pairs), video start."""
+    colors = signal_colors(project)
+    pairs = [list(pair) for pair in roles.get("student_pairs") or []]
+    pairs += [["", ""]] * max(MIN_PAIR_ROWS - len(pairs), 1)
+    return {
+        "recordings": [{"alias": dataset.alias, "color": colors[dataset.alias], "included": dataset.included}
+                       for dataset in project.datasets.order_by("created_at")],
+        "teacher": roles.get("teacher_alias") or "",
+        "pairs": [{"number": index + 1, "left": left, "right": right} for index, (left, right) in enumerate(pairs)],
+        "video_start_time": roles.get("video_start_time") or "",
+    }
+
+
+def _posted_roles(request: HttpRequest) -> dict[str, Any]:
+    pairs = [[left.strip(), right.strip()]
+             for left, right in zip(request.POST.getlist("pair_left"), request.POST.getlist("pair_right"))
+             if left.strip() or right.strip()]
+    return {
+        "teacher_alias": (request.POST.get("teacher_alias") or "").strip() or None,
+        "student_pairs": pairs,
+        "video_start_time": request.POST.get("video_start_time") or "",
+    }
+
+
+def _interview_label(interview: dict[str, Any]) -> str:
+    if interview["kind"] == "teacher":
+        return _("Teacher %(alias)s") % {"alias": interview["participants"][0]}
+    return _("Pair %(left)s + %(right)s") % {"left": interview["participants"][0], "right": interview["participants"][1]}
+
+
+def _lesson_ticks(start: float, end: float, max_ticks: int = 8) -> list[dict[str, Any]]:
+    """Whole-minute ticks of the lesson timeline (relative seconds), as % positions."""
+    span = end - start
+    if span <= 0:
+        return []
+    step = next((step * 60 for step in TICK_STEPS_MINUTES if span / (step * 60) <= max_ticks), 3600)
+    first = -(-start // step) * step
+    ticks = []
+    seconds = first
+    while seconds <= end:
+        ticks.append({"seconds": seconds, "pct": f"{100.0 * (seconds - start) / span:.2f}"})
+        seconds += step
+    return ticks
+
+
+def _moment_view(moment: dict[str, Any], start: float, span: float) -> dict[str, Any]:
+    left = min(max((moment["start_seconds"] - start) / span, 0.0), 1.0) * 100 if span > 0 else 0.0
+    width = min(max(moment["duration_seconds"] / span * 100, 0.6), 100 - left) if span > 0 else 100.0
+    return {
+        **moment,
+        "primary": moment["status"] == PRIMARY,
+        "step_type": vsr_text.quote(moment["synchrony_type"]),
+        "sentences": vsr_text.justification(moment["justification"]),
+        "r": vsr_text.correlation(moment["correlation"]),
+        "shared_pct": vsr_text.percent(moment["shared_state_fraction"]) if moment["shared_state"] else None,
+        "bar": {"left": f"{left:.2f}", "width": f"{width:.2f}"},
+    }
+
+
+def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    lesson = payload.get("lesson") or {"start_seconds": 0.0, "end_seconds": 0.0}
+    start, end = lesson["start_seconds"], lesson["end_seconds"]
+    quality = payload.get("quality", {})
+    first_pass = interview["passes"][0]["steps"] if interview["passes"] else []
+    return {
+        "tab": f"interview-{index + 1}",
+        "kind": interview["kind"],
+        "label": _interview_label(interview),
+        "participants": interview["participants"],
+        "data_basis": vsr_text.quote(interview["data_basis"]),
+        "basis_notes": [vsr_text.quote(note) for note in interview["basis_notes"]],
+        "steps": [{"number": number, "type": vsr_text.quote(step.synchrony_type.as_dict()),
+                   "count": interview["candidate_counts"].get(str(number), 0)} for number, step in VSR_STEPS.items()],
+        "empty_steps": [vsr_text.step_sentence(record["fragments"][0]) for record in first_pass
+                        if record["answer"] == "NO"],
+        "passes": [{"number": record["pass_number"], "reserve": record["purpose"] != PRIMARY,
+                    "steps": [vsr_text.step_sentence(step["fragments"][0]) for step in record["steps"]],
+                    "step_6": vsr_text.step_6_sentence(record["step_6"])} for record in interview["passes"]],
+        "moments": [_moment_view(moment, start, end - start) for moment in interview["moments"]],
+        "stats": interview["stats"],
+        "ticks": _lesson_ticks(start, end),
+        "lesson_start": start,
+        "lesson_end": end,
+        "poor_signals": [{"alias": alias, "pct": number_format(quality[alias]["rejected_pct"], 0)}
+                         for alias in interview["participants"]
+                         if quality.get(alias, {}).get("level") == "poor"],
+    }
+
+
+def _interviews_context(project: Project, tab: str | None = None, error: UserError | None = None,
+                        posted_roles: dict[str, Any] | None = None) -> dict[str, Any]:
+    config = _interview_config(project)
+    values = config.vsr.model_dump()
+    result = get_result(project, AnalysisResult.KIND_VSR)
+    analysis = get_result(project, AnalysisResult.KIND_ANALYSIS)
+    applied = None
+    if result is not None:
+        try:
+            applied = VsrConfig.from_dict(result.config.get("vsr")).model_dump()
+        except ValueError:
+            applied = None
+    roles = posted_roles if posted_roles is not None else {
+        "teacher_alias": config.roles.teacher_alias,
+        "student_pairs": [list(pair) for pair in config.roles.student_pairs],
+        "video_start_time": config.roles.video_start_time,
+    }
+    context: dict[str, Any] = {
+        "drawer": "gsr/partials/interviews_settings.html",
+        "form_id": "interviews-settings",
+        "form_action": reverse("gsr:interviews_settings", args=[project.pk]),
+        "reset_action": reverse("gsr:interviews_reset", args=[project.pk]),
+        "apply_disabled": analysis is None,
+        "changed_label": vsr_changed_label(values),
+        "vsr_rows": vsr_field_rows(values),
+        "settings_summary": vsr_summary(values, applied),
+        "roles": _role_form(project, roles),
+        "result": result,
+        "stale": is_stale(project, result),
+        "analysis": analysis,
+        "analysis_stale": is_stale(project, analysis),
+        "error": error,
+        "colors": signal_colors(project),
+        "criteria": [vsr_text.quote(item.as_dict()) for item in VSR_CRITERIA],
+        "gsr_disruption_quote": vsr_text.quote(QUOTE_GSR_DISRUPTION.as_dict(), ellipsis=True),
+    }
+    if result is not None:
+        payload = result.payload
+        interviews = [_interview_view(index, interview, payload)
+                      for index, interview in enumerate(payload.get("interviews", []))]
+        tabs = [interview["tab"] for interview in interviews]
+        context.update(
+            interviews=interviews,
+            tab=tab if tab in tabs else (tabs[0] if tabs else None),
+            result_roles=payload.get("roles", {}),
+        )
+    return context
+
+
+def _interviews_page(request: HttpRequest, project: Project, tab: str | None = None,
+                     error: UserError | None = None, posted_roles: dict[str, Any] | None = None) -> HttpResponse:
+    return _page(request, project, "interviews", "gsr/partials/interviews_main.html",
+                 _interviews_context(project, tab, error, posted_roles))
+
+
+def _save_interview_config(project: Project, updates: dict[str, Any]) -> UserError | None:
+    try:
+        project.interview_config = apply_interview_config(project, updates)
+    except ValueError as exc:
+        return UserError(str(exc))
+    project.save(update_fields=["interview_config", "updated_at"])
+    return None
+
+
+def _interviews_redirect(request: HttpRequest, project: Project, error: UserError | None) -> HttpResponse:
+    if error:
+        messages.error(request, error.message)
+    tab = request.POST.get("tab")
+    url = reverse("gsr:interviews", args=[project.pk])
+    return redirect(f"{url}?tab={tab}" if tab else url)
+
+
+def interviews(request: HttpRequest, pk: Any) -> HttpResponse:
+    """The Interviews step; POST saves the interview participants and proposes the moments."""
+    project = _project(pk)
+    tab = request.GET.get("tab") or request.POST.get("tab")
+    if request.method != "POST":
+        return _interviews_page(request, project, tab)
+    posted = _posted_roles(request)
+    error = _save_interview_config(project, posted)
+    if error is None:
+        error = _run(compute_interviews, project, "interviews")
+        posted = None
+    if not _is_htmx(request):
+        return _interviews_redirect(request, project, error)
+    return _interviews_page(request, project, tab, error, posted)
+
+
+@require_POST
+def interviews_settings(request: HttpRequest, pk: Any) -> HttpResponse:
+    """The settings drawer's Apply: save the VSR parameters and propose the moments again."""
+    project = _project(pk)
+    tab = request.POST.get("tab")
+    error = _save_interview_config(project, {"vsr": params.parse_params(VSR_PARAMS, request.POST)})
+    if error is None:
+        error = _run(compute_interviews, project, "interviews")
+    if not _is_htmx(request):
+        return _interviews_redirect(request, project, error)
+    return _interviews_page(request, project, tab, error)
+
+
+@require_POST
+def interviews_reset(request: HttpRequest, pk: Any) -> HttpResponse:
+    project = _project(pk)
+    project.interview_config = {**(project.interview_config or {}), "vsr": VsrConfig().model_dump()}
+    project.save(update_fields=["interview_config", "updated_at"])
+    if not _is_htmx(request):
+        return _interviews_redirect(request, project, None)
+    return _interviews_page(request, project, request.POST.get("tab"))
+
+
+# ─── 5 Export ────────────────────────────────────────────────────────────────
 
 EXPORT_FILES = {
     "clean_signals.csv": "clean",

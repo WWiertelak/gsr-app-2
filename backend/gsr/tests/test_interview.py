@@ -7,6 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import QueryDict
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import translation
 
 from gsr import params
 from gsr.models import AnalysisResult, Project
@@ -100,14 +101,17 @@ def test_apply_interview_config_stores_roles_and_vsr_parameters(lesson_project) 
 
 @pytest.mark.django_db
 def test_apply_interview_config_rejects_unknown_alias_and_overlapping_students(lesson_project) -> None:
-    with pytest.raises(ValueError, match="Unknown teacher"):
-        apply_interview_config(lesson_project, {"teacher_alias": "missing"})
-    with pytest.raises(ValueError, match="only one pair"):
+    with translation.override("en"):
+        with pytest.raises(ValueError, match="Unknown teacher"):
+            apply_interview_config(lesson_project, {"teacher_alias": "missing"})
+        with pytest.raises(ValueError, match="only one pair"):
+            apply_interview_config(lesson_project, {"student_pairs": [["S1", "S2"], ["S1", "S3"]]})
+        with pytest.raises(ValueError, match="teacher"):
+            apply_interview_config(lesson_project, {"teacher_alias": "T", "student_pairs": [["T", "S1"]]})
+        with pytest.raises(ValueError, match="two different"):
+            apply_interview_config(lesson_project, {"student_pairs": [["S1", "S1"]]})
+    with pytest.raises(ValueError, match="tylko do jednej pary"):
         apply_interview_config(lesson_project, {"student_pairs": [["S1", "S2"], ["S1", "S3"]]})
-    with pytest.raises(ValueError, match="teacher"):
-        apply_interview_config(lesson_project, {"teacher_alias": "T", "student_pairs": [["T", "S1"]]})
-    with pytest.raises(ValueError, match="two different"):
-        apply_interview_config(lesson_project, {"student_pairs": [["S1", "S1"]]})
 
 
 @pytest.mark.django_db

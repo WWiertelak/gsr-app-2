@@ -1,0 +1,181 @@
+{% load i18n gsr_tags %}
+{% include "gsr/partials/run_bar.html" with run_form="interview-roles" run_disabled=apply_disabled %}
+<div class="stack">
+  {% if error %}{% include "gsr/partials/error.html" %}{% endif %}
+  {% if not analysis %}
+    <div class="alert warning">{% translate "Run the analysis first: the proposals use the signals of its last run." %} <a href="{% url 'gsr:analysis' project.pk %}">{% translate "Go to Analysis" %}</a></div>
+  {% elif analysis_stale %}
+    <div class="alert warning">{% translate "The analysis is outdated: the proposals use the signals of its last run. Run the analysis again to include the changes." %} <a href="{% url 'gsr:analysis' project.pk %}">{% translate "Go to Analysis" %}</a></div>
+  {% endif %}
+
+  <section class="card" aria-labelledby="roles-title">
+    <div class="card-head">
+      <h2 id="roles-title">{% translate "Interview participants" %}</h2>
+      <span class="muted">{% translate "one interview per student pair, one for the teacher" %}</span>
+    </div>
+    <form id="interview-roles" class="roles-form" method="post" action="{% url 'gsr:interviews' project.pk %}" data-busy
+          hx-post="{% url 'gsr:interviews' project.pk %}" hx-target="#main" hx-swap="innerHTML"
+          hx-indicator="#busy" hx-disabled-elt="#interview-roles button, #run-bar button, #settings-drawer button">
+      {% csrf_token %}
+      <input type="hidden" name="tab" value="{{ tab|default:'' }}" data-tab-input>
+      <div class="roles-grid">
+        <fieldset class="roles-pairs">
+          <legend>{% translate "Student pairs" %}</legend>
+          {% for pair in roles.pairs %}
+            <div class="pair-row">
+              <span class="pair-n">{% blocktranslate with number=pair.number %}Pair {{ number }}{% endblocktranslate %}</span>
+              <label class="sr-only" for="pair-{{ pair.number }}-left">{% blocktranslate with number=pair.number %}Pair {{ number }}, first student{% endblocktranslate %}</label>
+              <select id="pair-{{ pair.number }}-left" name="pair_left">
+                <option value="">—</option>
+                {% for recording in roles.recordings %}<option value="{{ recording.alias }}"{% if recording.alias == pair.left %} selected{% endif %}>{{ recording.alias }}{% if not recording.included %} ({% translate "excluded" %}){% endif %}</option>{% endfor %}
+              </select>
+              <span aria-hidden="true">+</span>
+              <label class="sr-only" for="pair-{{ pair.number }}-right">{% blocktranslate with number=pair.number %}Pair {{ number }}, second student{% endblocktranslate %}</label>
+              <select id="pair-{{ pair.number }}-right" name="pair_right">
+                <option value="">—</option>
+                {% for recording in roles.recordings %}<option value="{{ recording.alias }}"{% if recording.alias == pair.right %} selected{% endif %}>{{ recording.alias }}{% if not recording.included %} ({% translate "excluded" %}){% endif %}</option>{% endfor %}
+              </select>
+            </div>
+          {% endfor %}
+          <p class="group-help">{% translate "Fill an empty row to add a pair; clear both fields of a row to remove it." %}</p>
+        </fieldset>
+        <div class="roles-side">
+          <div class="f">
+            <label for="teacher-alias">{% translate "Teacher" %}</label>
+            <select id="teacher-alias" name="teacher_alias">
+              <option value="">{% translate "none (no teacher interview)" %}</option>
+              {% for recording in roles.recordings %}<option value="{{ recording.alias }}"{% if recording.alias == roles.teacher %} selected{% endif %}>{{ recording.alias }}{% if not recording.included %} ({% translate "excluded" %}){% endif %}</option>{% endfor %}
+            </select>
+            <span class="muted small">{% translate "Interviewed against the students' average GSR: each student is z-scored, then averaged." %}</span>
+          </div>
+          <div class="f">
+            <label for="video-start">{% translate "Video start (sensor clock)" %}</label>
+            <input id="video-start" type="text" name="video_start_time" value="{{ roles.video_start_time }}" placeholder="HH:MM:SS" inputmode="numeric" autocomplete="off">
+            <span class="muted small">{% translate "The clock time on the GSR sensors when the video recording starts; the moments then get video timecodes." %}</span>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="submit" class="lg"{% if apply_disabled %} disabled{% endif %}>{% translate "Propose moments" %}</button>
+        <span class="muted small">{% translate "Saves the participants and walks STEPS 1–6 of the VSR Interview Flow Chart for every interview." %}</span>
+      </div>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="vsr-results-title">
+    <div class="card-head">
+      <h2 id="vsr-results-title">{% translate "Proposed moments" %}</h2>
+      <span class="muted">{% translate "a proposal from the document's protocol, not a result: the researcher chooses what to discuss" %}</span>
+    </div>
+    <p class="doc-criteria">{% for item in criteria %}<span>{{ item }}</span>{% endfor %}</p>
+
+    {% if not result %}
+      <div class="empty-state">
+        <p>{% translate "No proposals yet. Choose the interview participants and propose the moments." %}</p>
+      </div>
+    {% else %}
+      {% if stale %}
+        <div class="alert warning stale-note">{% translate "The participants, the settings or the analysis changed since these proposals. Propose the moments again." %}</div>
+      {% endif %}
+      {% if interviews %}
+        <div class="tabs interview-tabs" role="tablist" aria-labelledby="vsr-results-title">
+          {% for interview in interviews %}
+            <a href="?tab={{ interview.tab }}" role="tab" id="tab-{{ interview.tab }}" aria-controls="panel-{{ interview.tab }}" data-tab="{{ interview.tab }}" class="{% if tab == interview.tab %}active{% endif %}" aria-selected="{% if tab == interview.tab %}true{% else %}false{% endif %}" tabindex="{% if tab == interview.tab %}0{% else %}-1{% endif %}">
+              <span class="tab-title">{{ interview.label }} <span class="count">{{ interview.stats.primary_count }} + {{ interview.stats.reserve_count }}</span></span>
+              <span class="tab-desc">{% if interview.kind == "teacher" %}{% translate "teacher and the students' average GSR" %}{% else %}{% translate "student pair" %}{% endif %}</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% for interview in interviews %}
+        <div class="result{% if stale %} is-stale{% endif %}" role="tabpanel" id="panel-{{ interview.tab }}" aria-labelledby="tab-{{ interview.tab }}" tabindex="0" data-tab-panel="{{ interview.tab }}"{% if tab != interview.tab %} hidden{% endif %}>
+          {% for signal in interview.poor_signals %}
+            <div class="alert warning">{% blocktranslate with alias=signal.alias pct=signal.pct %}The GSR signal of {{ alias }} has poor quality ({{ pct }}% of its samples were rejected on the Cleaning step).{% endblocktranslate %} {% translate "The document (page 1):" %} {{ gsr_disruption_quote }} {% translate "Check the recording before discussing these moments." %}</div>
+          {% endfor %}
+          {% if not interview.stats.complete %}
+            <div class="alert warning">{% blocktranslate with count=interview.stats.primary_count target=interview.stats.primary_target %}Only {{ count }} of {{ target }} moments answer a step of the protocol.{% endblocktranslate %}</div>
+          {% endif %}
+
+          <p class="doc-basis">{% translate "Data:" %} {{ interview.data_basis }}{% for note in interview.basis_notes %} · {{ note }}{% endfor %}</p>
+          {% if interview.kind == "teacher" %}
+            <p class="muted small">{% blocktranslate with alias=interview.participants.0 %}Teacher {{ alias }} against the average of:{% endblocktranslate %} {{ interview.participants|slice:"1:"|join:", " }}</p>
+          {% endif %}
+
+          <h3 class="section-gap">{% translate "Moments meeting each step" %}</h3>
+          <ul class="step-counts">
+            {% for step in interview.steps %}
+              <li{% if not step.count %} class="none"{% endif %}><b>{% blocktranslate with number=step.number %}STEP {{ number }}{% endblocktranslate %}</b> <span class="step-type">{{ step.type }}</span> <span class="count">{{ step.count }}</span></li>
+            {% endfor %}
+          </ul>
+          {% if interview.empty_steps %}
+            <ul class="empty-steps">{% for sentence in interview.empty_steps %}<li>{{ sentence }}</li>{% endfor %}</ul>
+          {% endif %}
+
+          <div class="section-head section-gap">
+            <h3>{% translate "Lesson timeline" %}</h3>
+            <span class="subtitle"><span class="legend primary"></span>{% translate "primary" %} <span class="legend reserve"></span>{% translate "reserve" %}</span>
+          </div>
+          <div class="lesson-timeline" role="img" aria-label="{% translate 'Lesson timeline' %}: {% for moment in interview.moments %}{{ moment.number }} {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+            <div class="lt-track">
+              {% for tick in interview.ticks %}<span class="lt-grid" style="left: {{ tick.pct }}%"></span>{% endfor %}
+              {% for moment in interview.moments %}
+                <span class="lt-moment{% if not moment.primary %} reserve{% endif %}" style="left: {{ moment.bar.left }}%; width: {{ moment.bar.width }}%" title="{{ moment.number }} · {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}"><b>{{ moment.number }}</b></span>
+              {% endfor %}
+            </div>
+            <div class="lt-axis" aria-hidden="true">{% for tick in interview.ticks %}<span style="left: {{ tick.pct }}%">{{ tick.seconds|seconds_mmss }}</span>{% endfor %}</div>
+          </div>
+
+          <ol class="moment-list">
+            {% for moment in interview.moments %}
+              <li class="moment-card{% if not moment.primary %} reserve{% endif %}" id="{{ interview.tab }}-moment-{{ moment.number }}">
+                <div class="moment-head">
+                  <span class="moment-n">{{ moment.number }}</span>
+                  <span class="badge {% if moment.primary %}sig{% else %}neutral{% endif %}">{% if moment.primary %}{% translate "primary" %}{% else %}{% translate "reserve" %}{% endif %}</span>
+                  <strong>{% blocktranslate with number=moment.step %}STEP {{ number }}{% endblocktranslate %}</strong>
+                  <span class="step-type">{{ moment.step_type }}</span>
+                  {% if moment.pass_number > 1 %}<span class="muted small">{% blocktranslate with number=moment.pass_number %}pass {{ number }}{% endblocktranslate %}</span>{% endif %}
+                </div>
+                <dl class="moment-times">
+                  <div><dt>{% translate "Lesson" %}</dt><dd>{{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }} <span class="muted">({{ moment.duration_seconds|seconds_mmss }})</span></dd></div>
+                  <div><dt>{% translate "Sensor clock" %}</dt><dd>{% if moment.start_clock %}{{ moment.start_clock }}–{{ moment.end_clock }}{% else %}—{% endif %}</dd></div>
+                  <div><dt>{% translate "Video" %}</dt><dd>{% if moment.start_video %}{{ moment.start_video }}–{{ moment.end_video|default:"…" }}{% elif result_roles.video_start_time %}<span class="muted">{% translate "before the video starts" %}</span>{% else %}<span class="muted">{% translate "set the video start" %}</span>{% endif %}</dd></div>
+                  <div><dt>r</dt><dd>{{ moment.r }}</dd></div>
+                  <div><dt>{% translate "Shared state" %}</dt><dd>{% if moment.shared_state == "HIGH" %}<span class="badge high">{% translate "High ↑" %} {{ moment.shared_pct }}%</span>{% elif moment.shared_state == "LOW" %}<span class="badge low">{% translate "Low ↓" %} {{ moment.shared_pct }}%</span>{% else %}—{% endif %}</dd></div>
+                </dl>
+                <h4 class="sr-only">{% translate "Justification" %}</h4>
+                <ul class="justification">{% for sentence in moment.sentences %}<li>{{ sentence }}</li>{% endfor %}</ul>
+              </li>
+            {% empty %}
+              <li class="muted">{% translate "No moment answers a step of the protocol." %}</li>
+            {% endfor %}
+          </ol>
+
+          <div class="disclosure section-gap">
+            <div class="disclosure-head">
+              <h3><button type="button" class="disclosure-toggle" id="{{ interview.tab }}-protocol-toggle" aria-expanded="false" aria-controls="{{ interview.tab }}-protocol-body" data-disclosure>{% translate "Protocol record (STEPS 1–6)" %} <span class="count">{{ interview.passes|length }}</span></button></h3>
+              <span class="subtitle">{% translate "every step of every pass, as the document asks it" %}</span>
+            </div>
+            <div class="disclosure-body" id="{{ interview.tab }}-protocol-body" hidden>
+              {% for record in interview.passes %}
+                <h4>{% blocktranslate with number=record.number %}Pass {{ number }}{% endblocktranslate %}{% if record.reserve %} · {% translate "reserve" %}{% endif %}</h4>
+                <ul class="protocol-steps">{% for sentence in record.steps %}<li>{{ sentence }}</li>{% endfor %}<li>{{ record.step_6 }}</li></ul>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      {% empty %}
+        <p class="muted">{% translate "No interviews: choose the teacher or a student pair." %}</p>
+      {% endfor %}
+    {% endif %}
+  </section>
+</div>
+{% if result %}
+  <div class="action-bar">
+    <span class="muted">{% translate "Lesson times count from the recordings' common start, as on the Analysis step; sensor clock times are the recordings' own clock." %}</span>
+    <span class="grow"></span>
+    <a class="button lg" href="{% url 'gsr:export' project.pk %}">{% translate "Next: Export" %} →</a>
+  </div>
+{% endif %}
+{% if htmx %}{% include "gsr/partials/rail_steps.html" with oob=True %}
+<div id="drawer-root" hx-swap-oob="innerHTML">{% include drawer %}</div>{% endif %}
