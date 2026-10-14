@@ -7,7 +7,7 @@ and the response is this row again; without JavaScript, Enter posts the form and
           hx-post="{% url 'gsr:dataset_rename' project.pk dataset.pk %}" hx-trigger="submit, change" hx-sync="this:drop" hx-target="closest tr" hx-swap="outerHTML">
       {% csrf_token %}
       <span class="dot" style="background: {{ item.color }}" aria-hidden="true"></span>
-      <input type="text" name="alias" value="{{ alias_value }}" maxlength="120" required
+      <input type="text" id="alias-{{ dataset.pk }}" name="alias" value="{{ alias_value }}" maxlength="120" required
              aria-label="{% blocktranslate with file=dataset.original_filename %}Alias of {{ file }}{% endblocktranslate %}"
              {% if alias_error %}aria-invalid="true" aria-describedby="alias-msg-{{ dataset.pk }}"{% endif %}>
     </form>
@@ -28,7 +28,7 @@ and the response is this row again; without JavaScript, Enter posts the form and
   <td>
     <form method="post" action="{% url 'gsr:dataset_delete' project.pk dataset.pk %}" data-confirm="{% translate 'Are you sure you want to delete this signal?' %}">
       {% csrf_token %}
-      <button type="submit" class="ghost icon" title="{% translate 'Delete' %}" aria-label="{% blocktranslate with alias=dataset.alias %}Delete {{ alias }}{% endblocktranslate %}">
+      <button type="submit" id="delete-{{ dataset.pk }}" class="ghost icon" title="{% translate 'Delete' %}" aria-label="{% blocktranslate with alias=dataset.alias %}Delete {{ alias }}{% endblocktranslate %}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3"/></svg>
       </button>
     </form>

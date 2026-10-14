@@ -194,6 +194,10 @@ def test_inline_alias_save_returns_the_row(client, project) -> None:
     assert response.status_code == 200 and row.lstrip().startswith("<tr") and "<html" not in row
     assert 'value="Anna"' in row and "✓ Saved" in row
     assert response["HX-Trigger"] == "gsr:datasets-changed"  # the timeline and charts reload with the new alias
+    # htmx restores focus across the outerHTML swap by id, so the row's controls keep the ids the page rendered.
+    page = client.get(reverse("gsr:upload", args=[project.pk])).content.decode()
+    for control_id in (f'id="alias-{dataset.pk}"', f'id="delete-{dataset.pk}"'):
+        assert page.count(control_id) == 1 and control_id in row
     dataset.refresh_from_db()
     assert dataset.alias == "Anna"
 
