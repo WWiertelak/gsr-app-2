@@ -57,10 +57,7 @@
     }
   }
 
-  // Collapsible result tables: a heading button (aria-expanded) shows or hides its body; the choice is remembered per
-  // table in this browser, so a new run or a reload keeps the tables the user folded away.
-  var DISCLOSURE_KEY = "gsr.disclosure.";
-
+  // Collapsible result tables: a heading button (aria-expanded) shows or hides its body.
   function setDisclosure(button, expanded) {
     var body = document.getElementById(button.getAttribute("aria-controls"));
     button.setAttribute("aria-expanded", expanded ? "true" : "false");
@@ -72,34 +69,15 @@
     }
   }
 
-  function applyStoredDisclosure(button) {
-    var stored = null;
-    try {
-      stored = window.localStorage.getItem(DISCLOSURE_KEY + button.id);
-    } catch (error) {
-      stored = null;
-    }
-    if (stored === "closed" || stored === "open") {
-      setDisclosure(button, stored === "open");
-    }
-  }
-
   document.addEventListener("click", function (event) {
     var button = event.target.closest("[data-disclosure]");
     if (!button) {
       return;
     }
-    var expanded = button.getAttribute("aria-expanded") !== "true";
-    setDisclosure(button, expanded);
-    try {
-      window.localStorage.setItem(DISCLOSURE_KEY + button.id, expanded ? "open" : "closed");
-    } catch (error) {
-      // Private mode or blocked storage: the toggle still works, it is just not remembered.
-    }
+    setDisclosure(button, button.getAttribute("aria-expanded") !== "true");
   });
 
   function hydrate(root) {
-    (root || document).querySelectorAll("[data-disclosure]").forEach(applyStoredDisclosure);
     (root || document).querySelectorAll("[data-merge-toggle]").forEach(applyMergeToggle);
     (root || document).querySelectorAll("[data-chart]").forEach(initChart);
   }
