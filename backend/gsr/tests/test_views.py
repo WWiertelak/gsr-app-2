@@ -537,11 +537,11 @@ def test_outdated_cleaning_preview_is_dimmed_with_a_stale_notice(client, project
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
     assert "result is-stale" not in page and 'class="alert warning stale-note"' not in page
-    assert page.count('<section class="card result">') == 2
+    assert page.count('<section class="card result" aria-labelledby=') == 3
 
     project.datasets.filter(alias="C").update(included=False)
     page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
-    assert page.count('<section class="card result is-stale">') == 2
+    assert page.count('<section class="card result is-stale" aria-labelledby=') == 3
     assert ('<div class="alert warning stale-note">Settings or signals changed since this preview was computed.'
             ' Recompute it to see the current result.</div>' in page)
     assert page.count('form="cleaning-refresh">Recompute</button>') == 1
