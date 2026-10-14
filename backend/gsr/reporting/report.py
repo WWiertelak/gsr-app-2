@@ -626,6 +626,9 @@ def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, 
 
 def _section_import(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     blocks: list[dict[str, Any]] = []
+    description = str(payload.get("project_description") or "").strip()
+    if description:
+        blocks += [_h2(_tr(lang, "description")), _p(description, style="project-description")]
     datasets = payload.get("datasets") or []
     if datasets:
         blocks.append(_table(

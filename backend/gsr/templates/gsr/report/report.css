@@ -78,12 +78,12 @@ body {
 }
 .cover-meta dt { font-size: 7pt; color: var(--ink-3); }
 .cover-meta dd { margin: 0; font-weight: 600; }
-.description { margin: 0; color: var(--ink-2); }
+.description { margin: 0; color: var(--ink-2); line-clamp: 3; }
 .description strong { color: var(--ink); font-weight: 600; }
 
-/* Sections flow on; only the summary page ends with a page break. */
+/* Sections flow on; a summary longer than page 1 continues on page 2 and the next section follows it. */
 .report-section { margin-top: var(--s6); }
-#summary { margin-top: var(--s3); break-after: page; }
+#summary { margin-top: var(--s3); }
 .section-title {
   margin: 0 0 var(--s3);
   padding-bottom: var(--s1);
@@ -107,6 +107,7 @@ h2 {
 p { margin: 0 0 var(--s2); orphans: 3; widows: 3; }
 p.lead { font-size: 9.5pt; color: var(--ink-2); }
 p.muted { color: var(--ink-2); font-style: italic; }
+p.project-description { white-space: pre-line; }
 p.formula {
   padding: var(--s1) var(--s3);
   border-left: 3px solid var(--line-2);

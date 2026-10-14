@@ -15,7 +15,7 @@ from PIL import Image as PILImage
 
 from gsr.pipeline.config import PipelineConfig
 from gsr.reporting.methodology import METHODOLOGY, METHODS_COMPARISON
-from gsr.reporting.report import _fmt, render_report_html, render_report_pdf
+from gsr.reporting.report import FONT_DIR, _fmt, render_report_html, render_report_pdf
 from gsr.services.analysis import analyze_files_with_result
 
 from .sample_data import Participant, RecordingFormat, write_group
@@ -229,3 +229,29 @@ def test_report_sections_flow_on_after_the_summary_page(payload) -> None:
     pages = _page_count(render_report_pdf({**payload, "lang": "en", "chart_images": charts}))
     # With every section on a new page this payload took 15 pages; the summary page plus flowing sections take 8.
     assert pages <= 10, pages
+
+
+def _section_start_pages(payload: dict[str, Any]) -> tuple[int, dict[str, int]]:
+    """Page count of the PDF and the page (1-based) each section starts on."""
+    from weasyprint import HTML
+
+    document = HTML(string=render_report_html(payload), base_url=str(FONT_DIR)).render()
+    starts: dict[str, int] = {}
+    for number, page in enumerate(document.pages, start=1):
+        for anchor in page.anchors:
+            starts.setdefault(anchor, number)
+    return len(document.pages), starts
+
+
+def test_outdated_run_with_a_long_description_does_not_leave_an_empty_page(payload) -> None:
+    charts = {key: _png() for key in ("raw_overlay", "clean_overlay", "sync_timeline", "sync_signals", "sync_matrix",
+                                      "coarousal_states")}
+    description = "\n".join(f"Session note {line}: the group worked on a shared task in the lab." for line in range(8))
+    long_payload = {**payload, "lang": "en", "chart_images": charts, "stale": True, "project_description": description}
+    plain_pages, _ = _section_start_pages({**payload, "lang": "en", "chart_images": charts})
+    pages, starts = _section_start_pages(long_payload)
+    # The warning and a clamped description stay on page 1; the summary flows on and Import follows it on page 2.
+    assert starts["summary"] == 1 and starts["import"] == 2, starts
+    assert pages <= plain_pages + 1, (pages, plain_pages)
+    page = render_report_html(long_payload)
+    assert description in html.unescape(page[page.index('id="import"'):page.index('id="cleaning"')])
