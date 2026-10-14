@@ -236,6 +236,29 @@ def test_export_offers_the_csv_and_the_zip_bundles_it(client, proposed) -> None:
 
 
 @pytest.mark.django_db
+def test_outdated_proposals_are_marked_in_the_csv_and_on_the_export_screen(client, proposed) -> None:
+    def csv_stale() -> set[str]:
+        content = client.get(reverse("gsr:export_file", args=[proposed.pk, "vsr_moments.csv"])).content.decode()
+        return {row["stale"] for row in csv.DictReader(io.StringIO(content))}
+
+    def vsr_row_marker() -> str:
+        texts = _texts(client.get(reverse("gsr:export", args=[proposed.pk])).content.decode())
+        return texts[texts.index("Momenty do wywiadów VSR", texts.index("Pobierz wszystko (ZIP)")) + 1]
+
+    assert csv_stale() == {"False"}
+    assert vsr_row_marker() != "nieaktualne"
+
+    proposed.interview_config = apply_interview_config(
+        proposed, {"teacher_alias": "T", "student_pairs": [["S1", "S3"]], "video_start_time": "11:59:00"},
+    )
+    proposed.save()
+    assert csv_stale() == {"True"}
+    archive = zipfile.ZipFile(io.BytesIO(client.get(reverse("gsr:export_zip", args=[proposed.pk])).content))
+    assert {row["stale"] for row in csv.DictReader(io.StringIO(archive.read("vsr_moments.csv").decode()))} == {"True"}
+    assert vsr_row_marker() == "nieaktualne"
+
+
+@pytest.mark.django_db
 def test_export_without_proposals_has_no_vsr_file(client, lesson) -> None:
     compute_analysis(lesson)
     assert client.get(reverse("gsr:export_file", args=[lesson.pk, "vsr_moments.csv"])).status_code == 404

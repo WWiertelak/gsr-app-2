@@ -1128,14 +1128,15 @@ def _export_file(project: Project, name: str, label: str = "") -> dict[str, str]
             "url": reverse("gsr:export_file", args=[project.pk, name])}
 
 
-def _export_groups(project: Project, chart_count: int, has_vsr: bool) -> list[dict[str, Any]]:
+def _export_groups(project: Project, chart_count: int, vsr: dict[str, Any] | None) -> list[dict[str, Any]]:
     """The Data card's rows: each with its download name(s); grouped CSVs share one menu."""
-    def row(title: str, description: str, kind: str, files: list[dict[str, str]]) -> dict[str, Any]:
-        return {"title": title, "description": description, "kind": kind, "files": files}
+    def row(title: str, description: str, kind: str, files: list[dict[str, str]],
+            stale: bool = False) -> dict[str, Any]:
+        return {"title": title, "description": description, "kind": kind, "files": files, "stale": stale}
 
     vsr_rows = [row(_("VSR interview moments"),
                     _("per interview: step, lesson, sensor clock and video times, correlation, justification"), "CSV",
-                    [_export_file(project, "vsr_moments.csv")])] if has_vsr else []
+                    [_export_file(project, "vsr_moments.csv")], vsr["stale"])] if vsr is not None else []
     return [
         row(_("Cleaned signals"), _("per participant, relative time, full resolution"), "CSV",
             [_export_file(project, "clean_signals.csv")]),
@@ -1210,14 +1211,14 @@ def _export_context(project: Project, error: UserError | None = None) -> dict[st
         values = PipelineConfig.from_dict(result.config).model_dump()
         report_charts = charts.report_charts(result.payload, signal_colors(project), values)
         languages = _report_languages(project, result)
-        has_vsr = vsr_report_data(project, with_traces=False) is not None
+        vsr = vsr_report_data(project, with_traces=False)
         context.update(
             report_charts=report_charts,
-            report_contents=_report_contents(result, len(report_charts), has_vsr),
+            report_contents=_report_contents(result, len(report_charts), vsr is not None),
             report_languages=languages,
             report_lang=resolve_lang(get_language()),
             report_chart_labels={lang["code"]: lang["chart_labels"] for lang in languages},
-            export_groups=_export_groups(project, len(report_charts), has_vsr),
+            export_groups=_export_groups(project, len(report_charts), vsr),
             zip_name=_download_name(project, "results.zip"),
             computed_time=_computed_time(result),
             stale_causes=_stale_causes(project, result) if stale else [],

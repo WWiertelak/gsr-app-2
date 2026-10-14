@@ -88,7 +88,7 @@
             <li>
               <span class="file-kind" aria-hidden="true">{{ group.kind }}</span>
               <span class="file-text">
-                <strong>{{ group.title }}</strong>
+                <strong>{{ group.title }}</strong>{% if group.stale %} <span class="badge stale">{% translate "outdated" %}</span>{% endif %}
                 <span class="muted small">{{ group.description }}{% if group.files|length == 1 %} · <code>{{ group.files.0.name }}</code>{% endif %}</span>
               </span>
               {% if group.files|length == 1 %}
