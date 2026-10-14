@@ -100,19 +100,6 @@ def step_sentence(fragment: dict[str, Any]) -> SafeString:
     )
 
 
-def step_6_sentence(record: dict[str, Any]) -> SafeString:
-    """STEP 6 at the end of one pass: have enough moments been selected?"""
-    answer = _("YES") if record["answer"] == "YES" else _("NO")
-    return _sentence(
-        _("STEP 6: %(question)s%(target)s → %(answer)s (%(count)s selected) → %(instruction)s"),
-        question=quote(record["question"]),
-        target=_project_target(record),
-        answer=answer,
-        count=record["selected_count"],
-        instruction=quote(record["instruction"]),
-    )
-
-
 def justification(fragments: list[dict[str, Any]]) -> list[SafeString]:
     """The sentences of one proposal's justification, in fragment order."""
     sentences = []

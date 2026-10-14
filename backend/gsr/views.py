@@ -771,11 +771,10 @@ def _interview_config(project: Project) -> InterviewConfig:
 
 def _role_form(project: Project, roles: dict[str, Any]) -> dict[str, Any]:
     """The interview participants card: teacher, student pair rows (plus empty rows to add pairs), video start."""
-    colors = signal_colors(project)
     pairs = [list(pair) for pair in roles.get("student_pairs") or []]
     pairs += [["", ""]] * max(MIN_PAIR_ROWS - len(pairs), 1)
     return {
-        "recordings": [{"alias": dataset.alias, "color": colors[dataset.alias], "included": dataset.included}
+        "recordings": [{"alias": dataset.alias, "included": dataset.included}
                        for dataset in project.datasets.order_by("created_at")],
         "teacher": roles.get("teacher_alias") or "",
         "pairs": [{"number": index + 1, "left": left, "right": right} for index, (left, right) in enumerate(pairs)],
@@ -845,14 +844,9 @@ def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, An
                    "count": interview["candidate_counts"].get(str(number), 0)} for number, step in VSR_STEPS.items()],
         "empty_steps": [vsr_text.step_sentence(record["fragments"][0]) for record in first_pass
                         if record["answer"] == "NO"],
-        "passes": [{"number": record["pass_number"], "reserve": record["purpose"] != PRIMARY,
-                    "steps": [vsr_text.step_sentence(step["fragments"][0]) for step in record["steps"]],
-                    "step_6": vsr_text.step_6_sentence(record["step_6"])} for record in interview["passes"]],
         "moments": [_moment_view(moment, start, end - start) for moment in interview["moments"]],
         "stats": interview["stats"],
         "ticks": _lesson_ticks(start, end),
-        "lesson_start": start,
-        "lesson_end": end,
         "poor_signals": [{"alias": alias, "pct": number_format(quality[alias]["rejected_pct"], 0)}
                          for alias in interview["participants"]
                          if quality.get(alias, {}).get("level") == "poor"],
@@ -891,7 +885,6 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
         "analysis": analysis,
         "analysis_stale": is_stale(project, analysis),
         "error": error,
-        "colors": signal_colors(project),
         "criteria": [vsr_text.quote(item.as_dict()) for item in VSR_CRITERIA],
         "gsr_disruption_quote": vsr_text.quote(QUOTE_GSR_DISRUPTION.as_dict(), ellipsis=True),
     }

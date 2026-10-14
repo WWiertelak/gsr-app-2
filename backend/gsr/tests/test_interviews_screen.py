@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
@@ -116,6 +117,52 @@ def test_teacher_interview_averages_the_paired_students_or_everyone_else() -> No
     assert interview_students(paired, ["T", "S1", "S2", "S3"]) == ["S1", "S2"]
     unpaired = InterviewRoles("T", (), None)
     assert interview_students(unpaired, ["T", "S1", "S2", "S3"]) == ["S1", "S2", "S3"]
+
+
+class _SubmitButtons(HTMLParser):
+    """Submit buttons of the rendered page: (form attribute, disabled, label)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.buttons: list[list] = []
+        self._open: list | None = None
+
+    def handle_starttag(self, tag, attrs) -> None:
+        attrs = dict(attrs)
+        if tag == "button" and attrs.get("type") == "submit":
+            self._open = [attrs.get("form"), "disabled" in attrs, ""]
+            self.buttons.append(self._open)
+
+    def handle_data(self, data) -> None:
+        if self._open is not None:
+            self._open[2] += data
+
+    def handle_endtag(self, tag) -> None:
+        if tag == "button":
+            self._open = None
+
+
+def _role_submits(client, project: Project) -> list[tuple]:
+    with translation.override("en"):
+        response = client.get(reverse("gsr:interviews", args=[project.pk]), HTTP_ACCEPT_LANGUAGE="en")
+    parser = _SubmitButtons()
+    parser.feed(response.content.decode())
+    return [(disabled, label.strip()) for form, disabled, label in parser.buttons if form == "interview-roles"]
+
+
+@pytest.mark.django_db
+def test_run_bar_holds_the_single_propose_action(client, lesson) -> None:
+    assert _role_submits(client, lesson) == [(True, "Propose moments")]
+
+    compute_analysis(lesson)
+    assert _role_submits(client, lesson) == [(False, "Propose moments")]
+
+    client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles(), **HTMX)
+    assert _role_submits(client, lesson) == [(False, "Propose moments")]
+
+    lesson.interview_config = apply_interview_config(lesson, {"vsr": {"vsr_sync_threshold": 0.7}})
+    lesson.save()
+    assert _role_submits(client, lesson) == [(False, "Recompute")]
 
 
 @pytest.mark.django_db

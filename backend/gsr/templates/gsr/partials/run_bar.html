@@ -1,6 +1,6 @@
 {% load i18n %}{% comment %}Settings chips (marked when changed since the shown result) + result status of a computed step. "Edit settings" opens the settings drawer
 (#settings-drawer, without JS through its #anchor); run_form = the form that "Recompute" submits when the result is
-outdated.{% endcomment %}
+outdated; run_label (optional) = the label of that button when there is no outdated result, shown then too.{% endcomment %}
 <div class="run-bar" id="run-bar">
   <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
   <ul class="kv" aria-label="{% translate 'Current settings' %}">{% for item in settings_summary %}<li{% if item.changed %} class="changed"{% endif %}>{{ item.text }}{% if item.changed %}<span class="sr-only"> ({% translate "changed since the last run" %})</span>{% endif %}</li>{% endfor %}</ul>
@@ -11,6 +11,6 @@ outdated.{% endcomment %}
       <span class="run-status none"><span class="dot" aria-hidden="true"></span>{% translate "Not run yet" %}</span>
     {% endif %}
     <a class="button secondary" href="#settings-drawer" data-open-settings aria-controls="settings-drawer" aria-expanded="false">{% translate "Edit settings" %}</a>
-    {% if result and stale %}<button type="submit" form="{{ run_form }}"{% if run_disabled %} disabled{% endif %}>{% translate "Recompute" %}</button>{% endif %}
+    {% if result and stale %}<button type="submit" form="{{ run_form }}"{% if run_disabled %} disabled{% endif %}>{% translate "Recompute" %}</button>{% elif run_label %}<button type="submit" form="{{ run_form }}"{% if run_disabled %} disabled{% endif %}>{{ run_label }}</button>{% endif %}
   </span>
 </div>
