@@ -51,7 +51,7 @@
     </section>
 
     <section class="card result{% if stale %} is-stale{% endif %}" aria-labelledby="clean-title">
-      {% translate "Signal after artifact removal (outliers, jumps), linear interpolation, Butterworth low-pass filter, and optional median filter. X-axis is relative time (minutes) from synchronization. Grey: raw signal, ×: rejected samples." as clean_help %}
+      {% translate "Signal after artifact removal (outliers, jumps), linear interpolation, Butterworth low-pass filter, and optional median filter. X-axis is relative time (minutes) from synchronization. Grey: raw signal." as clean_help %}
       <div class="section-head"><h2 id="clean-title">{% translate "Cleaned vs raw" %}</h2>{% include "gsr/partials/tip.html" with text=clean_help tip_id="tip-clean" %}
         <span class="subtitle">{% translate "minutes from synchronization" %}</span></div>
       <div class="chart-grid">

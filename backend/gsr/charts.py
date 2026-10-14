@@ -26,7 +26,6 @@ def chart_labels() -> dict[str, str]:
         "scaled": _("scaled"),
         "raw": _("raw"),
         "clean": _("clean"),
-        "rejected": _("rejected"),
         "clipped": _("clipped (off scale)"),
         "timeWindow": _("Time window"),
         "high": _("High ↑"),
@@ -64,7 +63,6 @@ def cleaning_charts(preview: dict[str, Any], colors: dict[str, str], config: dic
                 "color": color,
                 "raw": entry.get("synced", []),
                 "clean": _points(entry.get("clean", [])),
-                "rejected": entry.get("rejected", []),
                 "window": window,
             }
         )

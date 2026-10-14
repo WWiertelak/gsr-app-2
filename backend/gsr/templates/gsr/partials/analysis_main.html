@@ -8,6 +8,17 @@
 
   <section class="card" aria-labelledby="analysis-results-title">
     <h2 class="sr-only" id="analysis-results-title">{% translate "Analysis results" %}</h2>
+    <div class="tabs" role="tablist" aria-labelledby="analysis-results-title">
+      <a href="?tab=synchronization" role="tab" id="tab-synchronization" aria-controls="panel-synchronization" aria-labelledby="tab-synchronization-title" aria-describedby="tab-synchronization-desc" data-tab="synchronization" class="{% if tab == 'synchronization' %}active{% endif %}" aria-selected="{% if tab == 'synchronization' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'synchronization' %}0{% else %}-1{% endif %}">
+        <span class="tab-title" id="tab-synchronization-title">{% translate "Synchronization" %}{% if result and synchrony %} {% include "gsr/partials/episode_count.html" with count=synchrony.stats.episode_count %}{% endif %}</span>
+        <span class="tab-desc" id="tab-synchronization-desc">{% translate "Pairs and subgroups whose signals move together" %}</span>
+      </a>
+      <a href="?tab=coarousal" role="tab" id="tab-coarousal" aria-controls="panel-coarousal" aria-labelledby="tab-coarousal-title" aria-describedby="tab-coarousal-desc" data-tab="coarousal" class="{% if tab == 'coarousal' %}active{% endif %}" aria-selected="{% if tab == 'coarousal' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'coarousal' %}0{% else %}-1{% endif %}">
+        <span class="tab-title" id="tab-coarousal-title">{% translate "Co-arousal" %}{% if result and coarousal %} {% include "gsr/partials/episode_count.html" with count=coarousal.stats.episode_count %}{% endif %}</span>
+        <span class="tab-desc" id="tab-coarousal-desc">{% translate "Moments when participants share a High or Low arousal state" %}</span>
+      </a>
+    </div>
+
     {% if not result %}
       <div class="empty-state" id="analysis-empty">
         <p>{% translate "No results for this step yet. Set the parameters and run the analysis." %}</p>
@@ -16,11 +27,6 @@
     {% elif stale %}
       <div class="alert warning stale-note">{% translate "Settings or signals changed since this run. Run the analysis again." %}</div>
     {% endif %}
-
-    <div class="tabs" role="tablist" aria-labelledby="analysis-results-title">
-      <a href="?tab=synchronization" role="tab" id="tab-synchronization" aria-controls="panel-synchronization" data-tab="synchronization" class="{% if tab == 'synchronization' %}active{% endif %}" aria-selected="{% if tab == 'synchronization' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'synchronization' %}0{% else %}-1{% endif %}">{% translate "Synchronization" %}{% if result and synchrony %} {% include "gsr/partials/episode_count.html" with count=synchrony.stats.episode_count %}{% endif %}</a>
-      <a href="?tab=coarousal" role="tab" id="tab-coarousal" aria-controls="panel-coarousal" data-tab="coarousal" class="{% if tab == 'coarousal' %}active{% endif %}" aria-selected="{% if tab == 'coarousal' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'coarousal' %}0{% else %}-1{% endif %}">{% translate "Co-arousal" %}{% if result and coarousal %} {% include "gsr/partials/episode_count.html" with count=coarousal.stats.episode_count %}{% endif %}</a>
-    </div>
 
     <div class="result{% if stale %} is-stale{% endif %}" role="tabpanel" id="panel-synchronization" aria-labelledby="tab-synchronization" tabindex="0" data-tab-panel="synchronization"{% if tab != "synchronization" %} hidden{% endif %}>
       {% if result and synchrony %}
@@ -49,25 +55,18 @@
           </li>
         </ul>
 
-        {% translate "We look for fragments where signals begin to synchronize and group them into clusters." as sync_help %}
-        <div class="section-head">
-          <h3>{% translate "Synchronization timeline" %}</h3>{% include "gsr/partials/tip.html" with text=sync_help tip_id="tip-sync-timeline" %}
-          <span class="subtitle">{% translate "group mean and episodes above, participants in sync below" %}</span>
-          {% if sync_timeline.pairs %}
-            <label class="switch"><input type="checkbox" role="switch" data-pairs-for="sync-timeline"> {% blocktranslate with count=sync_timeline.pairs|length %}Pair curves ({{ count }}){% endblocktranslate %}</label>
-          {% endif %}
-        </div>
-        {% include "gsr/partials/chart.html" with label=_("Synchronization timeline") kind="syncTimeline" data=sync_timeline chart_id="sync-timeline" name="sync_timeline" height=420 %}
-
         {% if sync_signals.series %}
-          <h3 class="section-gap">{% translate "Signals with marked episodes" %}</h3>
+          {% translate "We look for fragments where signals begin to synchronize and group them into clusters." as sync_help %}
+          <div class="section-head section-gap"><h3>{% translate "Signals with marked episodes" %}</h3>{% include "gsr/partials/tip.html" with text=sync_help tip_id="tip-sync-signals" %}</div>
           {% include "gsr/partials/chart.html" with label=_("Signals with marked episodes") kind="episodeSignals" data=sync_signals chart_id="sync-signals" name="sync_signals" height=320 %}
         {% endif %}
 
-        <div class="grid-2 section-gap">
-          <div>
-            {% translate "Stretches where a subgroup of participants (at least 2) stays synchronized above the threshold." as episodes_help %}
-            <div class="section-head"><h3>{% translate "Subgroup synchronization episodes" %}</h3>{% include "gsr/partials/tip.html" with text=episodes_help tip_id="tip-sync-episodes" %}</div>
+        {% translate "Stretches where a subgroup of participants (at least 2) stays synchronized above the threshold." as episodes_help %}
+        <div class="disclosure section-gap">
+          <div class="disclosure-head">
+            <h3><button type="button" class="disclosure-toggle" id="sync-episodes-toggle" aria-expanded="true" aria-controls="sync-episodes-body" data-disclosure>{% translate "Subgroup synchronization episodes" %} <span class="count">{{ sync_episodes|length }}</span></button></h3>{% include "gsr/partials/tip.html" with text=episodes_help tip_id="tip-sync-episodes" %}
+          </div>
+          <div class="disclosure-body" id="sync-episodes-body">
             {% if sync_episodes %}
               <div class="table-wrap">
                 <table class="data">
@@ -90,9 +89,13 @@
               <p class="muted">{% translate "No subgroup synchronization episodes detected." %}</p>
             {% endif %}
           </div>
+        </div>
 
-          <div>
-            <div class="section-head"><h3>{% translate "Pairwise metrics" %}</h3>{% if has_pair_p %}<span class="subtitle">{% translate "bold = p < 0.05 (surrogates)" %}</span>{% endif %}</div>
+        <div class="disclosure">
+          <div class="disclosure-head">
+            <h3><button type="button" class="disclosure-toggle" id="sync-pairs-toggle" aria-expanded="true" aria-controls="sync-pairs-body" data-disclosure>{% translate "Pairwise metrics" %} <span class="count">{{ pairs|length }}</span></button></h3>{% if has_pair_p %}<span class="subtitle">{% translate "bold = p < 0.05 (surrogates)" %}</span>{% endif %}
+          </div>
+          <div class="disclosure-body" id="sync-pairs-body">
             <div class="table-wrap">
               <table class="data">
                 <thead>

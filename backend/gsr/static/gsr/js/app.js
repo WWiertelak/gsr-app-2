@@ -1,7 +1,7 @@
 /*
  * Page behaviour: hydrate [data-chart] elements with ECharts (also after HTMX
- * swaps), result switches (pair curves, merged episode table), analysis tabs (ARIA tabs with arrow keys), info
- * tooltips, confirm dialogs, the settings drawer (opened from the run bar, kept open with its unapplied edits across
+ * swaps), the merged co-arousal episode table switch, analysis tabs (ARIA tabs with arrow keys), collapsible result
+ * tables, info tooltips, confirm dialogs, the settings drawer (opened from the run bar, kept open with its unapplied edits across
  * HTMX swaps), the Upload drop zone and its Separate/Overlay view switch, progress for plain form posts and on the
  * button that started a computation, the Upload overlap timeline's analysed-period handles, and the Export screen's
  * chart capture for the PDF report and the ZIP.
@@ -35,11 +35,8 @@
     if (element._gsrChart || !isVisible(element) || !window.echarts || !window.GSRCharts) {
       return;
     }
-    // A chart's "Pair curves" switch (the browser may restore it checked on reload).
-    var pairs = element.id && document.querySelector('[data-pairs-for="' + element.id + '"]');
     var option = window.GSRCharts.build(element.dataset.chart, readData(element.dataset.source), labels(), {
-      name: element.dataset.name,
-      pairs: Boolean(pairs && pairs.checked)
+      name: element.dataset.name
     });
     if (!option) {
       return;
@@ -60,7 +57,49 @@
     }
   }
 
+  // Collapsible result tables: a heading button (aria-expanded) shows or hides its body; the choice is remembered per
+  // table in this browser, so a new run or a reload keeps the tables the user folded away.
+  var DISCLOSURE_KEY = "gsr.disclosure.";
+
+  function setDisclosure(button, expanded) {
+    var body = document.getElementById(button.getAttribute("aria-controls"));
+    button.setAttribute("aria-expanded", expanded ? "true" : "false");
+    if (body) {
+      body.hidden = !expanded;
+      if (expanded) {
+        hydrate(body);
+      }
+    }
+  }
+
+  function applyStoredDisclosure(button) {
+    var stored = null;
+    try {
+      stored = window.localStorage.getItem(DISCLOSURE_KEY + button.id);
+    } catch (error) {
+      stored = null;
+    }
+    if (stored === "closed" || stored === "open") {
+      setDisclosure(button, stored === "open");
+    }
+  }
+
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-disclosure]");
+    if (!button) {
+      return;
+    }
+    var expanded = button.getAttribute("aria-expanded") !== "true";
+    setDisclosure(button, expanded);
+    try {
+      window.localStorage.setItem(DISCLOSURE_KEY + button.id, expanded ? "open" : "closed");
+    } catch (error) {
+      // Private mode or blocked storage: the toggle still works, it is just not remembered.
+    }
+  });
+
   function hydrate(root) {
+    (root || document).querySelectorAll("[data-disclosure]").forEach(applyStoredDisclosure);
     (root || document).querySelectorAll("[data-merge-toggle]").forEach(applyMergeToggle);
     (root || document).querySelectorAll("[data-chart]").forEach(initChart);
   }
@@ -113,18 +152,8 @@
   }
 
   document.addEventListener("change", function (event) {
-    var input = event.target;
-    if (input.matches("[data-pairs-for]")) {
-      var element = document.getElementById(input.dataset.pairsFor);
-      if (element && element._gsrChart) {
-        element._gsrChart.dispose();
-        element._gsrChart = null;
-      }
-      if (element) {
-        initChart(element);
-      }
-    } else if (input.matches("[data-merge-toggle]")) {
-      applyMergeToggle(input);
+    if (event.target.matches("[data-merge-toggle]")) {
+      applyMergeToggle(event.target);
     }
   });
 

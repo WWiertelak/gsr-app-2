@@ -319,25 +319,18 @@
     };
   }
 
-  // New in 2.0: raw (synced) trace in grey, cleaned trace in the signal colour, rejected samples as crosses.
+  // New in 2.0: raw (synced) trace in grey, cleaned trace in the signal colour.
   // The y axis fits the cleaned signal, so large raw artifacts don't flatten it (they are clipped at the
   // plot edge, with a triangle marking where).
   function cleanVsRaw(data, labels, opts) {
     var raw = data.raw || [];
-    var rejected = data.rejected || [];
     var range = cleanRange(data.clean || []);
     var yAxis = valueAxis({ name: labels.microsiemens || "µS", scale: true });
     var clipped = { above: [], below: [] };
-    var shownRejected = rejected;
     if (range) {
       yAxis.min = range.min;
       yAxis.max = range.max;
-      clipped = clipMarkers(raw.concat(rejected).sort(function (a, b) {
-        return a[0] - b[0];
-      }), range, xSpan(raw) / 150);
-      shownRejected = rejected.filter(function (point) {
-        return point[1] >= range.min && point[1] <= range.max;
-      });
+      clipped = clipMarkers(raw, range, xSpan(raw) / 150);
     }
     var series = [
       {
@@ -358,14 +351,6 @@
         itemStyle: { color: data.color },
         data: data.clean || [],
         markLine: windowMarkLine(data.window, labels)
-      },
-      {
-        type: "scatter",
-        name: labels.rejected || "rejected",
-        symbol: "path://M0,0 L10,10 M10,0 L0,10",
-        symbolSize: 7,
-        itemStyle: { color: T.error, borderColor: T.error, borderWidth: 1.4 },
-        data: shownRejected
       }
     ];
     var clippedName = labels.clipped || "clipped";

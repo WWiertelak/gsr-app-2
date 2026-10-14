@@ -470,13 +470,33 @@ button.icon:not(:disabled):hover { color: var(--error); background: var(--error-
 .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(20, 33, 43, 0.12); }
 .chart-card .chart-title { margin: 0 0 var(--s1); font-size: var(--fs-sm); display: flex; align-items: center; gap: var(--s2); }
 
-/* Tabs */
-.tabs { display: flex; flex-wrap: wrap; column-gap: var(--s5); border-bottom: 1px solid var(--line); margin: var(--s4) 0; }
-.tabs a { display: inline-flex; align-items: center; gap: var(--s2); padding: var(--s3) 0 var(--s3); text-decoration: none; color: var(--ink-3); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 600; }
-.tabs a:hover { color: var(--ink); }
-.tabs a.active { color: var(--ink); border-bottom-color: var(--accent); }
-.tabs .count { padding: 1px var(--s2); border-radius: 999px; background: var(--sunken); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 600; }
+/* Tabs: Synchronization and Co-arousal are two separate result views, so the tab bar is a full-width switch with
+   large targets, not a row of links. */
+.tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--s1); padding: var(--s1); margin: 0 0 var(--s4); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--sunken); }
+.tabs a { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 56px; padding: var(--s3) var(--s4); border: 1px solid transparent; border-radius: var(--r-sm); text-decoration: none; color: var(--ink-2); }
+.tabs a:hover { color: var(--ink); background: color-mix(in srgb, var(--surface) 55%, transparent); }
+.tabs a.active { color: var(--ink); background: var(--surface); border-color: var(--line); box-shadow: inset 0 3px 0 var(--accent), 0 1px 2px rgba(20, 33, 43, 0.12); }
+.tabs a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tabs .tab-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); font-size: var(--fs-md); font-weight: 600; }
+.tabs a.active .tab-title { color: var(--accent); }
+.tabs .tab-desc { color: var(--ink-3); font-size: var(--fs-xs); }
+.tabs .count { padding: 1px var(--s2); border-radius: 999px; background: var(--surface); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 600; }
 .tabs a.active .count { background: var(--accent-weak); color: var(--accent); }
+
+/* Collapsible result tables (disclosure): the heading button shows the row count and a chevron. */
+.disclosure { border: 1px solid var(--line); border-radius: var(--r-md); }
+.disclosure + .disclosure { margin-top: var(--s3); }
+.disclosure-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); padding-right: var(--s3); }
+.card .disclosure-head h3 { flex: 1 1 auto; min-width: 0; margin: 0; }
+.disclosure-head .subtitle { color: var(--ink-3); font-size: var(--fs-xs); }
+.disclosure-toggle { display: flex; align-items: center; justify-content: flex-start; gap: var(--s2); width: 100%; min-height: 44px; padding: var(--s2) var(--s3); border: 0; border-radius: var(--r-md); background: transparent; color: var(--ink); font: inherit; font-weight: 600; line-height: 1.3; text-align: left; white-space: normal; cursor: pointer; }
+.disclosure-toggle::before { content: ""; flex: none; width: 7px; height: 7px; margin: 0 2px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translate(-2px, -2px); transition: transform 0.15s; }
+.disclosure-toggle[aria-expanded="false"]::before { transform: rotate(-45deg); }
+.disclosure-toggle:not(:disabled):hover { background: var(--sunken); border: 0; color: var(--ink); }
+.disclosure-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.disclosure-toggle .count { padding: 1px var(--s2); border-radius: 999px; background: var(--sunken); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 600; }
+.disclosure-body { padding: 0 var(--s3) var(--s2); }
+.disclosure-body > .table-wrap { margin-top: 0; }
 
 .cluster-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--s3); }
 .cluster-card { border-left: 2px solid var(--line-2); padding: 2px 0 2px var(--s3); }
@@ -635,7 +655,7 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
   .rail-steps .rail-nav[aria-current] .rail-tip b, .rail-steps .rail-nav[aria-current] .rail-tip small { color: var(--rail); }
   .page { padding: var(--s3) var(--s4) var(--s7); }
   .action-bar { margin-left: calc(-1 * var(--s4)); margin-right: calc(-1 * var(--s4)); padding: var(--s3) var(--s4); }
-  .tabs { column-gap: var(--s4); }
+  .tabs a { padding: var(--s2) var(--s3); }
   .run-bar > svg.i { display: none; }
   /* Keep the recordings table at a readable width; its .table-wrap scrolls instead of squeezing the columns. */
   table.data.recordings { min-width: 640px; }
