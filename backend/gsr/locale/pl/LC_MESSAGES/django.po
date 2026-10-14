@@ -1236,15 +1236,15 @@ msgstr "Podgląd pierwszej strony raportu"
 
 #: gsr/templates/gsr/partials/export_main.html:50
 msgid ""
-"Page 1: the project description, the key figures, the synchronization "
-"timeline and matrix, and the contents. Then import, cleaning, "
-"synchronization and co-arousal with charts, the methodology, and an appendix "
+"Page 1: the project description, the key figures, the signals with marked "
+"synchronization episodes and the matrix, and the contents. Then import, "
+"cleaning, synchronization and co-arousal, the methodology, and an appendix "
 "for reproducibility (settings, versions, SHA-256)."
 msgstr ""
-"Strona 1: opis projektu, najważniejsze liczby, oś czasu i macierz "
-"synchronizacji oraz spis treści. Dalej import, czyszczenie, synchronizacja i "
-"ko-pobudzenie z wykresami, metodologia i załącznik dla odtwarzalności "
-"(ustawienia, wersje, SHA-256)."
+"Strona 1: opis projektu, najważniejsze liczby, sygnały z zaznaczonymi "
+"epizodami synchronizacji i macierz synchronizacji oraz spis treści. Dalej "
+"import, czyszczenie, synchronizacja i ko-pobudzenie, metodologia i załącznik "
+"dla odtwarzalności (ustawienia, wersje, SHA-256)."
 
 #: gsr/templates/gsr/partials/export_main.html:51
 msgid "Report contents"

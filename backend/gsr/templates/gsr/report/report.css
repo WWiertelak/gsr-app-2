@@ -137,7 +137,7 @@ dl.params { margin: 0 0 var(--s2); }
 dl.params dt { font-weight: 600; break-after: avoid; }
 dl.params dd { margin: 0 0 var(--s1) var(--s4); }
 
-/* Summary: key-figure tiles, the timeline, then the matrix beside the contents. */
+/* Summary: key-figure tiles, the signals with marked episodes, then the matrix beside the contents. */
 .kpis { display: flex; gap: var(--s2); margin: 0 0 var(--s3); }
 .kpi {
   flex: 1 1 0;

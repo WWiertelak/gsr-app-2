@@ -9,7 +9,7 @@ file SHA-256) replaces the segment CSV appendix.
 ``build_report`` turns the run payload into sections of blocks (headings,
 paragraphs, tables, charts) that ``templates/gsr/report/report.html`` lays out;
 WeasyPrint converts that page to PDF. Page 1 is the cover and a one-page
-summary (key figures, the synchronization timeline and matrix, contents); the
+summary (key figures, the signals with marked episodes and the matrix, contents); the
 other sections follow on without page breaks. Charts are the PNGs the Export
 screen captures from the screens' ECharts charts (``chart_images``). The page
 shares the app's design tokens (``static/gsr/css/tokens.css``) and IBM Plex fonts.
