@@ -32,9 +32,11 @@ RUN chmod +x docker-entrypoint.sh \
     && mkdir -p /data/storage \
     && chown -R gsr:gsr /data
 
-# SQLite database and uploaded files live on the /data volume.
+# SQLite database and uploaded files live on the /data volume. Fontconfig caches the report's web fonts
+# (WeasyPrint) under XDG_CACHE_HOME; the app user cannot write to its home directory.
 ENV SQLITE_PATH=/data/db.sqlite3 \
     STORAGE_ROOT=/data/storage \
+    XDG_CACHE_HOME=/tmp/.cache \
     PORT=8000
 
 USER gsr

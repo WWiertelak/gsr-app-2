@@ -10,31 +10,7 @@
 @font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("../vendor/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 @font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("../vendor/fonts/ibm-plex-mono-latin-ext-400-normal.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 
-:root {
-  /* Surfaces */
-  --canvas: #f6f7f9; --surface: #ffffff; --sunken: #f1f3f6;
-  /* Text */
-  --ink: #14212b; --ink-2: #4a5a68; --ink-3: #617080;
-  /* Lines */
-  --line: #e3e7ec; --line-2: #cfd6dd;
-  /* Interaction: one accent only */
-  --accent: #0b6e74; --accent-hover: #095a5f; --accent-weak: #e5f1f1;
-  /* Status: UI feedback only */
-  --ok: #2f7d4f; --ok-weak: #e8f4ec; --warn: #a85a07; --warn-weak: #fdf3e6; --error: #b42318; --error-weak: #fdecea;
-  /* Type scale (base 14) */
-  --fs-xs: 12px; --fs-sm: 13px; --fs-base: 14px; --fs-md: 16px; --fs-lg: 20px; --fs-xl: 24px;
-  /* Spacing (4 px grid) */
-  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
-  --r-sm: 6px; --r-md: 10px; --shadow-pop: 0 8px 28px rgba(20, 33, 43, 0.14);
-  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-  /* Science semantics, reserved: never a participant colour (services/results.py RESERVED_SCIENCE_COLORS). */
-  --high: #b2182b; --low: #2166ac; --comove: #3f4b57; --threshold: #9f1239; --episode: rgba(20, 33, 43, 0.07);
-  /* Left rail (direction B chrome): the teal accent appears only on the dark rail */
-  --rail-w: 216px; --drawer-w: 400px;
-  --rail: #0f1b24; --rail-2: #172633; --rail-line: #22323f; --rail-ink: #a9bccb; --rail-ink-strong: #ffffff;
-  --rail-muted: #8197a9; --rail-active: #14b8a6; --rail-done: #1f3b46; --rail-stale: #f0a14a;
-}
+/* Tokens: tokens.css (loaded first by base.html). */
 
 * { box-sizing: border-box; }
 
@@ -511,11 +487,17 @@ svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
 }
 .report-preview .page[hidden] { display: none; }
 .report-preview .kicker { color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.04em; }
-.report-preview .title { font-size: 10px; font-weight: 600; color: var(--accent); }
+.report-preview .title { font-size: 10px; font-weight: 600; color: var(--ink); }
 .report-preview .sub { color: var(--ink); }
 .report-preview .rule { height: 1px; background: var(--accent); margin: 3px 0; }
 .report-preview .meta b { font-weight: 600; color: var(--ink); }
-.report-preview .lines { display: grid; gap: 3px; margin-top: 6px; }
+/* Page 1 of the PDF in miniature: key-figure tiles, the timeline, then the matrix beside the contents. */
+.report-preview .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-top: 4px; }
+.report-preview .tiles i { display: block; height: 12px; border: 1px solid var(--line); border-top: 2px solid var(--accent); border-radius: 2px; }
+.report-preview .plot { display: block; height: 26%; border: 1px solid var(--line); background: linear-gradient(transparent 55%, var(--sunken) 55%); }
+.report-preview .split { display: grid; grid-template-columns: 56% 1fr; gap: 4px; flex: 1; }
+.report-preview .split .plot { height: 70%; background: var(--sunken); }
+.report-preview .lines { display: grid; gap: 3px; align-content: start; }
 .report-preview .lines i { display: block; height: 3px; background: var(--sunken); }
 .report-preview .lines i:last-child { width: 60%; }
 .report-info p { color: var(--ink-2); font-size: var(--fs-sm); }

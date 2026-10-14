@@ -615,36 +615,36 @@ msgstr "Ko-pobudzenie"
 msgid "The file is missing. Upload it again."
 msgstr "Brakuje pliku. Wgraj go ponownie."
 
-#: gsr/templates/gsr/base.html:15
+#: gsr/templates/gsr/base.html:16
 msgid "Skip to content"
 msgstr "Przejdź do treści"
 
-#: gsr/templates/gsr/base.html:17
+#: gsr/templates/gsr/base.html:18
 msgid "Navigation"
 msgstr "Nawigacja"
 
-#: gsr/templates/gsr/base.html:20 gsr/templates/gsr/base.html:21
+#: gsr/templates/gsr/base.html:21 gsr/templates/gsr/base.html:22
 msgid "App"
 msgstr "Aplikacja"
 
-#: gsr/templates/gsr/base.html:23 gsr/templates/gsr/project_page.html:20
+#: gsr/templates/gsr/base.html:24 gsr/templates/gsr/project_page.html:20
 #: gsr/templates/gsr/projects.html:3 gsr/templates/gsr/projects.html:5
 msgid "Projects"
 msgstr "Projekty"
 
-#: gsr/templates/gsr/base.html:23
+#: gsr/templates/gsr/base.html:24
 msgid "all projects"
 msgstr "wszystkie projekty"
 
-#: gsr/templates/gsr/base.html:27
+#: gsr/templates/gsr/base.html:28
 msgid "Language"
 msgstr "Język"
 
-#: gsr/templates/gsr/base.html:60
+#: gsr/templates/gsr/base.html:61
 msgid "Computing…"
 msgstr "Trwa obliczanie…"
 
-#: gsr/templates/gsr/base.html:61
+#: gsr/templates/gsr/base.html:62
 msgid "This can take up to a minute for long recordings."
 msgstr "Przy długich nagraniach może to potrwać do minuty."
 
@@ -1251,49 +1251,51 @@ msgstr "Raport PDF"
 msgid "for other researchers"
 msgstr "dla innych badaczy"
 
-#: gsr/templates/gsr/partials/export_main.html:45
+#: gsr/templates/gsr/partials/export_main.html:47
 msgid "Preview of the report's first page"
 msgstr "Podgląd pierwszej strony raportu"
 
-#: gsr/templates/gsr/partials/export_main.html:48
+#: gsr/templates/gsr/partials/export_main.html:50
 msgid ""
-"Project description, the main results on one summary page, then import, "
-"cleaning, synchronization and co-arousal with charts, the methodology, and "
-"an appendix for reproducibility (settings, versions, SHA-256)."
+"Page 1: the project description, the key figures, the synchronization "
+"timeline and matrix, and the contents. Then import, cleaning, "
+"synchronization and co-arousal with charts, the methodology, and an appendix "
+"for reproducibility (settings, versions, SHA-256)."
 msgstr ""
-"Opis projektu, najważniejsze wyniki na jednej stronie podsumowania, potem "
-"import, czyszczenie, synchronizacja i ko-pobudzenie z wykresami, metodologia "
-"i załącznik dla odtwarzalności (ustawienia, wersje, SHA-256)."
+"Strona 1: opis projektu, najważniejsze liczby, oś czasu i macierz "
+"synchronizacji oraz spis treści. Dalej import, czyszczenie, synchronizacja i "
+"ko-pobudzenie z wykresami, metodologia i załącznik dla odtwarzalności "
+"(ustawienia, wersje, SHA-256)."
 
-#: gsr/templates/gsr/partials/export_main.html:49
+#: gsr/templates/gsr/partials/export_main.html:51
 msgid "Report contents"
 msgstr "Zawartość raportu"
 
-#: gsr/templates/gsr/partials/export_main.html:56
+#: gsr/templates/gsr/partials/export_main.html:58
 msgid "Report language"
 msgstr "Język raportu"
 
-#: gsr/templates/gsr/partials/export_main.html:63
+#: gsr/templates/gsr/partials/export_main.html:65
 msgid "Generate PDF report"
 msgstr "Generuj raport PDF"
 
-#: gsr/templates/gsr/partials/export_main.html:68
+#: gsr/templates/gsr/partials/export_main.html:70
 msgid "the report language is independent of the UI language"
 msgstr "język raportu nie zależy od języka interfejsu"
 
-#: gsr/templates/gsr/partials/export_main.html:68
+#: gsr/templates/gsr/partials/export_main.html:70
 msgid "charts are drawn from the same data as on screen"
 msgstr "wykresy rysowane z tych samych danych co na ekranie"
 
-#: gsr/templates/gsr/partials/export_main.html:76
+#: gsr/templates/gsr/partials/export_main.html:78
 msgid "Data files"
 msgstr "Pliki danych"
 
-#: gsr/templates/gsr/partials/export_main.html:80
+#: gsr/templates/gsr/partials/export_main.html:82
 msgid "Download all (ZIP)"
 msgstr "Pobierz wszystko (ZIP)"
 
-#: gsr/templates/gsr/partials/export_main.html:83
+#: gsr/templates/gsr/partials/export_main.html:85
 #, python-format
 msgid ""
 "Every file below plus the report charts as PNG, in <code>%(name)s</code>. "
@@ -1302,12 +1304,12 @@ msgstr ""
 "Wszystkie pliki poniżej oraz wykresy raportu w PNG, w <code>%(name)s</code>. "
 "Każdy wykres na ekranach ma też własny przycisk „Zapisz PNG”."
 
-#: gsr/templates/gsr/partials/export_main.html:93
+#: gsr/templates/gsr/partials/export_main.html:95
 #, python-format
 msgid "Download %(name)s"
 msgstr "Pobierz %(name)s"
 
-#: gsr/templates/gsr/partials/export_main.html:98
+#: gsr/templates/gsr/partials/export_main.html:100
 msgid "Choose"
 msgstr "Wybierz"
 
