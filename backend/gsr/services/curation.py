@@ -158,7 +158,8 @@ def lesson_clock_start(payload: dict[str, Any]) -> datetime | None:
     """The sensor clock at lesson time 0, or None when the recordings have no clock."""
     stored = (payload.get("lesson") or {}).get("start_clock")
     if stored:
-        return datetime.fromisoformat(stored)
+        # Early proposals stored the lesson clock as a bare HH:MM:SS (to the second).
+        return datetime.fromisoformat(stored) if "T" in stored else datetime.combine(date(2000, 1, 2), time.fromisoformat(stored))
     # Proposals stored before the lesson clock was kept: read it back from a proposed moment (to the second).
     for interview in payload.get("interviews", []):
         for moment in interview["moments"]:

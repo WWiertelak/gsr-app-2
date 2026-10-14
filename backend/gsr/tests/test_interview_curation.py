@@ -294,6 +294,17 @@ def test_a_moved_moment_reads_the_clock_like_the_engine_from_a_sub_second_lesson
     assert (item.start_clock, item.end_clock) == ("10:00:11", "10:00:40")
 
 
+@pytest.mark.django_db
+def test_a_moved_moment_reads_a_lesson_clock_stored_without_a_date() -> None:
+    project = Project.objects.create(name="Bare clock")
+    result = _fake_result(project, [(1, 10, 40)], start_clock="09:00:00")
+    curation.sync_interview_moments(project, result)
+    row = _list(project, result, "A+B")[0].row
+    curation.change_time(row, result, 60, 90, "Later")
+    item = _list(project, result, "A+B")[0]
+    assert (item.start_clock, item.end_clock, item.start_video) == ("09:01:00", "09:01:30", "0:00:30")
+
+
 def test_lesson_times_parse_as_minutes_and_seconds() -> None:
     assert curation.parse_lesson_time("12:30") == 750
     assert curation.parse_lesson_time("1:02:03") == 3723
