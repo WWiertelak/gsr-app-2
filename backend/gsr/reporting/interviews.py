@@ -29,7 +29,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "lead": "Propozycje momentów do omówienia podczas wywiadów VSR, wybrane według protokołu GSR z dokumentu "
                 "„VSR Interview Flow Chart”. Kroki 1–5 pytają po kolei o typ synchronii, a krok 6 powtarza je, aż "
                 "wybrano 5 momentów. To propozycja dla badacza, nie wynik analizy: o tym, co omówić, decyduje badacz.",
-        "stale": "UWAGA: uczestnicy wywiadów, parametry lub analiza zmieniły się po wyznaczeniu tych propozycji. "
+        "stale": "Uczestnicy wywiadów, parametry lub analiza zmieniły się po wyznaczeniu tych propozycji. "
                  "Raport opisuje ostatnio wyznaczone propozycje.",
         "criteria_heading": "Kryteria z dokumentu",
         "settings_heading": "Parametry wyboru",
@@ -103,7 +103,7 @@ _TEXT: dict[str, dict[str, str]] = {
                 "“VSR Interview Flow Chart”. STEPS 1–5 ask about the types of synchrony in turn, and "
                 "STEP 6 repeats them until 5 moments are selected. This is a proposal for the researcher, not an "
                 "analysis result: the researcher decides what to discuss.",
-        "stale": "NOTE: the interview participants, the parameters or the analysis changed after these proposals "
+        "stale": "The interview participants, the parameters or the analysis changed after these proposals "
                  "were made. The report describes the last proposals.",
         "criteria_heading": "Criteria from the document",
         "settings_heading": "Selection parameters",

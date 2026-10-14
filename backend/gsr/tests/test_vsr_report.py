@@ -155,7 +155,8 @@ def test_report_warns_when_the_proposals_are_outdated(proposed) -> None:
     proposed.interview_config = apply_interview_config(proposed, {"vsr": {"vsr_sync_threshold": 0.7}})
     proposed.save()
     texts = _texts(_page(proposed, "pl"))
-    assert any(text.startswith("UWAGA: uczestnicy wywiadów") for text in texts)
+    assert any(text.startswith("Uczestnicy wywiadów, parametry lub analiza") for text in texts)
+    assert not any("UWAGA" in text for text in texts)  # the note block already shows its own label
     assert "propozycje nieaktualne" in texts
 
 
