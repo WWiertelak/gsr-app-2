@@ -1,27 +1,24 @@
 from __future__ import annotations
 
+from importlib import import_module
 from pathlib import Path
 
 import pytest
+from django.apps import apps as django_apps
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.http import QueryDict
-from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils import translation
+from django.utils import timezone, translation
 
-from gsr import params
 from gsr.models import AnalysisResult, Project
-from gsr.pipeline.vsr_config import VsrConfig, parse_video_start_time
 from gsr.services.datasets import add_dataset
 from gsr.services.interview import (
     apply_interview_config,
     compute_vsr_signature,
     load_interview_config,
-    vsr_changed_label,
-    vsr_field_rows,
+    parse_video_start_time,
+    validate_count,
 )
 from gsr.services.results import compute_analysis, current_signature, is_stale
-from gsr.vsr_params import VSR_PARAMS
 
 from .sample_data import Participant, write_group
 
@@ -74,19 +71,20 @@ def test_load_interview_config_defaults(lesson_project) -> None:
     assert config.roles.teacher_alias is None
     assert config.roles.student_pairs == ()
     assert config.roles.video_start_time is None
-    assert config.vsr.vsr_sync_threshold == 0.8
-    assert config.vsr.vsr_async_threshold == 0.1
+    # The document's 5 moments and a reserve of 3 (8 in all).
+    assert (config.primary_count, config.reserve_count) == (5, 3)
 
 
 @pytest.mark.django_db
-def test_apply_interview_config_stores_roles_and_vsr_parameters(lesson_project) -> None:
+def test_apply_interview_config_stores_roles_and_moment_counts(lesson_project) -> None:
     stored = apply_interview_config(
         lesson_project,
         {
             "teacher_alias": "T",
             "student_pairs": [["S1", "S2"]],
             "video_start_time": "10:00:00",
-            "vsr": {"vsr_sync_threshold": 0.75},
+            "primary_moment_count": "4",
+            "reserve_moment_count": 2,
         },
     )
     lesson_project.interview_config = stored
@@ -96,7 +94,9 @@ def test_apply_interview_config_stores_roles_and_vsr_parameters(lesson_project) 
     assert config.roles.teacher_alias == "T"
     assert config.roles.student_pairs == (("S1", "S2"),)
     assert config.roles.video_start_time == "10:00:00"
-    assert config.vsr.vsr_sync_threshold == 0.75
+    assert (config.primary_count, config.reserve_count) == (4, 2)
+    assert set(stored) == {"teacher_alias", "student_pairs", "video_start_time", "primary_moment_count",
+                           "reserve_moment_count"}
 
 
 @pytest.mark.django_db
@@ -114,21 +114,25 @@ def test_apply_interview_config_rejects_unknown_alias_and_overlapping_students(l
         apply_interview_config(lesson_project, {"student_pairs": [["S1", "S2"], ["S1", "S3"]]})
 
 
-@pytest.mark.django_db
-def test_vsr_config_rejects_invalid_thresholds() -> None:
-    with pytest.raises(ValueError, match="vsr_async_threshold"):
-        VsrConfig(vsr_sync_threshold=0.2, vsr_async_threshold=0.5)
+@pytest.mark.parametrize(("name", "value"), [
+    ("primary_moment_count", 0), ("primary_moment_count", 21), ("primary_moment_count", "5.5"),
+    ("primary_moment_count", "five"), ("primary_moment_count", True), ("reserve_moment_count", -1),
+    ("reserve_moment_count", "nan"),
+])
+def test_moment_counts_must_be_whole_numbers_within_their_limits(name, value) -> None:
+    with translation.override("en"), pytest.raises(ValueError, match="must be a whole number"):
+        validate_count(name, value)
+
+
+def test_moment_counts_accept_whole_number_text() -> None:
+    assert validate_count("primary_moment_count", "4.0") == 4
+    assert validate_count("reserve_moment_count", "0") == 0
 
 
 @pytest.mark.django_db
-def test_vsr_changed_markers_reflect_non_default_parameters() -> None:
-    defaults = VsrConfig().model_dump()
-    assert vsr_changed_label(defaults) is None
-    changed = {**defaults, "vsr_sync_threshold": 0.75, "vsr_window_seconds": 60.0}
-    assert vsr_changed_label(changed) and vsr_changed_label(changed).startswith("2 ")
-    rows = vsr_field_rows(changed)
-    modified = [row["param"].name for row in rows if row["modified"]]
-    assert set(modified) == {"vsr_sync_threshold", "vsr_window_seconds"}
+def test_invalid_moment_count_is_explained_in_polish(lesson_project) -> None:
+    with pytest.raises(ValueError, match="Liczba momentów głównych musi być liczbą całkowitą od 1 do 20"):
+        apply_interview_config(lesson_project, {"primary_moment_count": "0"})
 
 
 @pytest.mark.django_db
@@ -143,7 +147,7 @@ def test_interview_changes_do_not_invalidate_analysis_signature(lesson_project) 
             "teacher_alias": "T",
             "student_pairs": [["S1", "S2"]],
             "video_start_time": "08:00:00",
-            "vsr": {"vsr_primary_moment_count": 4},
+            "primary_moment_count": 4,
         },
     )
     lesson_project.save(update_fields=["interview_config", "updated_at"])
@@ -154,7 +158,7 @@ def test_interview_changes_do_not_invalidate_analysis_signature(lesson_project) 
 
 
 @pytest.mark.django_db
-def test_vsr_signature_changes_when_roles_or_vsr_parameters_change(lesson_project) -> None:
+def test_vsr_signature_changes_when_roles_or_moment_counts_change(lesson_project) -> None:
     base = compute_vsr_signature(lesson_project)
     lesson_project.interview_config = apply_interview_config(
         lesson_project, {"teacher_alias": "T", "student_pairs": [["S1", "S2"]]}
@@ -163,43 +167,53 @@ def test_vsr_signature_changes_when_roles_or_vsr_parameters_change(lesson_projec
     with_teacher = compute_vsr_signature(lesson_project)
     assert with_teacher != base
 
-    lesson_project.interview_config = apply_interview_config(lesson_project, {"vsr": {"vsr_step_seconds": 10}})
+    lesson_project.interview_config = apply_interview_config(lesson_project, {"reserve_moment_count": 1})
     lesson_project.save(update_fields=["interview_config"])
     assert compute_vsr_signature(lesson_project) != with_teacher
 
 
-@pytest.mark.parametrize(
-    ("kwargs", "message"),
-    [
-        ({"vsr_sync_threshold": "nan"}, "vsr_sync_threshold must be a valid number"),
-        ({"vsr_high_z": float("inf")}, "vsr_high_z must be a valid number"),
-        ({"vsr_primary_moment_count": "5.5"}, "vsr_primary_moment_count must be a valid integer"),
-        ({"vsr_primary_moment_count": "five"}, "vsr_primary_moment_count must be a valid integer"),
-    ],
-)
-def test_vsr_config_rejects_non_finite_and_non_integer_values(kwargs, message) -> None:
-    with pytest.raises(ValueError, match=message):
-        VsrConfig(**kwargs)
+@pytest.mark.django_db
+def test_vsr_signature_follows_the_analysis_settings(lesson_project) -> None:
+    compute_analysis(lesson_project)
+    before = compute_vsr_signature(lesson_project)
 
+    lesson_project.pipeline_config = {**lesson_project.pipeline_config, "synchrony_threshold": 0.7}
+    lesson_project.save(update_fields=["pipeline_config"])
+    compute_analysis(lesson_project)
 
-def test_vsr_config_accepts_whole_number_floats_for_counts() -> None:
-    config = VsrConfig(vsr_primary_moment_count=4.0, vsr_reserve_moment_count="2.0")
-    assert config.vsr_primary_moment_count == 4 and isinstance(config.vsr_primary_moment_count, int)
-    assert config.vsr_reserve_moment_count == 2
-
-
-def test_vsr_params_render_and_parse_with_their_own_defaults() -> None:
-    changed = {**VsrConfig().model_dump(), "vsr_sync_threshold": 0.75}
-    row = next(row for row in vsr_field_rows(changed) if row["param"].name == "vsr_sync_threshold")
-    html = render_to_string("gsr/partials/param_field.html", {"row": row})
-    assert "(domyślnie 0,8)" in html
-    assert params.parse_params(VSR_PARAMS, QueryDict("vsr_sync_threshold="))["vsr_sync_threshold"] == 0.8
+    assert compute_vsr_signature(lesson_project) != before
 
 
 @pytest.mark.django_db
-def test_apply_interview_config_ignores_flat_vsr_keys(lesson_project) -> None:
-    stored = apply_interview_config(lesson_project, {"vsr_sync_threshold": 0.75})
-    assert stored["vsr"]["vsr_sync_threshold"] == 0.8
+def test_apply_interview_config_drops_the_removed_vsr_settings(lesson_project) -> None:
+    lesson_project.interview_config = {"teacher_alias": "T", "vsr": {"vsr_sync_threshold": 0.75}}
+    stored = apply_interview_config(lesson_project, {"vsr": {"vsr_window_seconds": 60}, "vsr_sync_threshold": 0.7})
+    assert "vsr" not in stored and "vsr_sync_threshold" not in stored
+    assert stored["teacher_alias"] == "T"
+
+
+@pytest.mark.django_db
+def test_migration_keeps_the_moment_counts_and_drops_the_old_vsr_settings(lesson_project) -> None:
+    migration = import_module("gsr.migrations.0005_interview_moments_from_analysis")
+    lesson_project.interview_config = {
+        "teacher_alias": "T", "student_pairs": [["S1", "S2"]], "video_start_time": "09:00:00",
+        "vsr": {"vsr_sync_threshold": 0.75, "vsr_window_seconds": 60.0, "vsr_primary_moment_count": 4,
+                "vsr_reserve_moment_count": 99},
+    }
+    lesson_project.save(update_fields=["interview_config"])
+    old = AnalysisResult.objects.create(project=lesson_project, kind=AnalysisResult.KIND_VSR, signature="x",
+                                        payload={"config": {"vsr_sync_threshold": 0.75}}, computed_at=timezone.now())
+
+    migration.forwards(django_apps, None)
+
+    lesson_project.refresh_from_db()
+    assert lesson_project.interview_config == {
+        "teacher_alias": "T", "student_pairs": [["S1", "S2"]], "video_start_time": "09:00:00",
+        # 99 reserve moments were outside the limits: the default comes back.
+        "primary_moment_count": 4, "reserve_moment_count": 3,
+    }
+    assert not AnalysisResult.objects.filter(pk=old.pk).exists()
+    assert load_interview_config(lesson_project).primary_count == 4
 
 
 @pytest.mark.django_db
@@ -216,7 +230,7 @@ def test_renaming_a_recording_keeps_its_interview_roles(client, lesson_project) 
     config = load_interview_config(lesson_project)
     assert config.roles.teacher_alias == "Teacher"
     assert config.roles.student_pairs == (("Ola", "S2"),)
-    stored = apply_interview_config(lesson_project, {"vsr": {"vsr_sync_threshold": 0.7}})
+    stored = apply_interview_config(lesson_project, {"primary_moment_count": 3})
     assert stored["student_pairs"] == [["Ola", "S2"]]
     compute_vsr_signature(lesson_project)
 

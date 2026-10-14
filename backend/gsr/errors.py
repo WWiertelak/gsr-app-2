@@ -84,6 +84,10 @@ def _cleaning_link(project: Project) -> dict[str, str]:
     return {"url": reverse("gsr:cleaning", args=[project.pk]), "label": _("Go to Cleaning")}
 
 
+def _analysis_link(project: Project) -> dict[str, str]:
+    return {"url": reverse("gsr:analysis", args=[project.pk]), "label": _("Go to Analysis")}
+
+
 def _excludable(project: Project, aliases: list[str]) -> list[Any]:
     """Included datasets among ``aliases``; excluding them only helps while at least two others stay in."""
     included = list(project.datasets.filter(included=True).order_by("created_at"))
@@ -145,4 +149,6 @@ def describe(exc: Exception, project: Project, step: str) -> UserError:
         message += " " + _("Include more signals on the Cleaning step or upload more recordings.")
         links = [upload] if step == "cleaning" else [_cleaning_link(project), upload]
         return UserError(message, links=links)
+    if code == "needs_analysis":
+        return UserError(str(exc), links=[_analysis_link(project)])
     return UserError(str(exc))

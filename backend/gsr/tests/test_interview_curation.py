@@ -1,4 +1,4 @@
-"""The researcher's curation of the VSR proposals: decisions, roles from the list order, re-proposal, PL/EN."""
+"""The researcher's curation of the VSR moments: decisions, roles from the list order, choosing again, PL/EN."""
 
 from __future__ import annotations
 
@@ -59,7 +59,8 @@ def proposed(lesson: Project) -> tuple[Project, AnalysisResult]:
             "student_pairs": [["S1", "S2"]],
             "video_start_time": "11:59:00",
             # A 10-minute sample lesson: two primary and two reserve moments keep every role on the list.
-            "vsr": {"vsr_primary_moment_count": 2, "vsr_reserve_moment_count": 2},
+            "primary_moment_count": 2,
+            "reserve_moment_count": 2,
         },
     )
     lesson.save()
@@ -223,7 +224,7 @@ def test_proposing_again_keeps_every_decision_and_the_order(proposed) -> None:
 def _fake_result(project: Project, moments: list[tuple[int, float, float]], key: str = "A+B",
                  start_clock: str = "2024-05-06T09:00:00") -> AnalysisResult:
     payload = {
-        "config": {"vsr_primary_moment_count": 2},
+        "counts": {"primary": 2, "reserve": 2},
         "lesson": {"start_seconds": 0.0, "end_seconds": 600.0, "start_clock": start_clock},
         "roles": {"video_start_time": "09:00:30"},
         "interviews": [{

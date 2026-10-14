@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-14 15:27+0000\n"
+"POT-Creation-Date: 2026-10-14 17:26+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -23,56 +23,54 @@ msgstr "min"
 msgid "scaled"
 msgstr "skalowany"
 
-#: gsr/charts.py:24
+#: gsr/charts.py:25
 msgid "raw"
 msgstr "surowy"
 
-#: gsr/charts.py:25
+#: gsr/charts.py:26
 msgid "clean"
 msgstr "oczyszczony"
 
-#: gsr/charts.py:26
+#: gsr/charts.py:27
 msgid "clipped (off scale)"
 msgstr "przycięty (poza skalą)"
 
-#: gsr/charts.py:27 gsr/params.py:51
+#: gsr/charts.py:28 gsr/params.py:51
 msgid "Time window"
 msgstr "Zakres czasu"
 
-#: gsr/charts.py:28 gsr/templates/gsr/partials/analysis_main.html:174
+#: gsr/charts.py:29 gsr/templates/gsr/partials/analysis_main.html:174
 #: gsr/templates/gsr/partials/analysis_main.html:243
 #: gsr/templates/gsr/partials/direction.html:1
-#: gsr/templates/gsr/partials/interview_moment.html:33
 msgid "High ↑"
 msgstr "Wysoki ↑"
 
-#: gsr/charts.py:29 gsr/templates/gsr/partials/analysis_main.html:175
+#: gsr/charts.py:30 gsr/templates/gsr/partials/analysis_main.html:175
 #: gsr/templates/gsr/partials/analysis_main.html:243
 #: gsr/templates/gsr/partials/direction.html:1
-#: gsr/templates/gsr/partials/interview_moment.html:33
 msgid "Low ↓"
 msgstr "Niski ↓"
 
-#: gsr/charts.py:30 gsr/templates/gsr/partials/analysis_main.html:176
+#: gsr/charts.py:31 gsr/templates/gsr/partials/analysis_main.html:176
 #: gsr/templates/gsr/partials/direction.html:1
 msgid "Co-move ↔"
 msgstr "Ko-ruch ↔"
 
-#: gsr/charts.py:31
+#: gsr/charts.py:32
 msgid "Episodes"
 msgstr "Epizody"
 
-#: gsr/charts.py:32
+#: gsr/charts.py:33
 msgid "State"
 msgstr "Stan"
 
-#: gsr/charts.py:33 gsr/templates/gsr/partials/analysis_main.html:73
+#: gsr/charts.py:34 gsr/templates/gsr/partials/analysis_main.html:73
 #: gsr/templates/gsr/partials/analysis_main.html:204
 #: gsr/templates/gsr/partials/analysis_main.html:221
 msgid "Time (min)"
 msgstr "Czas (min)"
 
-#: gsr/charts.py:34
+#: gsr/charts.py:35
 msgid "Save PNG"
 msgstr "Zapisz PNG"
 
@@ -125,14 +123,20 @@ msgstr "Przejdź do importu"
 msgid "Go to Cleaning"
 msgstr "Przejdź do czyszczenia"
 
-#: gsr/errors.py:98
+#: gsr/errors.py:88 gsr/templates/gsr/partials/export_main.html:6
+#: gsr/templates/gsr/partials/interviews_main.html:23
+#: gsr/templates/gsr/partials/interviews_main.html:25
+msgid "Go to Analysis"
+msgstr "Przejdź do analizy"
+
+#: gsr/errors.py:102
 msgid ""
 "The recordings do not share a common time window, so they cannot be analysed "
 "together."
 msgstr ""
 "Nagrania nie mają wspólnego okna czasu, więc nie można ich analizować razem."
 
-#: gsr/errors.py:101
+#: gsr/errors.py:105
 #, python-format
 msgid ""
 "%(aliases)s does not overlap with the other recordings (their common window "
@@ -150,22 +154,22 @@ msgstr[2] ""
 "%(aliases)s nie nakładają się z pozostałymi nagraniami (ich wspólne okno to "
 "%(start)s–%(end)s)."
 
-#: gsr/errors.py:120
+#: gsr/errors.py:124
 #, python-format
 msgid "Signal %(alias)s cannot be read. %(reason)s"
 msgstr "Nie można odczytać sygnału %(alias)s. %(reason)s"
 
-#: gsr/errors.py:126
+#: gsr/errors.py:130
 #, python-format
 msgid "The file of signal %(alias)s is missing. Upload it again."
 msgstr "Brakuje pliku sygnału %(alias)s. Wgraj go ponownie."
 
-#: gsr/errors.py:129
+#: gsr/errors.py:133
 #, python-format
 msgid "Signal %(alias)s has no samples in the common time window."
 msgstr "Sygnał %(alias)s nie ma próbek we wspólnym oknie czasu."
 
-#: gsr/errors.py:133
+#: gsr/errors.py:137
 #, python-format
 msgid ""
 "Signal %(alias)s has no samples in the selected time range. Widen the time "
@@ -174,11 +178,11 @@ msgstr ""
 "Sygnał %(alias)s nie ma próbek w wybranym zakresie czasu. Poszerz zakres "
 "czasu w ustawieniach czyszczenia."
 
-#: gsr/errors.py:137
+#: gsr/errors.py:141
 msgid "The recordings have no time points in common after synchronization."
 msgstr "Po synchronizacji nagrania nie mają wspólnych punktów czasu."
 
-#: gsr/errors.py:139
+#: gsr/errors.py:143
 msgid ""
 "Too few samples remain for analysis. Widen the time range in the cleaning "
 "settings."
@@ -186,15 +190,15 @@ msgstr ""
 "Do analizy zostało za mało próbek. Poszerz zakres czasu w ustawieniach "
 "czyszczenia."
 
-#: gsr/errors.py:142
+#: gsr/errors.py:146
 msgid "Group analysis needs at least two signals."
 msgstr "Analiza grupowa wymaga co najmniej dwóch sygnałów."
 
-#: gsr/errors.py:144
+#: gsr/errors.py:148
 msgid "No signals are selected."
 msgstr "Nie wybrano żadnych sygnałów."
 
-#: gsr/errors.py:145
+#: gsr/errors.py:149
 msgid "Include more signals on the Cleaning step or upload more recordings."
 msgstr "Zaznacz więcej sygnałów w kroku Czyszczenie albo wgraj więcej nagrań."
 
@@ -342,7 +346,7 @@ msgstr ""
 msgid "Window size (samples)"
 msgstr "Rozmiar okna (próbki)"
 
-#: gsr/params.py:147 gsr/vsr_params.py:25
+#: gsr/params.py:147
 msgid "Synchronization threshold"
 msgstr "Próg synchronizacji"
 
@@ -354,11 +358,11 @@ msgstr ""
 "Pary, których korelacja w oknie osiąga tę wartość, są w tym oknie uznawane "
 "za zsynchronizowane."
 
-#: gsr/params.py:150 gsr/params.py:206 gsr/vsr_params.py:33
+#: gsr/params.py:150 gsr/params.py:206
 msgid "Window (s)"
 msgstr "Okno (s)"
 
-#: gsr/params.py:153 gsr/params.py:212 gsr/vsr_params.py:34
+#: gsr/params.py:153 gsr/params.py:212
 msgid "Step (s)"
 msgstr "Krok (s)"
 
@@ -432,7 +436,7 @@ msgstr ""
 "sekundy itd. Pozwala redukować liczbę punktów do analizy przez "
 "wielokrotności sekundy przy zachowaniu trendu sygnału."
 
-#: gsr/params.py:191 gsr/vsr_params.py:37
+#: gsr/params.py:191
 msgid "High threshold (z)"
 msgstr "Próg Wysoki (z)"
 
@@ -444,7 +448,7 @@ msgstr ""
 "z powyżej tej wartości = stan Wysokiego pobudzenia (względem własnej linii "
 "bazowej uczestnika)."
 
-#: gsr/params.py:194 gsr/vsr_params.py:40
+#: gsr/params.py:194
 msgid "Low threshold (z)"
 msgstr "Próg Niski (z)"
 
@@ -514,7 +518,7 @@ msgstr ""
 msgid "A fixed seed makes the co-arousal surrogate test reproducible."
 msgstr "Stały seed zapewnia odtwarzalność testu surogatowego ko-pobudzenia."
 
-#: gsr/params.py:259 gsr/views.py:362
+#: gsr/params.py:259 gsr/views.py:351
 msgid ""
 "The analysed period must lie inside the common window and end after it "
 "starts."
@@ -592,39 +596,39 @@ msgid "Min. participants: %(value)s"
 msgstr "Min. uczestników: %(value)s"
 
 #: gsr/params.py:414 gsr/templates/gsr/partials/analysis_main.html:13
-#: gsr/views.py:1145 gsr/views.py:1169
+#: gsr/views.py:1125 gsr/views.py:1149
 msgid "Synchronization"
 msgstr "Synchronizacja"
 
 #: gsr/params.py:415 gsr/templates/gsr/partials/analysis_main.html:17
-#: gsr/views.py:1150 gsr/views.py:1171
+#: gsr/views.py:1130 gsr/views.py:1151
 msgid "Co-arousal"
 msgstr "Ko-pobudzenie"
 
-#: gsr/services/curation.py:241 gsr/services/curation.py:246
-#: gsr/services/curation.py:248
+#: gsr/services/curation.py:239 gsr/services/curation.py:244
+#: gsr/services/curation.py:246
 msgid "Write the lesson time as m:ss, for example 12:30."
 msgstr "Wpisz czas lekcji jako m:ss, na przykład 12:30."
 
-#: gsr/services/curation.py:261
+#: gsr/services/curation.py:259
 #, python-format
 msgid "The reason may be at most %(count)s characters long."
 msgstr "Powód może mieć najwyżej %(count)s znaków."
 
-#: gsr/services/curation.py:265
+#: gsr/services/curation.py:263
 #, python-format
 msgid "The note may be at most %(count)s characters long."
 msgstr "Notatka może mieć najwyżej %(count)s znaków."
 
-#: gsr/services/curation.py:274
+#: gsr/services/curation.py:272
 msgid "The moment must end after it starts."
 msgstr "Moment musi kończyć się po swoim początku."
 
-#: gsr/services/curation.py:278
+#: gsr/services/curation.py:276
 msgid "The moment must lie within the analysed period of the lesson."
 msgstr "Moment musi mieścić się w analizowanym okresie lekcji."
 
-#: gsr/services/curation.py:286 gsr/services/curation.py:316
+#: gsr/services/curation.py:284 gsr/services/curation.py:314
 msgid ""
 "The moment overlaps another moment of this interview; reject or move that "
 "one first."
@@ -632,82 +636,93 @@ msgstr ""
 "Moment nakłada się na inny moment tego wywiadu; najpierw odrzuć tamten albo "
 "zmień jego czas."
 
-#: gsr/services/curation.py:300
+#: gsr/services/curation.py:298
 msgid "Remove a moment you added instead of rejecting it."
 msgstr "Moment dodany ręcznie usuń zamiast go odrzucać."
 
-#: gsr/services/curation.py:333
+#: gsr/services/curation.py:331
 msgid "Restore a rejected moment before moving it."
 msgstr "Przywróć odrzucony moment, zanim go przesuniesz."
 
-#: gsr/services/curation.py:352
+#: gsr/services/curation.py:350
 msgid "Give the reason for the change."
 msgstr "Podaj powód zmiany."
 
-#: gsr/services/curation.py:368
+#: gsr/services/curation.py:366
 msgid "Choose an interview of the current proposals."
 msgstr "Wybierz wywiad z bieżących propozycji."
 
-#: gsr/services/curation.py:371
+#: gsr/services/curation.py:369
 msgid "Give the reason for adding the moment."
 msgstr "Podaj powód dodania momentu."
 
-#: gsr/services/curation.py:394
+#: gsr/services/curation.py:392
 msgid "Reject a proposed moment instead of removing it."
 msgstr "Proponowany moment odrzuć zamiast go usuwać."
 
-#: gsr/services/interview.py:52
+#: gsr/services/interview.py:69
 #, python-format
 msgid "Unknown teacher recording: %(alias)s"
 msgstr "Nieznane nagranie nauczyciela: %(alias)s"
 
-#: gsr/services/interview.py:56
+#: gsr/services/interview.py:73
 msgid "student_pairs must be a list of pairs"
 msgstr "student_pairs musi być listą par"
 
-#: gsr/services/interview.py:61 gsr/services/interview.py:64
+#: gsr/services/interview.py:78 gsr/services/interview.py:81
 msgid "Each student pair must list two recording aliases"
 msgstr "Każda para uczniów musi mieć dwa nagrania"
 
-#: gsr/services/interview.py:66
+#: gsr/services/interview.py:83
 msgid "A student pair must use two different recordings"
 msgstr "Para uczniów musi składać się z dwóch różnych nagrań"
 
-#: gsr/services/interview.py:69
+#: gsr/services/interview.py:86
 #, python-format
 msgid "Unknown recording in pair %(index)d: %(alias)s"
 msgstr "Nieznane nagranie w parze %(index)d: %(alias)s"
 
-#: gsr/services/interview.py:74
+#: gsr/services/interview.py:91
 msgid "Each student recording may appear in only one pair"
 msgstr "Każde nagranie ucznia może należeć tylko do jednej pary"
 
-#: gsr/services/interview.py:77
+#: gsr/services/interview.py:94
 msgid "The teacher recording cannot be in a student pair"
 msgstr "Nagranie nauczyciela nie może należeć do pary uczniów"
 
-#: gsr/services/interview.py:83
+#: gsr/services/interview.py:100
 msgid "Video start must be a clock time HH:MM:SS"
 msgstr "Początek nagrania wideo musi być godziną w formacie HH:MM:SS"
 
-#: gsr/services/interview.py:167 gsr/views.py:801
+#: gsr/services/interview.py:112
 #, python-format
-msgid "Pair %(left)s + %(right)s"
-msgstr "Para %(left)s + %(right)s"
+msgid ""
+"The number of primary moments must be a whole number from %(low)s to "
+"%(high)s."
+msgstr ""
+"Liczba momentów głównych musi być liczbą całkowitą od %(low)s do %(high)s."
+
+#: gsr/services/interview.py:114
+#, python-format
+msgid ""
+"The number of reserve moments must be a whole number from %(low)s to "
+"%(high)s."
+msgstr ""
+"Liczba momentów rezerwowych musi być liczbą całkowitą od %(low)s do %(high)s."
 
 #: gsr/services/results.py:230
 msgid "The file is missing. Upload it again."
 msgstr "Brakuje pliku. Wgraj go ponownie."
 
-#: gsr/services/vsr.py:81
-msgid "Run the analysis before proposing interview moments."
-msgstr "Uruchom analizę, zanim zaproponujesz momenty do wywiadów."
-
 #: gsr/services/vsr.py:88
+msgid "Run the Analysis first: the interview moments come from its results."
+msgstr "Najpierw uruchom Analizę: momenty do wywiadów pochodzą z jej wyników."
+
+#: gsr/services/vsr.py:96
 msgid "Choose the teacher or at least one student pair."
 msgstr "Wybierz nauczyciela albo co najmniej jedną parę uczniów."
 
-#: gsr/services/vsr.py:99
+#: gsr/services/vsr.py:107
 #, python-format
 msgid ""
 "%(aliases)s was not in the last analysis run. Include it on the Cleaning "
@@ -1104,6 +1119,8 @@ msgid "Next: Interviews"
 msgstr "Dalej: Wywiady"
 
 #: gsr/templates/gsr/partials/analysis_settings.html:5
+#: gsr/templates/gsr/partials/interviews_main.html:6
+#: gsr/templates/gsr/partials/interviews_main.html:16
 msgid "Analysis settings"
 msgstr "Ustawienia analizy"
 
@@ -1307,12 +1324,6 @@ msgid "Run the analysis first; the export takes the results of the last run."
 msgstr ""
 "Najpierw uruchom analizę; eksport korzysta z wyników ostatniego obliczenia."
 
-#: gsr/templates/gsr/partials/export_main.html:6
-#: gsr/templates/gsr/partials/interviews_main.html:6
-#: gsr/templates/gsr/partials/interviews_main.html:8
-msgid "Go to Analysis"
-msgstr "Przejdź do analizy"
-
 #: gsr/templates/gsr/partials/export_main.html:13
 #, python-format
 msgid "The export describes the run from %(time)s"
@@ -1400,7 +1411,7 @@ msgstr ""
 "Wszystkie pliki poniżej oraz wykresy raportu w PNG, w <code>%(name)s</code>. "
 "Każdy wykres na ekranach ma też własny przycisk „Zapisz PNG”."
 
-#: gsr/templates/gsr/partials/export_main.html:91 gsr/views.py:145
+#: gsr/templates/gsr/partials/export_main.html:91 gsr/views.py:134
 msgid "outdated"
 msgstr "nieaktualne"
 
@@ -1418,12 +1429,12 @@ msgid "rejected"
 msgstr "odrzucony"
 
 #: gsr/templates/gsr/partials/interview_moment.html:9
-#: gsr/templates/gsr/partials/interviews_main.html:114
+#: gsr/templates/gsr/partials/interviews_main.html:137
 msgid "primary"
 msgstr "główny"
 
 #: gsr/templates/gsr/partials/interview_moment.html:10
-#: gsr/templates/gsr/partials/interviews_main.html:114
+#: gsr/templates/gsr/partials/interviews_main.html:137
 msgid "reserve"
 msgstr "rezerwowy"
 
@@ -1431,252 +1442,279 @@ msgstr "rezerwowy"
 msgid "accepted"
 msgstr "przyjęty"
 
-#: gsr/templates/gsr/partials/interview_moment.html:13
+#: gsr/templates/gsr/partials/interview_moment.html:12
 msgid "Added manually"
 msgstr "Dodany ręcznie"
 
-#: gsr/templates/gsr/partials/interview_moment.html:15
-#: gsr/templates/gsr/partials/interviews_main.html:105
-#, python-format
-msgid "STEP %(number)s"
-msgstr "KROK %(number)s"
-
-#: gsr/templates/gsr/partials/interview_moment.html:17
-#, python-format
-msgid "pass %(number)s"
-msgstr "przejście %(number)s"
-
-#: gsr/templates/gsr/partials/interview_moment.html:19
+#: gsr/templates/gsr/partials/interview_moment.html:14
 msgid "proposed as reserve"
 msgstr "zaproponowany jako rezerwowy"
 
-#: gsr/templates/gsr/partials/interview_moment.html:20
+#: gsr/templates/gsr/partials/interview_moment.html:15
 msgid "proposed as primary"
 msgstr "zaproponowany jako główny"
 
-#: gsr/templates/gsr/partials/interview_moment.html:21
+#: gsr/templates/gsr/partials/interview_moment.html:16
 msgid "time changed"
 msgstr "zmieniony czas"
 
-#: gsr/templates/gsr/partials/interview_moment.html:22
+#: gsr/templates/gsr/partials/interview_moment.html:17
 msgid "check"
 msgstr "sprawdź"
 
-#: gsr/templates/gsr/partials/interview_moment.html:25
+#: gsr/templates/gsr/partials/interview_moment.html:20
 msgid ""
-"The last proposal run no longer proposes this moment; your decision is kept. "
-"Check it, then accept or reject it."
+"The moments chosen last time no longer include this one; your decision is "
+"kept. Check it, then accept or reject it."
 msgstr ""
-"Ostatnie wyznaczenie propozycji nie proponuje już tego momentu; Twoja "
-"decyzja została zachowana. Sprawdź go, a potem przyjmij albo odrzuć."
+"Ostatni wybór momentów już go nie zawiera; Twoja decyzja została zachowana. "
+"Sprawdź go, a potem przyjmij albo odrzuć."
+
+#: gsr/templates/gsr/partials/interview_moment.html:25
+#, python-format
+msgid "Signals around moment %(number)s"
+msgstr "Sygnały wokół momentu %(number)s"
 
 #: gsr/templates/gsr/partials/interview_moment.html:28
-msgid "Lesson"
-msgstr "Lekcja"
+msgid "No preview: choose the moments again to see the signals."
+msgstr "Brak podglądu: wybierz momenty ponownie, aby zobaczyć sygnały."
 
-#: gsr/templates/gsr/partials/interview_moment.html:29
-msgid "Sensor clock"
-msgstr "Zegar czujnika"
-
-#: gsr/templates/gsr/partials/interview_moment.html:30
-msgid "Video"
-msgstr "Wideo"
-
-#: gsr/templates/gsr/partials/interview_moment.html:30
-msgid "before the video starts"
-msgstr "przed startem wideo"
-
-#: gsr/templates/gsr/partials/interview_moment.html:30
-msgid "set the video start"
-msgstr "ustaw start wideo"
-
-#: gsr/templates/gsr/partials/interview_moment.html:33
-msgid "Shared state"
-msgstr "Wspólny stan"
-
-#: gsr/templates/gsr/partials/interview_moment.html:36
+#: gsr/templates/gsr/partials/interview_moment.html:32
 msgid "Justification"
 msgstr "Uzasadnienie"
 
-#: gsr/templates/gsr/partials/interview_moment.html:38
+#: gsr/templates/gsr/partials/interview_moment.html:34
 msgid "Added by the researcher:"
 msgstr "Dodany przez badacza:"
 
-#: gsr/templates/gsr/partials/interview_moment.html:41
+#: gsr/templates/gsr/partials/interview_moment.html:37
 #, python-format
 msgid "Proposed as %(start)s–%(end)s; time changed by the researcher:"
 msgstr "Zaproponowany jako %(start)s–%(end)s; czas zmieniony przez badacza:"
 
 #: gsr/templates/gsr/partials/interview_moment.html:42
-msgid "The justification describes the proposed time."
-msgstr "Uzasadnienie opisuje zaproponowany czas."
+msgid "Lesson"
+msgstr "Lekcja"
+
+#: gsr/templates/gsr/partials/interview_moment.html:43
+msgid "Sensor clock"
+msgstr "Zegar czujnika"
+
+#: gsr/templates/gsr/partials/interview_moment.html:44
+msgid "Video"
+msgstr "Wideo"
+
+#: gsr/templates/gsr/partials/interview_moment.html:44
+msgid "before the video starts"
+msgstr "przed startem wideo"
+
+#: gsr/templates/gsr/partials/interview_moment.html:44
+msgid "set the video start"
+msgstr "ustaw start wideo"
 
 #: gsr/templates/gsr/partials/interview_moment.html:46
 msgid "Note:"
 msgstr "Notatka:"
 
-#: gsr/templates/gsr/partials/interview_moment.html:54
+#: gsr/templates/gsr/partials/interview_moment.html:56
 msgid "Restore"
 msgstr "Przywróć"
 
-#: gsr/templates/gsr/partials/interview_moment.html:57
+#: gsr/templates/gsr/partials/interview_moment.html:59
 msgid "Undo acceptance"
 msgstr "Cofnij przyjęcie"
 
-#: gsr/templates/gsr/partials/interview_moment.html:59
+#: gsr/templates/gsr/partials/interview_moment.html:61
 msgid "Accept"
 msgstr "Przyjmij"
 
-#: gsr/templates/gsr/partials/interview_moment.html:62
+#: gsr/templates/gsr/partials/interview_moment.html:64
 msgid "Remove"
 msgstr "Usuń"
 
-#: gsr/templates/gsr/partials/interview_moment.html:64
+#: gsr/templates/gsr/partials/interview_moment.html:66
 msgid "Reject"
 msgstr "Odrzuć"
 
-#: gsr/templates/gsr/partials/interview_moment.html:67
+#: gsr/templates/gsr/partials/interview_moment.html:69
 #, python-format
 msgid "Move moment %(number)s up"
 msgstr "Przesuń moment %(number)s w górę"
 
-#: gsr/templates/gsr/partials/interview_moment.html:67
+#: gsr/templates/gsr/partials/interview_moment.html:69
 msgid "Move up"
 msgstr "W górę"
 
-#: gsr/templates/gsr/partials/interview_moment.html:68
+#: gsr/templates/gsr/partials/interview_moment.html:70
 #, python-format
 msgid "Move moment %(number)s down"
 msgstr "Przesuń moment %(number)s w dół"
 
-#: gsr/templates/gsr/partials/interview_moment.html:68
+#: gsr/templates/gsr/partials/interview_moment.html:70
 msgid "Move down"
 msgstr "W dół"
 
-#: gsr/templates/gsr/partials/interview_moment.html:74
+#: gsr/templates/gsr/partials/interview_moment.html:76
 msgid "Change time"
 msgstr "Zmień czas"
 
-#: gsr/templates/gsr/partials/interview_moment.html:80
-#: gsr/templates/gsr/partials/interviews_main.html:150
+#: gsr/templates/gsr/partials/interview_moment.html:82
+#: gsr/templates/gsr/partials/interviews_main.html:173
 msgid "Start (lesson time)"
 msgstr "Początek (czas lekcji)"
 
-#: gsr/templates/gsr/partials/interview_moment.html:82
-#: gsr/templates/gsr/partials/interviews_main.html:152
+#: gsr/templates/gsr/partials/interview_moment.html:84
+#: gsr/templates/gsr/partials/interviews_main.html:175
 msgid "End (lesson time)"
 msgstr "Koniec (czas lekcji)"
 
-#: gsr/templates/gsr/partials/interview_moment.html:85
-#: gsr/templates/gsr/partials/interviews_main.html:155
+#: gsr/templates/gsr/partials/interview_moment.html:87
+#: gsr/templates/gsr/partials/interviews_main.html:178
 msgid "Reason (required, shown as the moment's justification)"
 msgstr "Powód (wymagany, widoczny jako uzasadnienie momentu)"
 
-#: gsr/templates/gsr/partials/interview_moment.html:85
+#: gsr/templates/gsr/partials/interview_moment.html:87
 msgid ""
 "Reason for the change (required unless you go back to the proposed time)"
 msgstr "Powód zmiany (wymagany, chyba że wracasz do zaproponowanego czasu)"
 
-#: gsr/templates/gsr/partials/interview_moment.html:87
+#: gsr/templates/gsr/partials/interview_moment.html:89
 msgid "Save the time"
 msgstr "Zapisz czas"
 
-#: gsr/templates/gsr/partials/interview_moment.html:92
+#: gsr/templates/gsr/partials/interview_moment.html:94
 msgid "Edit note"
 msgstr "Edytuj notatkę"
 
-#: gsr/templates/gsr/partials/interview_moment.html:92
+#: gsr/templates/gsr/partials/interview_moment.html:94
 msgid "Add note"
 msgstr "Dodaj notatkę"
 
-#: gsr/templates/gsr/partials/interview_moment.html:97
+#: gsr/templates/gsr/partials/interview_moment.html:99
 msgid "Note for the interview"
 msgstr "Notatka do wywiadu"
 
-#: gsr/templates/gsr/partials/interview_moment.html:99
+#: gsr/templates/gsr/partials/interview_moment.html:101
 msgid "Save the note"
 msgstr "Zapisz notatkę"
 
-#: gsr/templates/gsr/partials/interviews_main.html:2
-msgid "Propose moments"
-msgstr "Zaproponuj momenty"
-
-#: gsr/templates/gsr/partials/interviews_main.html:6
-msgid "Run the analysis first: the proposals use the signals of its last run."
-msgstr ""
-"Najpierw uruchom analizę: propozycje korzystają z sygnałów jej ostatniego "
-"obliczenia."
+#: gsr/templates/gsr/partials/interviews_main.html:5
+#, python-format
+msgid "From the Analysis of %(time)s:"
+msgstr "Z Analizy z %(time)s:"
 
 #: gsr/templates/gsr/partials/interviews_main.html:8
-msgid ""
-"The analysis is outdated: the proposals use the signals of its last run. Run "
-"the analysis again to include the changes."
-msgstr ""
-"Analiza jest nieaktualna: propozycje korzystają z sygnałów jej ostatniego "
-"obliczenia. Uruchom analizę ponownie, aby uwzględnić zmiany."
+msgid "The moments come from the Analysis results."
+msgstr "Momenty pochodzą z wyników Analizy."
 
-#: gsr/templates/gsr/partials/interviews_main.html:13
+#: gsr/templates/gsr/partials/interviews_main.html:12
+#: gsr/templates/gsr/partials/run_bar.html:10
+msgid "Outdated result"
+msgstr "Wynik nieaktualny"
+
+#: gsr/templates/gsr/partials/interviews_main.html:12
+#: gsr/templates/gsr/partials/run_bar.html:10
+msgid "Up to date"
+msgstr "Aktualny"
+
+#: gsr/templates/gsr/partials/interviews_main.html:12
+#, python-format
+msgid "Chosen %(time)s"
+msgstr "Wybrano %(time)s"
+
+#: gsr/templates/gsr/partials/interviews_main.html:14
+msgid "Not chosen yet"
+msgstr "Jeszcze nie wybrano"
+
+#: gsr/templates/gsr/partials/interviews_main.html:17
+msgid "Choose again"
+msgstr "Wybierz ponownie"
+
+#: gsr/templates/gsr/partials/interviews_main.html:17
+msgid "Choose moments"
+msgstr "Wybierz momenty"
+
+#: gsr/templates/gsr/partials/interviews_main.html:23
+#: gsr/templates/gsr/partials/interviews_main.html:25
+msgid "Run the Analysis first."
+msgstr "Najpierw uruchom Analizę."
+
+#: gsr/templates/gsr/partials/interviews_main.html:23
+msgid ""
+"The interview moments are chosen from its synchronization and co-arousal "
+"episodes."
+msgstr ""
+"Momenty do wywiadów są wybierane z jej epizodów synchronizacji i ko-"
+"pobudzenia."
+
+#: gsr/templates/gsr/partials/interviews_main.html:25
+msgid "Its result is outdated, and the interview moments are chosen from it."
+msgstr ""
+"Jej wynik jest nieaktualny, a momenty do wywiadów są wybierane właśnie z "
+"niego."
+
+#: gsr/templates/gsr/partials/interviews_main.html:30
 msgid "Interview participants"
 msgstr "Uczestnicy wywiadów"
 
-#: gsr/templates/gsr/partials/interviews_main.html:14
+#: gsr/templates/gsr/partials/interviews_main.html:31
 msgid "one interview per student pair, one for the teacher"
 msgstr "jeden wywiad na parę uczniów, jeden z nauczycielem"
 
-#: gsr/templates/gsr/partials/interviews_main.html:23
+#: gsr/templates/gsr/partials/interviews_main.html:40
 msgid "Student pairs"
 msgstr "Pary uczniów"
 
-#: gsr/templates/gsr/partials/interviews_main.html:26
+#: gsr/templates/gsr/partials/interviews_main.html:43
 #, python-format
 msgid "Pair %(number)s"
 msgstr "Para %(number)s"
 
-#: gsr/templates/gsr/partials/interviews_main.html:27
+#: gsr/templates/gsr/partials/interviews_main.html:44
 #, python-format
 msgid "Pair %(number)s, first student"
 msgstr "Para %(number)s, pierwszy uczeń"
 
-#: gsr/templates/gsr/partials/interviews_main.html:30
-#: gsr/templates/gsr/partials/interviews_main.html:36
 #: gsr/templates/gsr/partials/interviews_main.html:47
+#: gsr/templates/gsr/partials/interviews_main.html:53
+#: gsr/templates/gsr/partials/interviews_main.html:64
 #: gsr/templates/gsr/partials/upload_overview.html:36
 msgid "excluded"
 msgstr "wykluczony"
 
-#: gsr/templates/gsr/partials/interviews_main.html:33
+#: gsr/templates/gsr/partials/interviews_main.html:50
 #, python-format
 msgid "Pair %(number)s, second student"
 msgstr "Para %(number)s, drugi uczeń"
 
-#: gsr/templates/gsr/partials/interviews_main.html:40
+#: gsr/templates/gsr/partials/interviews_main.html:57
 msgid ""
 "Fill an empty row to add a pair; clear both fields of a row to remove it."
 msgstr ""
 "Wypełnij pusty wiersz, aby dodać parę; wyczyść oba pola wiersza, aby ją "
 "usunąć."
 
-#: gsr/templates/gsr/partials/interviews_main.html:44
+#: gsr/templates/gsr/partials/interviews_main.html:61
 msgid "Teacher"
 msgstr "Nauczyciel"
 
-#: gsr/templates/gsr/partials/interviews_main.html:46
+#: gsr/templates/gsr/partials/interviews_main.html:63
 msgid "none (no teacher interview)"
 msgstr "brak (bez wywiadu z nauczycielem)"
 
-#: gsr/templates/gsr/partials/interviews_main.html:49
+#: gsr/templates/gsr/partials/interviews_main.html:66
 msgid ""
-"Interviewed against the students' average GSR: each student is z-scored, "
-"then averaged."
+"Compared with the students' average signal: each student is z-scored, then "
+"averaged."
 msgstr ""
-"Porównywany ze średnim GSR uczniów: sygnał każdego ucznia jest "
+"Porównywany ze średnim sygnałem uczniów: sygnał każdego ucznia jest "
 "standaryzowany (z-score), potem uśredniany."
 
-#: gsr/templates/gsr/partials/interviews_main.html:52
+#: gsr/templates/gsr/partials/interviews_main.html:69
 msgid "Video start (sensor clock)"
 msgstr "Start nagrania wideo (zegar czujnika)"
 
-#: gsr/templates/gsr/partials/interviews_main.html:54
+#: gsr/templates/gsr/partials/interviews_main.html:71
 msgid ""
 "The clock time on the GSR sensors when the video recording starts; the "
 "moments then get video timecodes."
@@ -1684,98 +1722,121 @@ msgstr ""
 "Godzina na zegarze czujników GSR, o której zaczyna się nagranie wideo; "
 "momenty dostają wtedy kody czasu wideo."
 
-#: gsr/templates/gsr/partials/interviews_main.html:58
+#: gsr/templates/gsr/partials/interviews_main.html:74
+msgid "Moments per interview"
+msgstr "Momenty na wywiad"
+
+#: gsr/templates/gsr/partials/interviews_main.html:76
+msgid "Primary"
+msgstr "Główne"
+
+#: gsr/templates/gsr/partials/interviews_main.html:78
+msgid "Reserve"
+msgstr "Rezerwowe"
+
+#: gsr/templates/gsr/partials/interviews_main.html:80
+msgid "The VSR flow chart asks for 5 moments and a few in reserve (8 in all)."
+msgstr "Schemat VSR zaleca 5 momentów i kilka rezerwowych (razem 8)."
+
+#: gsr/templates/gsr/partials/interviews_main.html:84
 msgid ""
-"“Propose moments” in the bar above saves the participants and walks STEPS 1–"
-"6 of the VSR Interview Flow Chart for every interview."
+"“Choose moments” saves the participants and takes the moments from the "
+"Analysis: its episodes are sorted into steps 1–5 of the VSR flow chart, the "
+"strongest first."
 msgstr ""
-"„Zaproponuj momenty” na pasku powyżej zapisuje uczestników i przechodzi "
-"KROKI 1–6 dokumentu VSR Interview Flow Chart dla każdego wywiadu."
+"„Wybierz momenty” zapisuje uczestników i bierze momenty z Analizy: jej "
+"epizody są przypisywane do kroków 1–5 schematu VSR, najsilniejsze najpierw."
 
-#: gsr/templates/gsr/partials/interviews_main.html:64
-msgid "Proposed moments"
-msgstr "Proponowane momenty"
+#: gsr/templates/gsr/partials/interviews_main.html:90
+msgid "Moments for the interviews"
+msgstr "Momenty do wywiadów"
 
-#: gsr/templates/gsr/partials/interviews_main.html:65
+#: gsr/templates/gsr/partials/interviews_main.html:91
+msgid "a proposal from the Analysis: you decide what to discuss"
+msgstr "propozycja z Analizy: o tym, co omówić, decydujesz Ty"
+
+#: gsr/templates/gsr/partials/interviews_main.html:93
+msgid "Steps of the VSR flow chart"
+msgstr "Kroki schematu VSR"
+
+#: gsr/templates/gsr/partials/interviews_main.html:99
 msgid ""
-"a proposal from the document's protocol, not a result: the researcher "
-"chooses what to discuss"
+"No moments yet. Choose the interview participants, then “Choose moments”."
 msgstr ""
-"propozycja według protokołu dokumentu, nie wynik: o tym, co omówić, decyduje "
-"badacz"
+"Nie ma jeszcze momentów. Wybierz uczestników wywiadów, a potem „Wybierz "
+"momenty”."
 
-#: gsr/templates/gsr/partials/interviews_main.html:71
+#: gsr/templates/gsr/partials/interviews_main.html:99
+msgid "No moments yet. Run the Analysis first."
+msgstr "Nie ma jeszcze momentów. Najpierw uruchom Analizę."
+
+#: gsr/templates/gsr/partials/interviews_main.html:103
 msgid ""
-"No proposals yet. Choose the interview participants and propose the moments."
+"The participants, the number of moments or the Analysis changed since these "
+"moments were chosen. Choose them again."
 msgstr ""
-"Nie ma jeszcze propozycji. Wybierz uczestników wywiadów i zaproponuj momenty."
+"Od wyboru tych momentów zmienili się uczestnicy, liczba momentów albo "
+"Analiza. Wybierz je ponownie."
 
-#: gsr/templates/gsr/partials/interviews_main.html:75
+#: gsr/templates/gsr/partials/interviews_main.html:103
 msgid ""
-"The participants, the settings or the analysis changed since these "
-"proposals. Propose the moments again."
+"The Analysis changed since these moments were chosen. Run the Analysis, then "
+"choose the moments again."
 msgstr ""
-"Od tych propozycji zmienili się uczestnicy, ustawienia albo analiza. "
-"Zaproponuj momenty ponownie."
+"Od wyboru tych momentów zmieniła się Analiza. Uruchom Analizę, a potem "
+"wybierz momenty ponownie."
 
-#: gsr/templates/gsr/partials/interviews_main.html:82
-msgid "teacher and the students' average GSR"
-msgstr "nauczyciel i średnie GSR uczniów"
+#: gsr/templates/gsr/partials/interviews_main.html:110
+msgid "teacher and the students' average"
+msgstr "nauczyciel i średnia uczniów"
 
-#: gsr/templates/gsr/partials/interviews_main.html:82
+#: gsr/templates/gsr/partials/interviews_main.html:110
 msgid "student pair"
 msgstr "para uczniów"
 
-#: gsr/templates/gsr/partials/interviews_main.html:91
+#: gsr/templates/gsr/partials/interviews_main.html:119
 #, python-format
 msgid ""
 "The GSR signal of %(alias)s has poor quality (%(pct)s%% of its samples were "
-"rejected on the Cleaning step)."
+"rejected on the Cleaning step). Check the recording before discussing these "
+"moments."
 msgstr ""
 "Sygnał GSR %(alias)s ma słabą jakość (w kroku Czyszczenie odrzucono "
-"%(pct)s%% jego próbek)."
+"%(pct)s%% jego próbek). Sprawdź nagranie, zanim omówisz te momenty."
 
-#: gsr/templates/gsr/partials/interviews_main.html:91
-msgid "The document (page 1):"
-msgstr "Dokument (str. 1):"
-
-#: gsr/templates/gsr/partials/interviews_main.html:91
-msgid "Check the recording before discussing these moments."
-msgstr "Sprawdź nagranie, zanim omówisz te momenty."
-
-#: gsr/templates/gsr/partials/interviews_main.html:94
+#: gsr/templates/gsr/partials/interviews_main.html:122
 #, python-format
-msgid "Only %(count)s of %(target)s moments answer a step of the protocol."
-msgstr "Tylko %(count)s z %(target)s momentów odpowiada na krok protokołu."
+msgid ""
+"The Analysis has episodes for only %(count)s of %(target)s moments. Add "
+"moments by hand if you need more."
+msgstr ""
+"Analiza ma epizody tylko dla %(count)s z %(target)s momentów. Jeśli "
+"potrzebujesz więcej, dodaj momenty ręcznie."
 
-#: gsr/templates/gsr/partials/interviews_main.html:97
-msgid "Data:"
-msgstr "Dane:"
-
-#: gsr/templates/gsr/partials/interviews_main.html:99
+#: gsr/templates/gsr/partials/interviews_main.html:127
 #, python-format
-msgid "Teacher %(alias)s against the average of:"
-msgstr "Nauczyciel %(alias)s względem średniej z:"
+msgid "average of: %(students)s"
+msgstr "średnia z: %(students)s"
 
-#: gsr/templates/gsr/partials/interviews_main.html:102
-msgid "Moments meeting each step"
-msgstr "Momenty spełniające każdy krok"
+#: gsr/templates/gsr/partials/interviews_main.html:129
+msgid "Analysis episodes per step"
+msgstr "Epizody Analizy w poszczególnych krokach"
 
-#: gsr/templates/gsr/partials/interviews_main.html:113
-#: gsr/templates/gsr/partials/interviews_main.html:116
+#: gsr/templates/gsr/partials/interviews_main.html:136
+#: gsr/templates/gsr/partials/interviews_main.html:139
 msgid "Lesson timeline"
 msgstr "Oś lekcji"
 
-#: gsr/templates/gsr/partials/interviews_main.html:127
-msgid "Moments for the interview"
-msgstr "Momenty do wywiadu"
+#: gsr/templates/gsr/partials/interviews_main.html:150
+msgid "Moments"
+msgstr "Momenty"
 
-#: gsr/templates/gsr/partials/interviews_main.html:128
+#: gsr/templates/gsr/partials/interviews_main.html:151
 #, python-format
 msgid "%(primary)s primary + %(reserve)s reserve"
 msgstr "%(primary)s głównych + %(reserve)s rezerwowych"
 
-#: gsr/templates/gsr/partials/interviews_main.html:128
+#: gsr/templates/gsr/partials/interviews_main.html:151
 #, python-format
 msgid "%(counter)s rejected"
 msgid_plural "%(counter)s rejected"
@@ -1783,35 +1844,35 @@ msgstr[0] "%(counter)s odrzucony"
 msgstr[1] "%(counter)s odrzucone"
 msgstr[2] "%(counter)s odrzuconych"
 
-#: gsr/templates/gsr/partials/interviews_main.html:130
+#: gsr/templates/gsr/partials/interviews_main.html:153
 msgid ""
-"The first moments on the list that are not rejected are the primary ones; "
-"rejecting one moves the first reserve moment up. Use ↑ ↓ to change the order."
+"The first moments that are not rejected are the primary ones; rejecting one "
+"moves the first reserve moment up. Use ↑ ↓ to change the order."
 msgstr ""
-"Pierwsze nieodrzucone momenty na liście są główne; odrzucenie jednego z nich "
-"przesuwa w górę pierwszy rezerwowy. Kolejność zmienisz przyciskami ↑ ↓."
+"Pierwsze nieodrzucone momenty są główne; odrzucenie jednego z nich przesuwa "
+"w górę pierwszy rezerwowy. Kolejność zmienisz przyciskami ↑ ↓."
 
-#: gsr/templates/gsr/partials/interviews_main.html:135
-msgid "No moment answers a step of the protocol."
-msgstr "Żaden moment nie odpowiada na krok protokołu."
+#: gsr/templates/gsr/partials/interviews_main.html:158
+msgid "The Analysis has no episodes for this interview. Add moments by hand."
+msgstr "Analiza nie ma epizodów dla tego wywiadu. Dodaj momenty ręcznie."
 
-#: gsr/templates/gsr/partials/interviews_main.html:141
+#: gsr/templates/gsr/partials/interviews_main.html:164
 msgid "Add a moment manually"
 msgstr "Dodaj moment ręcznie"
 
-#: gsr/templates/gsr/partials/interviews_main.html:157
+#: gsr/templates/gsr/partials/interviews_main.html:180
 msgid "Note (optional)"
 msgstr "Notatka (opcjonalna)"
 
-#: gsr/templates/gsr/partials/interviews_main.html:159
+#: gsr/templates/gsr/partials/interviews_main.html:182
 msgid "Add the moment"
 msgstr "Dodaj moment"
 
-#: gsr/templates/gsr/partials/interviews_main.html:165
+#: gsr/templates/gsr/partials/interviews_main.html:188
 msgid "No interviews: choose the teacher or a student pair."
 msgstr "Brak wywiadów: wybierz nauczyciela albo parę uczniów."
 
-#: gsr/templates/gsr/partials/interviews_main.html:172
+#: gsr/templates/gsr/partials/interviews_main.html:195
 msgid ""
 "Lesson times count from the recordings' common start, as on the Analysis "
 "step; sensor clock times are the recordings' own clock."
@@ -1819,33 +1880,9 @@ msgstr ""
 "Czas lekcji liczony jest od wspólnego początku nagrań, jak w kroku Analiza; "
 "zegar czujnika to własny zegar nagrań."
 
-#: gsr/templates/gsr/partials/interviews_main.html:174
+#: gsr/templates/gsr/partials/interviews_main.html:197
 msgid "Next: Export"
 msgstr "Dalej: Eksport"
-
-#: gsr/templates/gsr/partials/interviews_settings.html:5
-msgid "Interview settings"
-msgstr "Ustawienia wywiadów"
-
-#: gsr/templates/gsr/partials/interviews_settings.html:8
-msgid "Moment selection"
-msgstr "Wybór momentów"
-
-#: gsr/templates/gsr/partials/interviews_settings.html:9
-msgid ""
-"The defaults are the numbers of the VSR Interview Flow Chart (page 1). A "
-"changed value is named next to the document's quote in every justification."
-msgstr ""
-"Wartości domyślne to liczby z dokumentu VSR Interview Flow Chart (str. 1). "
-"Zmieniona wartość jest podana obok cytatu z dokumentu w każdym uzasadnieniu."
-
-#: gsr/templates/gsr/partials/interviews_settings.html:13
-msgid ""
-"Applying settings proposes the moments again with the saved interview "
-"participants."
-msgstr ""
-"Zastosowanie ustawień ponownie proponuje momenty dla zapisanych uczestników "
-"wywiadów."
 
 #: gsr/templates/gsr/partials/param_field.html:16
 #, python-format
@@ -1859,14 +1896,6 @@ msgstr "Bieżące ustawienia"
 #: gsr/templates/gsr/partials/run_bar.html:7
 msgid "changed since the last run"
 msgstr "zmienione od ostatniego uruchomienia"
-
-#: gsr/templates/gsr/partials/run_bar.html:10
-msgid "Outdated result"
-msgstr "Wynik nieaktualny"
-
-#: gsr/templates/gsr/partials/run_bar.html:10
-msgid "Up to date"
-msgstr "Aktualny"
 
 #: gsr/templates/gsr/partials/run_bar.html:10
 #, python-format
@@ -2208,52 +2237,52 @@ msgstr "Czy na pewno usunąć projekt?"
 msgid "No saved projects yet. Create one to get started."
 msgstr "Brak zapisanych projektów. Utwórz pierwszy projekt, aby zacząć."
 
-#: gsr/views.py:112 gsr/views.py:1167
+#: gsr/views.py:101 gsr/views.py:1147
 msgid "Import"
 msgstr "Import"
 
-#: gsr/views.py:112 gsr/views.py:1167
+#: gsr/views.py:101 gsr/views.py:1147
 msgid "Cleaning"
 msgstr "Czyszczenie"
 
-#: gsr/views.py:112
+#: gsr/views.py:101
 msgid "Analysis"
 msgstr "Analiza"
 
-#: gsr/views.py:113 gsr/vsr_params.py:78
+#: gsr/views.py:102
 msgid "Interviews"
 msgstr "Wywiady"
 
-#: gsr/views.py:113
+#: gsr/views.py:102
 msgid "Export"
 msgstr "Eksport"
 
-#: gsr/views.py:129
+#: gsr/views.py:118
 msgid "no recordings"
 msgstr "brak nagrań"
 
-#: gsr/views.py:131
+#: gsr/views.py:120
 #, python-format
 msgid "computed %(time)s"
 msgstr "obliczono %(time)s"
 
-#: gsr/views.py:131 gsr/views.py:153
+#: gsr/views.py:120 gsr/views.py:142
 msgid "not run"
 msgstr "nie uruchomiono"
 
-#: gsr/views.py:133
-msgid "not proposed"
-msgstr "nie wyznaczono"
+#: gsr/views.py:122
+msgid "not chosen"
+msgstr "nie wybrano"
 
-#: gsr/views.py:133 gsr/views.py:134
+#: gsr/views.py:122 gsr/views.py:123
 msgid "needs analysis"
 msgstr "wymaga analizy"
 
-#: gsr/views.py:134
+#: gsr/views.py:123
 msgid "ready"
 msgstr "gotowy"
 
-#: gsr/views.py:159
+#: gsr/views.py:148
 #, python-format
 msgid "%(count)s interview"
 msgid_plural "%(count)s interviews"
@@ -2261,7 +2290,7 @@ msgstr[0] "%(count)s wywiad"
 msgstr[1] "%(count)s wywiady"
 msgstr[2] "%(count)s wywiadów"
 
-#: gsr/views.py:163
+#: gsr/views.py:152
 #, python-format
 msgid "%(count)s recording"
 msgid_plural "%(count)s recordings"
@@ -2269,7 +2298,7 @@ msgstr[0] "%(count)s nagranie"
 msgstr[1] "%(count)s nagrania"
 msgstr[2] "%(count)s nagrań"
 
-#: gsr/views.py:168
+#: gsr/views.py:157
 #, python-format
 msgid "%(count)s rejected sample"
 msgid_plural "%(count)s rejected samples"
@@ -2277,107 +2306,116 @@ msgstr[0] "%(count)s odrzucona próbka"
 msgstr[1] "%(count)s odrzucone próbki"
 msgstr[2] "%(count)s odrzuconych próbek"
 
-#: gsr/views.py:198
+#: gsr/views.py:187
 msgid "Project name is required."
 msgstr "Nazwa projektu jest wymagana."
 
-#: gsr/views.py:200
+#: gsr/views.py:189
 msgid "Project name cannot exceed 200 characters."
 msgstr "Nazwa projektu nie może przekraczać 200 znaków."
 
-#: gsr/views.py:218
+#: gsr/views.py:207
 msgid "Project name is required (up to 200 characters)."
 msgstr "Nazwa projektu jest wymagana (do 200 znaków)."
 
-#: gsr/views.py:223
+#: gsr/views.py:212
 msgid "Project details saved."
 msgstr "Zapisano dane projektu."
 
-#: gsr/views.py:231
+#: gsr/views.py:220
 msgid "Project deleted."
 msgstr "Projekt usunięty."
 
-#: gsr/views.py:243
+#: gsr/views.py:232
 msgid "Choose at least one CSV file."
 msgstr "Wybierz co najmniej jeden plik CSV."
 
-#: gsr/views.py:250
+#: gsr/views.py:239
 #, python-format
 msgid "Uploaded %(file)s as %(alias)s."
 msgstr "Wgrano %(file)s jako %(alias)s."
 
-#: gsr/views.py:266
+#: gsr/views.py:255
 #, python-format
 msgid "%(recordings)s · common window %(minutes)s min"
 msgstr "%(recordings)s · wspólne okno %(minutes)s min"
 
-#: gsr/views.py:370
+#: gsr/views.py:359
 msgid "Include at least one recording."
 msgstr "Zaznacz co najmniej jedno nagranie."
 
-#: gsr/views.py:396
+#: gsr/views.py:385
 msgid "Analysed period saved."
 msgstr "Zapisano analizowany okres."
 
-#: gsr/views.py:411
+#: gsr/views.py:400
 msgid "Alias cannot be empty"
 msgstr "Alias nie może być pusty"
 
-#: gsr/views.py:414
+#: gsr/views.py:403
 #, python-format
 msgid "Alias already exists in project: %(alias)s"
 msgstr "Alias już istnieje w projekcie: %(alias)s"
 
-#: gsr/views.py:442
+#: gsr/views.py:431
 #, python-format
 msgid "Signal renamed to %(alias)s."
 msgstr "Zmieniono nazwę sygnału na %(alias)s."
 
-#: gsr/views.py:455
+#: gsr/views.py:444
 #, python-format
 msgid "Signal %(alias)s excluded from cleaning and analysis."
 msgstr "Sygnał %(alias)s wykluczono z czyszczenia i analizy."
 
-#: gsr/views.py:486
+#: gsr/views.py:475
 #, python-format
 msgid "Signal %(alias)s deleted."
 msgstr "Usunięto sygnał %(alias)s."
 
-#: gsr/views.py:537
+#: gsr/views.py:526
 #, python-format
 msgid "rejected %(rejected)s of %(total)s samples"
 msgstr "odrzucono %(rejected)s z %(total)s próbek"
 
-#: gsr/views.py:697
+#: gsr/views.py:686
 #, python-format
 msgid "subgroups of ≥ %(size)s people above %(threshold)s"
 msgstr "podgrupy ≥ %(size)s osób powyżej %(threshold)s"
 
-#: gsr/views.py:800
+#: gsr/views.py:796
 #, python-format
 msgid "Teacher %(alias)s"
 msgstr "Nauczyciel %(alias)s"
 
-#: gsr/views.py:1118
+#: gsr/views.py:797
+#, python-format
+msgid "Pair %(left)s + %(right)s"
+msgstr "Para %(left)s + %(right)s"
+
+#: gsr/views.py:803
+msgid "Students' average"
+msgstr "Średnia uczniów"
+
+#: gsr/views.py:1098
 #, python-format
 msgid "Signals added: %(aliases)s"
 msgstr "Dodane sygnały: %(aliases)s"
 
-#: gsr/views.py:1120
+#: gsr/views.py:1100
 #, python-format
 msgid "Signals removed: %(aliases)s"
 msgstr "Usunięte sygnały: %(aliases)s"
 
-#: gsr/views.py:1121
+#: gsr/views.py:1101
 #, python-format
 msgid "Signal renamed: %(old)s → %(new)s"
 msgstr "Zmieniona nazwa sygnału: %(old)s → %(new)s"
 
-#: gsr/views.py:1137 gsr/views.py:1173
+#: gsr/views.py:1117 gsr/views.py:1153
 msgid "VSR interview moments"
 msgstr "Momenty do wywiadów VSR"
 
-#: gsr/views.py:1138
+#: gsr/views.py:1118
 msgid ""
 "per interview: step, lesson, sensor clock and video times, correlation, "
 "justification"
@@ -2385,63 +2423,63 @@ msgstr ""
 "dla każdego wywiadu: krok, czas lekcji, zegar czujnika i kod wideo, "
 "korelacja, uzasadnienie"
 
-#: gsr/views.py:1141
+#: gsr/views.py:1121
 msgid "Cleaned signals"
 msgstr "Sygnały po czyszczeniu"
 
-#: gsr/views.py:1141
+#: gsr/views.py:1121
 msgid "per participant, relative time, full resolution"
 msgstr "per uczestnik, czas względny, pełna rozdzielczość"
 
-#: gsr/views.py:1143
+#: gsr/views.py:1123
 msgid "Analysis-ready merged file"
 msgstr "Połączony plik do analizy"
 
-#: gsr/views.py:1143
+#: gsr/views.py:1123
 msgid "scaled, downsampled, shared time axis"
 msgstr "skalowany, po downsamplingu, wspólna oś czasu"
 
-#: gsr/views.py:1145
+#: gsr/views.py:1125
 msgid "episodes, pairs, windows"
 msgstr "epizody, pary, okna"
 
-#: gsr/views.py:1146 gsr/views.py:1151
+#: gsr/views.py:1126 gsr/views.py:1131
 msgid "episodes"
 msgstr "epizody"
 
-#: gsr/views.py:1147
+#: gsr/views.py:1127
 msgid "pairs"
 msgstr "pary"
 
-#: gsr/views.py:1148
+#: gsr/views.py:1128
 msgid "windows"
 msgstr "okna"
 
-#: gsr/views.py:1150
+#: gsr/views.py:1130
 msgid "episodes, state timeline, time in states"
 msgstr "epizody, stany w czasie, udział czasu w stanach"
 
-#: gsr/views.py:1152
+#: gsr/views.py:1132
 msgid "state timeline"
 msgstr "oś stanów"
 
-#: gsr/views.py:1153
+#: gsr/views.py:1133
 msgid "time in states"
 msgstr "udział czasu w stanach"
 
-#: gsr/views.py:1156
+#: gsr/views.py:1136
 msgid "Run settings and results"
 msgstr "Ustawienia i wyniki obliczenia"
 
-#: gsr/views.py:1156
+#: gsr/views.py:1136
 msgid "for reproducibility: settings, library versions, file SHA-256"
 msgstr "dla odtwarzalności: ustawienia, wersje bibliotek, SHA-256 plików"
 
-#: gsr/views.py:1158
+#: gsr/views.py:1138
 msgid "Charts"
 msgstr "Wykresy"
 
-#: gsr/views.py:1158
+#: gsr/views.py:1138
 #, python-format
 msgid "%(count)d report chart, 2× resolution, white background, in the ZIP"
 msgid_plural ""
@@ -2453,19 +2491,19 @@ msgstr[1] ""
 msgstr[2] ""
 "%(count)d wykresów raportu, rozdzielczość 2×, białe tło, w archiwum ZIP"
 
-#: gsr/views.py:1167
+#: gsr/views.py:1147
 msgid "Summary page"
 msgstr "Strona podsumowania"
 
-#: gsr/views.py:1174
+#: gsr/views.py:1154
 msgid "Methodology"
 msgstr "Metodologia"
 
-#: gsr/views.py:1174
+#: gsr/views.py:1154
 msgid "Reproducibility"
 msgstr "Odtwarzalność"
 
-#: gsr/views.py:1175
+#: gsr/views.py:1155
 #, python-format
 msgid "%(count)d chart"
 msgid_plural "%(count)d charts"
@@ -2473,265 +2511,101 @@ msgstr[0] "%(count)d wykres"
 msgstr[1] "%(count)d wykresy"
 msgstr[2] "%(count)d wykresów"
 
-#: gsr/vsr_params.py:26
-msgid ""
-"Pairs count as synchronous when windowed correlation is above this value "
-"(document: above 0.8)."
-msgstr ""
-"Para jest synchroniczna, gdy korelacja w oknie przekracza tę wartość "
-"(dokument: powyżej 0,8)."
-
-#: gsr/vsr_params.py:30
-msgid "Asynchrony threshold"
-msgstr "Próg asynchronii"
-
-#: gsr/vsr_params.py:31
-msgid ""
-"Asynchronous moments use correlation below this value (document: below 0.1)."
-msgstr ""
-"Momenty asynchroniczne mają korelację poniżej tej wartości (dokument: "
-"poniżej 0,1)."
-
-#: gsr/vsr_params.py:33
-msgid "Rolling correlation window length."
-msgstr "Długość przesuwanego okna korelacji."
-
-#: gsr/vsr_params.py:34
-msgid "Window step for rolling correlation."
-msgstr "Krok przesuwanego okna korelacji."
-
-#: gsr/vsr_params.py:38
-msgid "Shared HIGH arousal uses z above this value (same scale as co-arousal)."
-msgstr ""
-"Wspólne WYSOKIE pobudzenie: z powyżej tej wartości (ta sama skala co Ko-"
-"pobudzenie)."
-
-#: gsr/vsr_params.py:40
-msgid "Shared LOW arousal uses z below this value."
-msgstr "Wspólne NISKIE pobudzenie: z poniżej tej wartości."
-
-#: gsr/vsr_params.py:43
-msgid "Shared arousal agreement"
-msgstr "Zgodność wspólnego stanu"
-
-#: gsr/vsr_params.py:44
-msgid ""
-"Minimum fraction of a window where both participants share the same arousal "
-"state."
-msgstr ""
-"Minimalna część okna, w której oboje uczestnicy są w tym samym stanie "
-"pobudzenia."
-
-#: gsr/vsr_params.py:48
-msgid "Primary moments"
-msgstr "Momenty główne"
-
-#: gsr/vsr_params.py:49
-msgid "Target number of discussion moments per interview (document: 5)."
-msgstr "Docelowa liczba momentów do omówienia na wywiad (dokument: 5)."
-
-#: gsr/vsr_params.py:55
-msgid "Reserve moments"
-msgstr "Momenty rezerwowe"
-
-#: gsr/vsr_params.py:56
-msgid "Additional backup moments (document: e.g. 8 total)."
-msgstr "Dodatkowe momenty zapasowe (dokument: np. 8 łącznie)."
-
-#: gsr/vsr_params.py:68
-#, python-format
-msgid "Synchronous: r > %(value)s"
-msgstr "Synchronia: r > %(value)s"
-
-#: gsr/vsr_params.py:69
-#, python-format
-msgid "Asynchronous: r < %(value)s"
-msgstr "Asynchronia: r < %(value)s"
-
-#: gsr/vsr_params.py:71
-#, python-format
-msgid "Window: %(window)s s, step %(step)s s"
-msgstr "Okno: %(window)s s, krok %(step)s s"
-
-#: gsr/vsr_params.py:74
-#, python-format
-msgid "Moments: %(primary)s + %(reserve)s"
-msgstr "Momenty: %(primary)s + %(reserve)s"
+#: gsr/vsr_text.py:26
+msgid "co-movement and shared High arousal"
+msgstr "ko-ruch i wspólne wysokie pobudzenie"
 
 #: gsr/vsr_text.py:28
+msgid "co-movement and shared Low arousal"
+msgstr "ko-ruch i wspólne niskie pobudzenie"
+
+#: gsr/vsr_text.py:29
+msgid "co-movement and a shared arousal state"
+msgstr "ko-ruch i wspólny stan pobudzenia"
+
+#: gsr/vsr_text.py:31
+msgid "co-movement only"
+msgstr "sam ko-ruch"
+
+#: gsr/vsr_text.py:32
+msgid "shared High arousal"
+msgstr "wspólne wysokie pobudzenie"
+
+#: gsr/vsr_text.py:33
+msgid "shared Low arousal"
+msgstr "wspólne niskie pobudzenie"
+
+#: gsr/vsr_text.py:34
+msgid "no synchrony"
+msgstr "brak synchronii"
+
+#: gsr/vsr_text.py:40
 #, python-format
-msgid "p. %(page)s"
-msgstr "s. %(page)s"
+msgid "Step %(number)s · %(name)s"
+msgstr "Krok %(number)s · %(name)s"
 
-#: gsr/vsr_text.py:48
+#: gsr/vsr_text.py:57
 #, python-format
-msgid " (project threshold: %(value)s)"
-msgstr " (próg projektu: %(value)s)"
+msgid "synchronization episode E%(number)s, %(times)s"
+msgstr "epizod synchronizacji E%(number)s, %(times)s"
 
-#: gsr/vsr_text.py:55
+#: gsr/vsr_text.py:59
 #, python-format
-msgid " (project target: %(count)s moment)"
-msgid_plural " (project target: %(count)s moments)"
-msgstr[0] " (cel projektu: %(count)s moment)"
-msgstr[1] " (cel projektu: %(count)s momenty)"
-msgstr[2] " (cel projektu: %(count)s momentów)"
+msgid "co-movement episode %(number)s of the co-arousal, %(times)s"
+msgstr "epizod ko-ruchu nr %(number)s z Ko-pobudzenia, %(times)s"
 
-#: gsr/vsr_text.py:62
-msgid "the highest correlation"
-msgstr "najwyższą korelację"
+#: gsr/vsr_text.py:61
+#, python-format
+msgid "co-arousal episode %(number)s, %(times)s"
+msgstr "epizod ko-pobudzenia nr %(number)s, %(times)s"
 
-#: gsr/vsr_text.py:64
-msgid "the lowest correlation"
-msgstr "najniższą korelację"
+#: gsr/vsr_text.py:70
+msgid "both people in the High state"
+msgstr "obie osoby w stanie Wysokim"
 
-#: gsr/vsr_text.py:65
-msgid "the largest share of the shared arousal state"
-msgstr "największy udział wspólnego stanu pobudzenia"
-
-#: gsr/vsr_text.py:71
-msgid "highest correlation first"
-msgstr "od najwyższej korelacji"
+#: gsr/vsr_text.py:70
+msgid "both people in the Low state"
+msgstr "obie osoby w stanie Niskim"
 
 #: gsr/vsr_text.py:73
-msgid "lowest correlation first"
-msgstr "od najniższej korelacji"
-
-#: gsr/vsr_text.py:74
-msgid "largest shared arousal state share first"
-msgstr "od największego udziału wspólnego stanu pobudzenia"
-
-#: gsr/vsr_text.py:81
 #, python-format
-msgid "STEP %(step)s: %(question)s → YES → %(outcome)s"
-msgstr "KROK %(step)s: %(question)s → TAK → %(outcome)s"
-
-#: gsr/vsr_text.py:88
-#, python-format
-msgid ""
-"%(count)s moment meets the criterion, already selected or overlapping a "
-"selected moment"
+msgid "the teacher and %(count)s of %(total)s student in the High state"
 msgid_plural ""
-"%(count)s moments meet the criterion, all already selected or overlapping a "
-"selected moment"
-msgstr[0] ""
-"%(count)s moment spełnia kryterium, już wybrany albo nakładający się na "
-"wybrany moment"
-msgstr[1] ""
-"%(count)s momenty spełniają kryterium, wszystkie już wybrane albo "
-"nakładające się na wybrany moment"
-msgstr[2] ""
-"%(count)s momentów spełnia kryterium, wszystkie już wybrane albo nakładające "
-"się na wybrany moment"
+"the teacher and %(count)s of %(total)s students in the High state"
+msgstr[0] "nauczyciel i %(count)s z %(total)s ucznia w stanie Wysokim"
+msgstr[1] "nauczyciel i %(count)s z %(total)s uczniów w stanie Wysokim"
+msgstr[2] "nauczyciel i %(count)s z %(total)s uczniów w stanie Wysokim"
 
-#: gsr/vsr_text.py:93
-msgid "no moment meets the criterion"
-msgstr "żaden moment nie spełnia kryterium"
-
-#: gsr/vsr_text.py:95
+#: gsr/vsr_text.py:75
 #, python-format
-msgid "STEP %(step)s: %(question)s → NO (%(detail)s) → %(outcome)s"
-msgstr "KROK %(step)s: %(question)s → NIE (%(detail)s) → %(outcome)s"
+msgid "the teacher and %(count)s of %(total)s student in the Low state"
+msgid_plural "the teacher and %(count)s of %(total)s students in the Low state"
+msgstr[0] "nauczyciel i %(count)s z %(total)s ucznia w stanie Niskim"
+msgstr[1] "nauczyciel i %(count)s z %(total)s uczniów w stanie Niskim"
+msgstr[2] "nauczyciel i %(count)s z %(total)s uczniów w stanie Niskim"
 
-#: gsr/vsr_text.py:109
+#: gsr/vsr_text.py:85
+msgid "no shared arousal state"
+msgstr "bez wspólnego stanu pobudzenia"
+
+#: gsr/vsr_text.py:87
+msgid "no co-movement"
+msgstr "bez ko-ruchu"
+
+#: gsr/vsr_text.py:89
+msgid "the signals moved in the opposite direction"
+msgstr "sygnały zmieniały się w przeciwnym kierunku"
+
+#: gsr/vsr_text.py:90
 #, python-format
-msgid "Data: %(quote)s."
-msgstr "Dane: %(quote)s."
+msgid "%(times)s outside the synchronization and co-arousal episodes"
+msgstr "%(times)s poza epizodami synchronizacji i ko-pobudzenia"
 
-#: gsr/vsr_text.py:113
+#: gsr/vsr_text.py:91
+msgid "the signals did not move together"
+msgstr "sygnały nie zmieniały się razem"
+
+#: gsr/vsr_text.py:100
 #, python-format
-msgid "Synchrony type: %(quote)s."
-msgstr "Typ synchronii: %(quote)s."
-
-#: gsr/vsr_text.py:116
-#, python-format
-msgid "Criterion %(quote)s%(project)s: r = %(r)s."
-msgstr "Kryterium %(quote)s%(project)s: r = %(r)s."
-
-#: gsr/vsr_text.py:118
-#, python-format
-msgid ""
-"Criterion %(quote)s%(project)s not met (r = %(r)s): this separates the type "
-"from co-movement."
-msgstr ""
-"Kryterium %(quote)s%(project)s niespełnione (r = %(r)s): to odróżnia ten typ "
-"od współruchu."
-
-#: gsr/vsr_text.py:131
-#, python-format
-msgid ""
-"Both participants in the HIGH arousal state for %(share)s%% of the moment (a "
-"shared state needs %(minimum)s%%)."
-msgstr ""
-"Oboje w stanie WYSOKIEGO pobudzenia przez %(share)s%% momentu (wspólny stan "
-"wymaga %(minimum)s%%)."
-
-#: gsr/vsr_text.py:136
-#, python-format
-msgid ""
-"Both participants in the LOW arousal state for %(share)s%% of the moment (a "
-"shared state needs %(minimum)s%%)."
-msgstr ""
-"Oboje w stanie NISKIEGO pobudzenia przez %(share)s%% momentu (wspólny stan "
-"wymaga %(minimum)s%%)."
-
-#: gsr/vsr_text.py:144
-msgid "No shared arousal state."
-msgstr "Brak wspólnego stanu pobudzenia."
-
-#: gsr/vsr_text.py:148
-msgid "The signals moved in opposite directions."
-msgstr "Sygnały szły w przeciwnych kierunkach."
-
-#: gsr/vsr_text.py:150
-msgid "The signals were unrelated rather than opposed."
-msgstr "Sygnały były niezwiązane, a nie przeciwne."
-
-#: gsr/vsr_text.py:156
-#, python-format
-msgid "The only moment meeting STEP %(step)s."
-msgstr "Jedyny moment spełniający KROK %(step)s."
-
-#: gsr/vsr_text.py:159
-#, python-format
-msgid "Of %(count)s moment meeting STEP %(step)s, this one has %(rule)s."
-msgid_plural ""
-"Of %(count)s moments meeting STEP %(step)s, this one has %(rule)s."
-msgstr[0] "Z %(count)s momentu spełniającego KROK %(step)s ten ma %(rule)s."
-msgstr[1] "Z %(count)s momentów spełniających KROK %(step)s ten ma %(rule)s."
-msgstr[2] "Z %(count)s momentów spełniających KROK %(step)s ten ma %(rule)s."
-
-#: gsr/vsr_text.py:166
-#, python-format
-msgid ""
-"Ranked %(rank)s of %(count)s moment meeting STEP %(step)s, ordered %(order)s "
-"(the stronger ones were selected earlier or overlap a selected moment)."
-msgid_plural ""
-"Ranked %(rank)s of %(count)s moments meeting STEP %(step)s, ordered "
-"%(order)s (the stronger ones were selected earlier or overlap a selected "
-"moment)."
-msgstr[0] ""
-"%(rank)s. z %(count)s momentu spełniającego KROK %(step)s, w kolejności "
-"%(order)s (mocniejsze wybrano wcześniej albo nakładają się na wybrany "
-"moment)."
-msgstr[1] ""
-"%(rank)s. z %(count)s momentów spełniających KROK %(step)s, w kolejności "
-"%(order)s (mocniejsze wybrano wcześniej albo nakładają się na wybrany "
-"moment)."
-msgstr[2] ""
-"%(rank)s. z %(count)s momentów spełniających KROK %(step)s, w kolejności "
-"%(order)s (mocniejsze wybrano wcześniej albo nakładają się na wybrany "
-"moment)."
-
-#: gsr/vsr_text.py:177
-#, python-format
-msgid ""
-"STEP 6: %(question)s%(target)s → NO → %(instruction)s Selected in pass "
-"%(pass)s."
-msgstr ""
-"KROK 6: %(question)s%(target)s → NIE → %(instruction)s Wybrany w przejściu "
-"%(pass)s."
-
-#: gsr/vsr_text.py:187
-#, python-format
-msgid "Reserve moment: %(quote)s%(target)s."
-msgstr "Moment rezerwowy: %(quote)s%(target)s."
+msgid "VSR flow chart step %(step)s: %(name)s"
+msgstr "Krok %(step)s schematu VSR: %(name)s"

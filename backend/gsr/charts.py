@@ -21,6 +21,7 @@ def chart_labels() -> dict[str, str]:
         "minutes": _("min"),
         "microsiemens": "µS",
         "scaled": _("scaled"),
+        "zscore": "z",
         "raw": _("raw"),
         "clean": _("clean"),
         "clipped": _("clipped (off scale)"),

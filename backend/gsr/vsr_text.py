@@ -1,9 +1,9 @@
-"""VSR justification fragments (``pipeline/vsr.py``) as sentences in the UI language.
+"""The VSR interview moments in words, in the UI language (or the report language).
 
-Every document quote stays verbatim in the document's English, marked up as a
-``<q>`` with its page; only the words around the quotes are translated. The
-sentences are safe HTML, so the Interviews screen and the PDF report can show
-the same text.
+A moment's justification is one plain sentence built from the Analysis values it was
+chosen from: the step of the VSR Interview Flow Chart it answers, the Analysis episode,
+its times, the correlation r and who was in the shared arousal state. The Interviews
+screen, the PDF report and the CSV use the same sentence.
 """
 
 from __future__ import annotations
@@ -11,184 +11,98 @@ from __future__ import annotations
 from typing import Any
 
 from django.utils.formats import number_format
-from django.utils.html import conditional_escape, format_html
-from django.utils.safestring import SafeString, mark_safe
+from django.utils.text import capfirst
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
-from .pipeline.vsr import CANDIDATES_EXHAUSTED, HIGH, HIGHEST_CORRELATION, LOWEST_CORRELATION, OPPOSITE_DIRECTION
+from .pipeline.vsr import HIGH, STEP_NUMBERS, SYNCHRONY
+from .templatetags.gsr_tags import seconds_mmss
 
 
-def quote(item: dict[str, Any], ellipsis: bool = False) -> SafeString:
-    """One document quote: the verbatim English text and the page it is on."""
-    return format_html(
-        '<q class="doc-quote" lang="en">{}{}</q> <span class="doc-page">({})</span>',
-        item["text"],
-        "…" if ellipsis else "",
-        _("p. %(page)s") % {"page": item["page"]},
-    )
+def step_name(number: int, state: str | None = None) -> str:
+    """The step's name in lower case; STEP 1 names the shared state when it is known."""
+    if number == 1:
+        if state == HIGH:
+            return _("co-movement and shared High arousal")
+        if state is not None:
+            return _("co-movement and shared Low arousal")
+        return _("co-movement and a shared arousal state")
+    return {
+        2: _("co-movement only"),
+        3: _("shared High arousal"),
+        4: _("shared Low arousal"),
+        5: _("no synchrony"),
+    }[number]
 
 
-def _sentence(template: str, **values: Any) -> SafeString:
-    """``template`` (a translated %-format string) with HTML-escaped ``values``; quotes come in already safe."""
-    return mark_safe(conditional_escape(template) % {key: conditional_escape(value) for key, value in values.items()})
+def step_title(number: int) -> str:
+    """The step's number and name for a heading or a badge: "Step 2 · Co-movement only"."""
+    return _("Step %(number)s · %(name)s") % {"number": number, "name": capfirst(step_name(number))}
 
 
-def correlation(value: float) -> str:
-    return number_format(value, 2)
+def steps() -> list[dict[str, Any]]:
+    return [{"number": number, "name": capfirst(step_name(number))} for number in STEP_NUMBERS]
 
 
-def percent(fraction: float) -> str:
-    return number_format(round(fraction * 100))
+def correlation(value: float | None) -> str:
+    return "—" if value is None else number_format(value, 2)
 
 
-def _project_threshold(fragment: dict[str, Any]) -> str:
-    if fragment["threshold"] == fragment["document_threshold"]:
+def _times(start: float, end: float) -> str:
+    return f"{seconds_mmss(start)}–{seconds_mmss(end)}"
+
+
+def _episode(episode: dict[str, Any], times: str) -> str:
+    if episode["source"] == SYNCHRONY:
+        return _("synchronization episode E%(number)s, %(times)s") % {"number": episode["number"], "times": times}
+    if episode.get("state") is None:
+        return _("co-movement episode %(number)s of the co-arousal, %(times)s") % {
+            "number": episode["number"], "times": times}
+    return _("co-arousal episode %(number)s, %(times)s") % {"number": episode["number"], "times": times}
+
+
+def shared_state(proposal: dict[str, Any], kind: str) -> str | None:
+    """Who was in the shared arousal state: both people of a pair, or the teacher and how many students."""
+    state = proposal.get("shared_state")
+    if state is None:
+        return None
+    if kind != "teacher":
+        return _("both people in the High state") if state == HIGH else _("both people in the Low state")
+    values = {"count": proposal["in_state"], "total": proposal["people"]}
+    if state == HIGH:
+        return ngettext("the teacher and %(count)s of %(total)s student in the High state",
+                        "the teacher and %(count)s of %(total)s students in the High state", values["total"]) % values
+    return ngettext("the teacher and %(count)s of %(total)s student in the Low state",
+                    "the teacher and %(count)s of %(total)s students in the Low state", values["total"]) % values
+
+
+def _details(proposal: dict[str, Any], kind: str) -> list[str]:
+    step = proposal["step"]
+    times = _times(proposal["start_seconds"], proposal["end_seconds"])
+    r = f"r = {correlation(proposal['correlation'])}"
+    if step in (1, 2):
+        return [_episode(proposal["episode"], times), r,
+                shared_state(proposal, kind) if step == 1 else _("no shared arousal state")]
+    if step in (3, 4):
+        return [_episode(proposal["episode"], times), shared_state(proposal, kind), r, _("no co-movement")]
+    if proposal.get("episode"):
+        return [_episode(proposal["episode"], times), r, _("the signals moved in the opposite direction")]
+    return [_("%(times)s outside the synchronization and co-arousal episodes") % {"times": times}, r,
+            _("the signals did not move together")]
+
+
+def justification(proposal: dict[str, Any], kind: str) -> str:
+    """One sentence: why the moment was chosen, from the Analysis values (``proposal`` as ``pipeline/vsr`` stores it).
+
+    ``kind`` is the interview's kind ("dyad" or "teacher").
+    """
+    step = proposal.get("step")
+    if step not in STEP_NUMBERS:
         return ""
-    return _(" (project threshold: %(value)s)") % {"value": number_format(fragment["threshold"])}
-
-
-def _project_target(fragment: dict[str, Any]) -> str:
-    if fragment["target"] == fragment["document_target"]:
-        return ""
-    return ngettext(
-        " (project target: %(count)s moment)", " (project target: %(count)s moments)", fragment["target"]
-    ) % {"count": fragment["target"]}
-
-
-def _rule(rule: str) -> str:
-    """What the chosen moment has the most of ("this one has ...")."""
-    if rule == HIGHEST_CORRELATION:
-        return _("the highest correlation")
-    if rule == LOWEST_CORRELATION:
-        return _("the lowest correlation")
-    return _("the largest share of the shared arousal state")
-
-
-def _order(rule: str) -> str:
-    """How the moments of one step are ranked ("ordered ...")."""
-    if rule == HIGHEST_CORRELATION:
-        return _("highest correlation first")
-    if rule == LOWEST_CORRELATION:
-        return _("lowest correlation first")
-    return _("largest shared arousal state share first")
-
-
-def step_sentence(fragment: dict[str, Any]) -> SafeString:
-    """A STEP 1-5 question with its answer and the document's instruction for that answer."""
-    if fragment["answer"] == "YES":
-        return _sentence(
-            _("STEP %(step)s: %(question)s → YES → %(outcome)s"),
-            step=fragment["step"],
-            question=quote(fragment["quote"]),
-            outcome=quote(fragment["outcome"]),
-        )
-    if fragment["reason"] == CANDIDATES_EXHAUSTED:
-        detail = ngettext(
-            "%(count)s moment meets the criterion, already selected or overlapping a selected moment",
-            "%(count)s moments meet the criterion, all already selected or overlapping a selected moment",
-            fragment["candidate_count"],
-        ) % {"count": fragment["candidate_count"]}
-    else:
-        detail = _("no moment meets the criterion")
-    return _sentence(
-        _("STEP %(step)s: %(question)s → NO (%(detail)s) → %(outcome)s"),
-        step=fragment["step"],
-        question=quote(fragment["quote"]),
-        detail=detail,
-        outcome=quote(fragment["outcome"]),
-    )
-
-
-def justification(fragments: list[dict[str, Any]]) -> list[SafeString]:
-    """The sentences of one proposal's justification, in fragment order."""
-    sentences = []
-    for fragment in fragments:
-        kind = fragment["kind"]
-        if kind == "data_basis":
-            sentences.append(_sentence(_("Data: %(quote)s."), quote=quote(fragment["quote"])))
-        elif kind == "step_question":
-            sentences.append(step_sentence(fragment))
-        elif kind == "synchrony_type":
-            sentences.append(_sentence(_("Synchrony type: %(quote)s."), quote=quote(fragment["quote"])))
-        elif kind == "criterion":
-            template = (
-                _("Criterion %(quote)s%(project)s: r = %(r)s.")
-                if fragment["meets_threshold"]
-                else _("Criterion %(quote)s%(project)s not met (r = %(r)s): this separates the type from co-movement.")
-            )
-            sentences.append(
-                _sentence(
-                    template,
-                    quote=quote(fragment["quote"]),
-                    project=_project_threshold(fragment),
-                    r=correlation(fragment["correlation"]),
-                )
-            )
-        elif kind == "shared_state":
-            template = (
-                _(
-                    "Both participants in the HIGH arousal state for %(share)s%% of the moment (a shared "
-                    "state needs %(minimum)s%%)."
-                )
-                if fragment["state"] == HIGH
-                else _(
-                    "Both participants in the LOW arousal state for %(share)s%% of the moment (a shared "
-                    "state needs %(minimum)s%%)."
-                )
-            )
-            sentences.append(
-                _sentence(template, share=percent(fragment["fraction"]), minimum=percent(fragment["minimum_fraction"]))
-            )
-        elif kind == "no_shared_state":
-            sentences.append(_sentence(_("No shared arousal state.")))
-        elif kind == "asynchrony_direction":
-            sentences.append(
-                _sentence(
-                    _("The signals moved in opposite directions.")
-                    if fragment["subtype"] == OPPOSITE_DIRECTION
-                    else _("The signals were unrelated rather than opposed.")
-                )
-            )
-        elif kind == "choice":
-            values = {"count": fragment["candidate_count"], "step": fragment["step"], "rank": fragment["rank"]}
-            if fragment["candidate_count"] == 1:
-                template = _("The only moment meeting STEP %(step)s.")
-            elif fragment["rank"] == 1:
-                template = ngettext(
-                    "Of %(count)s moment meeting STEP %(step)s, this one has %(rule)s.",
-                    "Of %(count)s moments meeting STEP %(step)s, this one has %(rule)s.",
-                    fragment["candidate_count"],
-                )
-                values["rule"] = _rule(fragment["rule"])
-            else:
-                template = ngettext(
-                    "Ranked %(rank)s of %(count)s moment meeting STEP %(step)s, ordered %(order)s (the stronger ones "
-                    "were selected earlier or overlap a selected moment).",
-                    "Ranked %(rank)s of %(count)s moments meeting STEP %(step)s, ordered %(order)s (the stronger ones "
-                    "were selected earlier or overlap a selected moment).",
-                    fragment["candidate_count"],
-                )
-                values["order"] = _order(fragment["rule"])
-            sentences.append(_sentence(template, **values))
-        elif kind == "repeat_pass":
-            sentences.append(
-                _sentence(
-                    _("STEP 6: %(question)s%(target)s → NO → %(instruction)s Selected in pass %(pass)s."),
-                    question=quote(fragment["quote"]),
-                    target=_project_target(fragment),
-                    instruction=quote(fragment["instruction"]),
-                    **{"pass": fragment["pass_number"]},
-                )
-            )
-        elif kind == "reserve":
-            sentences.append(
-                _sentence(
-                    _("Reserve moment: %(quote)s%(target)s."),
-                    quote=quote(fragment["quote"]),
-                    target=_project_target(fragment),
-                )
-            )
-        else:  # pragma: no cover - fragment kinds are a closed set
-            raise ValueError(f"Unknown justification fragment: {kind}")
-    return sentences
+    head = _("VSR flow chart step %(step)s: %(name)s") % {"step": step,
+                                                          "name": step_name(step, proposal.get("shared_state"))}
+    try:
+        details = [detail for detail in _details(proposal, kind) if detail]
+    except (KeyError, TypeError):  # a moment stored before the moments came from the Analysis
+        details = []
+    return f"{head} – {', '.join(details)}." if details else f"{head}."

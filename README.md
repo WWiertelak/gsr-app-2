@@ -31,9 +31,10 @@ for how the pipeline works and what was carried over.
 The UI is server-rendered Django templates with HTMX and ECharts (no Node build), in
 Polish or English (switch in the left rail). The workflow is
 Projects → 1 Import → 2 Cleaning → 3 Analysis (Synchronization | Co-arousal tabs, one run)
-→ 4 Interviews (proposed VSR interview moments per student pair and for the teacher, each
-justified with quotes from the "VSR Interview Flow Chart"; the researcher accepts, rejects,
-reorders, retimes or adds moments, and proposing again keeps those decisions) → 5 Export (bilingual PDF report
+→ 4 Interviews (VSR interview moments per student pair and for the teacher, chosen from the
+Analysis episodes by the steps of the "VSR Interview Flow Chart", each with a preview of the
+signals and a one-sentence justification from the Analysis values; the researcher accepts,
+rejects, reorders, retimes or adds moments, and choosing again keeps those decisions) → 5 Export (bilingual PDF report
 for other researchers, with the interview moments and their justifications as its own
 section; CSV tables including `vsr_moments.csv`, a run settings + results JSON, chart PNGs, or
 all of it as a ZIP). There is no login yet: add Django
@@ -44,14 +45,14 @@ authentication before hosting the app for more than one person.
 - `backend/gsr/pipeline/` - Django-free pipeline: `parser` (eSense CSV), `preprocessing`
   (synchronization, cleaning, scaling, merge, downsampling), `synchrony` (joint
   synchronization), `coarousal` (co-arousal), `vsr` (VSR interview moment selection),
-  `config` (`PipelineConfig`), `vsr_config` (`VsrConfig`, VSR interview parameters).
+  `config` (`PipelineConfig`).
 - `backend/gsr/models.py`, `backend/gsr/services/` - projects, dataset upload, analysis service,
-  stored last results per screen (`results`), exports (`exports`), interview roles and VSR
-  parameters kept outside the analysis signature (`interview`), the Interviews step's
-  proposals computed from the stored analysis run (`vsr`), the researcher's decisions on each
+  stored last results per screen (`results`), exports (`exports`), interview roles and the
+  number of moments kept outside the analysis signature (`interview`), the Interviews step's
+  moments chosen from the stored analysis run (`vsr`), the researcher's decisions on each
   interview's list of moments (`curation`, model `InterviewMoment`).
 - `backend/gsr/views.py`, `backend/gsr/templates/gsr/`, `backend/gsr/static/gsr/` - UI screens
-  (`vsr_text.py` renders the VSR justifications in the UI language, document quotes verbatim);
+  (`vsr_text.py` writes each moment's justification sentence in the UI language);
   `static/gsr/js/charts.js` holds the ECharts option builders ported from GSRv2,
   `static/gsr/vendor/` the pinned htmx and ECharts builds and the IBM Plex web fonts (`fonts/`, SIL OFL).
 - `backend/gsr/reporting/` - PDF report (HTML template converted to PDF by WeasyPrint; shares the app's `static/gsr/css/tokens.css` and IBM Plex fonts, with bundled DejaVu fonts as the glyph fallback) and its methodology text; `interviews` lays out the VSR interview moments section and `vsr_charts`

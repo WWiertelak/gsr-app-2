@@ -1,25 +1,31 @@
-"""Interview roles and VSR parameters stored on ``Project.interview_config``.
+"""Interview roles and the number of moments, stored on ``Project.interview_config``.
 
-Role and VSR settings are intentionally outside ``pipeline_config`` and the
-analysis result signature so assigning a teacher or dyads does not mark
-synchronization / co-arousal runs stale.
+The interview moments come from the Analysis results with the Analysis settings, so
+the Interviews step keeps only what is its own: the teacher, the student pairs, the
+video start and how many moments to propose. They stay outside ``pipeline_config``
+and the analysis result signature, so assigning a teacher or pairs does not mark the
+synchronization / co-arousal run stale.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from django.utils.translation import gettext
 
 from ..models import AnalysisResult, Project
-from ..params import changed_label, field_rows
-from ..pipeline.vsr_config import VsrConfig, parse_video_start_time
+from ..pipeline.vsr import DEFAULT_PRIMARY_COUNT, DEFAULT_RESERVE_COUNT
 from .results import included_datasets
 
 _ROLE_KEYS = ("teacher_alias", "student_pairs", "video_start_time")
+_COUNT_KEYS = ("primary_moment_count", "reserve_moment_count")
+# (lowest, highest) of each count; the document: "A total of 5 moments ... (ideally)", "(e.g. 8)" with the reserve.
+COUNT_LIMITS = {"primary_moment_count": (1, 20), "reserve_moment_count": (0, 20)}
+_TIME_RE = re.compile(r"^(\d{1,2}):([0-5]\d):([0-5]\d)$")
 
 
 @dataclass(frozen=True)
@@ -32,16 +38,27 @@ class InterviewRoles:
 @dataclass(frozen=True)
 class InterviewConfig:
     roles: InterviewRoles
-    vsr: VsrConfig
+    primary_count: int = DEFAULT_PRIMARY_COUNT
+    reserve_count: int = DEFAULT_RESERVE_COUNT
 
     def to_storage(self) -> dict[str, Any]:
-        pairs = [[left, right] for left, right in self.roles.student_pairs]
         return {
             "teacher_alias": self.roles.teacher_alias,
-            "student_pairs": pairs,
+            "student_pairs": [[left, right] for left, right in self.roles.student_pairs],
             "video_start_time": self.roles.video_start_time,
-            "vsr": self.vsr.model_dump(),
+            "primary_moment_count": self.primary_count,
+            "reserve_moment_count": self.reserve_count,
         }
+
+
+def parse_video_start_time(value: Any) -> str | None:
+    """Return ``HH:MM:SS`` or ``None`` when unset; raises ``ValueError`` when invalid."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    match = _TIME_RE.match(str(value).strip())
+    if not match or int(match.group(1)) > 23:
+        raise ValueError("video_start_time must be a clock time HH:MM:SS")
+    return f"{int(match.group(1)):02d}:{match.group(2)}:{match.group(3)}"
 
 
 def validate_roles(roles: dict[str, Any], aliases: set[str]) -> InterviewRoles:
@@ -84,21 +101,37 @@ def validate_roles(roles: dict[str, Any], aliases: set[str]) -> InterviewRoles:
     return InterviewRoles(teacher_alias=teacher, student_pairs=tuple(pairs), video_start_time=video_start)
 
 
+def validate_count(name: str, value: Any) -> int:
+    """A number of moments within ``COUNT_LIMITS``; raises ``ValueError`` with a translated message."""
+    low, high = COUNT_LIMITS[name]
+    try:
+        number = float(str(value).strip().replace(",", "."))
+    except ValueError:
+        number = float("nan")
+    if isinstance(value, bool) or not number.is_integer() or not low <= number <= high:
+        message = (gettext("The number of primary moments must be a whole number from %(low)s to %(high)s.")
+                   if name == "primary_moment_count"
+                   else gettext("The number of reserve moments must be a whole number from %(low)s to %(high)s."))
+        raise ValueError(message % {"low": low, "high": high})
+    return int(number)
+
+
+def _config(stored: dict[str, Any], aliases: set[str]) -> InterviewConfig:
+    defaults = {"primary_moment_count": DEFAULT_PRIMARY_COUNT, "reserve_moment_count": DEFAULT_RESERVE_COUNT}
+    counts = {name: validate_count(name, stored.get(name, defaults[name])) for name in _COUNT_KEYS}
+    return InterviewConfig(roles=validate_roles(stored, aliases), primary_count=counts["primary_moment_count"],
+                           reserve_count=counts["reserve_moment_count"])
+
+
 def load_interview_config(project: Project) -> InterviewConfig:
-    stored = project.interview_config or {}
-    aliases = {dataset.alias for dataset in project.datasets.all()}
-    roles = validate_roles(stored, aliases)
-    vsr = VsrConfig.from_dict(stored.get("vsr"))
-    return InterviewConfig(roles=roles, vsr=vsr)
+    return _config(project.interview_config or {}, {dataset.alias for dataset in project.datasets.all()})
 
 
 def apply_interview_config(project: Project, updates: dict[str, Any]) -> dict[str, Any]:
     """Merge ``updates`` into stored interview settings; raises ``ValueError`` when invalid."""
     stored = project.interview_config or {}
-    aliases = {dataset.alias for dataset in project.datasets.all()}
-    roles = validate_roles({**stored, **{key: updates[key] for key in _ROLE_KEYS if key in updates}}, aliases)
-    vsr = VsrConfig.from_dict({**(stored.get("vsr") or {}), **(updates.get("vsr") or {})})
-    return InterviewConfig(roles=roles, vsr=vsr).to_storage()
+    merged = {**stored, **{key: updates[key] for key in (*_ROLE_KEYS, *_COUNT_KEYS) if key in updates}}
+    return _config(merged, {dataset.alias for dataset in project.datasets.all()}).to_storage()
 
 
 def rename_interview_alias(project: Project, old: str, new: str) -> None:
@@ -131,23 +164,11 @@ def forget_interview_alias(project: Project, alias: str) -> None:
     project.save(update_fields=["interview_config", "updated_at"])
 
 
-def vsr_field_rows(values: dict[str, Any]) -> list[dict[str, Any]]:
-    from ..vsr_params import VSR_PARAMS
-
-    return field_rows(VSR_PARAMS, values)
-
-
-def vsr_changed_label(values: dict[str, Any]) -> str | None:
-    from ..vsr_params import VSR_PARAMS
-
-    return changed_label(VSR_PARAMS, values)
-
-
 def compute_vsr_signature(project: Project) -> str:
-    """Hash of datasets, interview roles, VSR parameters and the analysis run (for ``AnalysisResult`` kind ``vsr``).
+    """Hash of datasets, interview roles, moment counts and the analysis run (for ``AnalysisResult`` kind ``vsr``).
 
-    The proposals are computed from the stored analysis run's signals, so running the
-    analysis again makes them stale too.
+    The moments are chosen from the stored analysis run, so running the analysis with
+    other settings makes them stale too.
     """
     datasets = included_datasets(project)
     config = load_interview_config(project)
@@ -155,13 +176,6 @@ def compute_vsr_signature(project: Project) -> str:
     document = {
         "analysis": analysis.signature if analysis is not None else None,
         "datasets": [[str(dataset.id), dataset.alias, dataset.file_sha256] for dataset in datasets],
-        "teacher_alias": config.roles.teacher_alias,
-        "student_pairs": [list(pair) for pair in config.roles.student_pairs],
-        "video_start_time": config.roles.video_start_time,
-        "vsr": config.vsr.model_dump(),
+        **config.to_storage(),
     }
     return hashlib.sha256(json.dumps(document, sort_keys=True).encode("utf-8")).hexdigest()
-
-
-def dyad_labels(pairs: tuple[tuple[str, str], ...]) -> list[str]:
-    return [gettext("Pair %(left)s + %(right)s") % {"left": left, "right": right} for left, right in pairs]

@@ -1,13 +1,15 @@
-"""The Interviews step: participants, proposals from the VSR protocol, staleness, PL/EN."""
+"""The Interviews step: participants, moments chosen from the Analysis, previews, staleness, PL/EN."""
 
 from __future__ import annotations
 
+import json
+import re
 from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.utils import translation
 
 from gsr.models import AnalysisResult, Project
@@ -55,18 +57,39 @@ def _roles(**overrides) -> dict:
     return data
 
 
+def _chart_data(html: str) -> list[dict]:
+    """The data of every moment preview on the page."""
+    return [json.loads(match) for match in re.findall(
+        r'<script id="moment-chart-[^"]+-data" type="application/json">(.*?)</script>', html)]
+
+
 @pytest.mark.django_db
 def test_interviews_page_needs_the_analysis_first(client, lesson) -> None:
     with translation.override("en"):
         response = client.get(reverse("gsr:interviews", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en")
     html = response.content.decode()
     assert response.status_code == 200
-    assert "Run the analysis first" in html
+    assert "Run the Analysis first." in html
     assert 'name="teacher_alias"' in html
+    assert 'name="primary_moment_count" value="5"' in html and 'name="reserve_moment_count" value="3"' in html
 
 
 @pytest.mark.django_db
-def test_propose_moments_saves_roles_and_shows_one_tab_per_interview(client, lesson) -> None:
+def test_interviews_step_has_no_settings_of_its_own(client, lesson) -> None:
+    compute_analysis(lesson)
+    html = client.get(reverse("gsr:interviews", args=[lesson.pk])).content.decode()
+    assert 'id="settings-drawer"' not in html
+    assert "vsr_sync_threshold" not in html and "vsr_window_seconds" not in html
+    # The bar names the Analysis settings the moments come from and links to them.
+    assert "Próg: 0,6" in html and "Okno: 30 s" in html
+    assert reverse("gsr:analysis", args=[lesson.pk]) in html
+    for name in ("gsr:interviews_settings", "gsr:interviews_reset"):
+        with pytest.raises(NoReverseMatch):
+            reverse(name, args=[lesson.pk])
+
+
+@pytest.mark.django_db
+def test_choose_moments_saves_roles_and_shows_one_tab_per_interview(client, lesson) -> None:
     compute_analysis(lesson)
     response = client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles(), **HTMX)
     html = response.content.decode()
@@ -82,11 +105,85 @@ def test_propose_moments_saves_roles_and_shows_one_tab_per_interview(client, les
 
     for tab in ("interview-1", "interview-2", "interview-3"):
         assert f'data-tab="{tab}"' in html
-    # Justifications quote the document verbatim, with the page.
-    assert "Synchronous = above 0.8" in html
-    assert 'class="doc-quote" lang="en"' in html
     assert "lesson-timeline" in html
     assert 'id="rail-steps" hx-swap-oob="true"' in html
+
+
+@pytest.mark.django_db
+def test_every_moment_has_a_preview_and_one_polish_sentence(client, lesson) -> None:
+    compute_analysis(lesson)
+    client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles())
+    html = client.get(reverse("gsr:interviews", args=[lesson.pk])).content.decode()
+    result = get_result(lesson, AnalysisResult.KIND_VSR)
+    moment_count = sum(len(interview["moments"]) for interview in result.payload["interviews"])
+
+    assert moment_count
+    assert html.count('data-chart="momentSignals"') == moment_count
+    assert html.count('class="moment-sentence"') == moment_count
+    assert "schematu VSR:" in html
+    # No English quotes from the VSR document.
+    assert "doc-quote" not in html and "Synchronous = above 0.8" not in html and "Select this moment" not in html
+
+    charts = _chart_data(html)
+    assert len(charts) == moment_count
+    for chart in charts:
+        assert [len(series["points"]) > 2 for series in chart["series"]] == [True, True]
+        # The moment is shaded inside the shown range, with context around it.
+        assert chart["range"]["min"] <= chart["moment"]["start"] < chart["moment"]["end"] <= chart["range"]["max"]
+        assert chart["series"][0]["points"][0][0] <= chart["moment"]["start"]
+
+
+@pytest.mark.django_db
+def test_sentences_follow_the_ui_language(client, lesson) -> None:
+    compute_analysis(lesson)
+    client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles())
+    with translation.override("en"):
+        html = client.get(reverse("gsr:interviews", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
+    assert "VSR flow chart step" in html
+    assert "schematu VSR" not in html
+
+
+@pytest.mark.django_db
+def test_the_number_of_moments_is_the_interview_settings_only(client, lesson) -> None:
+    compute_analysis(lesson)
+    response = client.post(reverse("gsr:interviews", args=[lesson.pk]),
+                           _roles(primary_moment_count="2", reserve_moment_count="1"), **HTMX)
+    assert response.status_code == 200
+
+    result = get_result(lesson, AnalysisResult.KIND_VSR)
+    assert result.payload["counts"] == {"primary": 2, "reserve": 1}
+    for interview in result.payload["interviews"]:
+        assert len(interview["moments"]) <= 3
+        assert interview["stats"]["primary_target"] == 2
+
+
+@pytest.mark.django_db
+def test_an_outdated_analysis_is_not_worked_around(client, lesson) -> None:
+    compute_analysis(lesson)
+    lesson.pipeline_config = {**lesson.pipeline_config, "synchrony_threshold": 0.5}
+    lesson.save()
+
+    with translation.override("en"):
+        response = client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles(), HTTP_ACCEPT_LANGUAGE="en",
+                               **HTMX)
+    html = response.content.decode()
+    assert "Run the Analysis first" in html
+    assert get_result(lesson, AnalysisResult.KIND_VSR) is None
+    assert _role_submits(client, lesson) == [(True, "Choose moments")]
+
+
+@pytest.mark.django_db
+def test_moments_of_an_outdated_analysis_are_shown_as_outdated(client, lesson) -> None:
+    compute_analysis(lesson)
+    client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles())
+    lesson.pipeline_config = {**lesson.pipeline_config, "synchrony_threshold": 0.5}
+    lesson.save()
+
+    with translation.override("en"):
+        html = client.get(reverse("gsr:interviews", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
+    assert "Outdated result" in html and "Up to date" not in html
+    assert "The Analysis changed since these moments were chosen." in html
+    assert _role_submits(client, lesson) == [(True, "Choose again")]
 
 
 @pytest.mark.django_db
@@ -151,29 +248,25 @@ def _role_submits(client, project: Project) -> list[tuple]:
 
 
 @pytest.mark.django_db
-def test_run_bar_holds_the_single_propose_action(client, lesson) -> None:
-    assert _role_submits(client, lesson) == [(True, "Propose moments")]
+def test_run_bar_holds_the_single_choose_action(client, lesson) -> None:
+    assert _role_submits(client, lesson) == [(True, "Choose moments")]
 
     compute_analysis(lesson)
-    assert _role_submits(client, lesson) == [(False, "Propose moments")]
+    assert _role_submits(client, lesson) == [(False, "Choose moments")]
 
     client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles(), **HTMX)
-    assert _role_submits(client, lesson) == [(False, "Propose moments")]
-
-    lesson.interview_config = apply_interview_config(lesson, {"vsr": {"vsr_sync_threshold": 0.7}})
-    lesson.save()
-    assert _role_submits(client, lesson) == [(False, "Recompute")]
+    assert _role_submits(client, lesson) == [(False, "Choose again")]
 
 
 @pytest.mark.django_db
-def test_changing_roles_or_rerunning_the_analysis_marks_the_proposals_stale(lesson) -> None:
+def test_changing_roles_or_rerunning_the_analysis_marks_the_moments_stale(lesson) -> None:
     compute_analysis(lesson)
     lesson.interview_config = apply_interview_config(lesson, {"student_pairs": [["S1", "S2"]]})
     lesson.save()
     result = compute_interviews(lesson)
     assert not is_stale(lesson, result)
 
-    lesson.interview_config = apply_interview_config(lesson, {"vsr": {"vsr_sync_threshold": 0.7}})
+    lesson.interview_config = apply_interview_config(lesson, {"primary_moment_count": 4})
     lesson.save()
     assert is_stale(lesson, result)
 
@@ -213,27 +306,6 @@ def test_invalid_video_start_shows_a_translated_error(client, lesson) -> None:
     assert "Początek nagrania wideo musi być godziną w formacie HH:MM:SS" in html
     assert "video_start_time must be" not in html
     assert get_result(lesson, AnalysisResult.KIND_VSR) is None
-
-
-@pytest.mark.django_db
-def test_settings_drawer_applies_vsr_parameters_and_reset_restores_the_document(client, lesson) -> None:
-    compute_analysis(lesson)
-    lesson.interview_config = apply_interview_config(lesson, {"student_pairs": [["S1", "S2"]]})
-    lesson.save()
-    response = client.post(
-        reverse("gsr:interviews_settings", args=[lesson.pk]),
-        {"vsr_sync_threshold": "0.7", "vsr_primary_moment_count": "4"},
-        **HTMX,
-    )
-    assert response.status_code == 200
-    result = get_result(lesson, AnalysisResult.KIND_VSR)
-    assert result.config["vsr"]["vsr_sync_threshold"] == 0.7
-    assert result.payload["interviews"][0]["stats"]["primary_target"] == 4
-
-    client.post(reverse("gsr:interviews_reset", args=[lesson.pk]), **HTMX)
-    lesson.refresh_from_db()
-    assert lesson.interview_config["vsr"]["vsr_sync_threshold"] == 0.8
-    assert lesson.interview_config["student_pairs"] == [["S1", "S2"]]
 
 
 @pytest.mark.django_db
