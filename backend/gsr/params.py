@@ -15,10 +15,12 @@ from django.utils.formats import number_format
 from django.utils.translation import gettext, ngettext
 from django.utils.translation import gettext_lazy as _
 
-from .pipeline.config import PipelineConfig
+from .pipeline.config import VSR_DOCUMENT_SETTINGS, PipelineConfig
+from .pipeline.vsr import DEFAULT_PRIMARY_COUNT, DEFAULT_RESERVE_COUNT
 from .templatetags.gsr_tags import input_value
 
-DEFAULTS = PipelineConfig().model_dump()
+# The application's defaults: GSRv2's, with the values the VSR Interview Flow Chart suggests.
+DEFAULTS = {**PipelineConfig().model_dump(), **VSR_DOCUMENT_SETTINGS}
 
 
 @dataclass(frozen=True)
@@ -414,6 +416,33 @@ def analysis_summary(values: dict[str, Any], applied: dict[str, Any] | None = No
         {**{param.name: _("Synchronization") for param in (*SYNCHRONY_ESSENTIAL, *SYNCHRONY_ADVANCED)},
          **{param.name: _("Co-arousal") for param in (*COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED)}},
     )
+
+
+def reset_analysis(stored: dict[str, Any]) -> dict[str, Any]:
+    """The stored settings with every Analysis setting back at the application's defaults."""
+    names = {param.name for param in ANALYSIS_PARAMS}
+    return {**{key: value for key, value in (stored or {}).items() if key not in names}, **VSR_DOCUMENT_SETTINGS}
+
+
+# The interview moment counts the document asks for (page 1: "A total of 5 moments discussed per interview
+# (ideally)", "Aim to identify more (e.g. 8)").
+VSR_DOCUMENT_COUNTS = {"primary_moment_count": DEFAULT_PRIMARY_COUNT, "reserve_moment_count": DEFAULT_RESERVE_COUNT}
+
+
+def vsr_document_rows(values: dict[str, Any], counts: dict[str, Any]) -> list[dict[str, Any]]:
+    """The settings the VSR Interview Flow Chart gives a value for: the project's value, the document's, and whether
+    they differ. ``values`` are the Analysis settings, ``counts`` the stored interview moment counts."""
+    labels = {param.name: param.label for param in ANALYSIS_PARAMS}
+    rows = [(labels[name], values.get(name), document) for name, document in VSR_DOCUMENT_SETTINGS.items()]
+    rows += [
+        (gettext("Primary moments per interview"), counts.get("primary_moment_count"), DEFAULT_PRIMARY_COUNT),
+        (gettext("Reserve moments per interview"), counts.get("reserve_moment_count"), DEFAULT_RESERVE_COUNT),
+    ]
+    return [
+        {"label": label, "value": display_number(value), "document": display_number(document),
+         "differs": value != document}
+        for label, value, document in rows
+    ]
 
 
 def _labelled_params() -> list[tuple[Param, str]]:

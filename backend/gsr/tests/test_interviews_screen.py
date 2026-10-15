@@ -405,3 +405,53 @@ def test_outdated_steps_point_to_the_first_outdated_step_and_refresh_in_order(cl
     client.post(reverse("gsr:dataset_exclude", args=[lesson.pk, dataset.pk]), {"next": "analysis"})
     assert not is_stale(lesson, get_result(lesson, AnalysisResult.KIND_CLEANING))
     assert not is_stale(lesson, get_result(lesson, AnalysisResult.KIND_ANALYSIS))
+
+
+@pytest.mark.django_db
+def test_the_timeline_shows_every_candidate_and_the_whole_lesson_signals(client, lesson) -> None:
+    compute_analysis(lesson)
+    client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles())
+    result = get_result(lesson, AnalysisResult.KIND_VSR)
+    interviews = result.payload["interviews"]
+    for interview in interviews:
+        # Every candidate of every step is stored, selected or not; the selected moments are among them.
+        steps = [candidate["step"] for candidate in interview["candidates"]]
+        assert steps == sorted(steps)
+        assert {str(step): steps.count(step) for step in range(1, 6)} == interview["candidate_counts"]
+        spans = {(item["step"], item["start_seconds"], item["end_seconds"]) for item in interview["candidates"]}
+        assert all((moment["step"], moment["start_seconds"], moment["end_seconds"]) in spans
+                   for moment in interview["moments"])
+    assert any(len(interview["candidates"]) > len(interview["moments"]) for interview in interviews)
+
+    with translation.override("en"):
+        html = client.get(reverse("gsr:interviews", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
+    candidate_total = sum(len(interview["candidates"]) for interview in interviews)
+    assert html.count('class="lt-candidate ') == candidate_total
+    assert html.count("data-candidate-panel") == candidate_total
+    assert html.count('class="lt-candidate other"') == html.count('class="candidate-detail other"') > 0
+    assert html.count('class="lt-candidate primary"') + html.count('class="lt-candidate reserve"') == sum(
+        len(interview["moments"]) for interview in interviews)
+    assert html.count('class="lt-lane-label" title=') == 5 * len(interviews)
+    assert html.count('name="step"') == html.count('class="candidate-detail other"') + html.count(
+        'class="candidate-detail rejected"')
+    assert html.count('data-chart="lessonSignals"') == len(interviews)
+    charts = [json.loads(match) for match in re.findall(
+        r'<script id="lesson-chart-[^"]+-data" type="application/json">(.*?)</script>', html)]
+    for chart, interview in zip(charts, interviews):
+        assert len(chart["candidates"]) == len(interview["candidates"])
+        assert [len(series["points"]) for series in chart["series"]] == [len(result.payload["trace_seconds"])] * 2
+        assert {candidate["state"] for candidate in chart["candidates"]} <= {"primary", "reserve", "other", "rejected"}
+
+
+@pytest.mark.django_db
+def test_moments_chosen_before_the_candidates_were_kept_ask_to_choose_again(client, lesson) -> None:
+    compute_analysis(lesson)
+    client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles())
+    result = get_result(lesson, AnalysisResult.KIND_VSR)
+    for interview in result.payload["interviews"]:
+        del interview["candidates"]
+    result.save()
+    with translation.override("en"):
+        html = client.get(reverse("gsr:interviews", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
+    assert "Choose again to see all the moments the Analysis found." in html
+    assert 'class="lt-candidate' not in html and 'class="lt-moment' in html

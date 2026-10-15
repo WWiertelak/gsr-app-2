@@ -8,6 +8,8 @@ from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
+from .pipeline.config import VSR_DOCUMENT_SETTINGS
+
 SAFE_FILENAME = re.compile(r"[^a-zA-Z0-9._-]+")
 
 
@@ -24,12 +26,18 @@ def dataset_upload_path(instance: "Dataset", filename: str) -> str:
     return f"projects/{instance.project_id}/uploads/{timestamp}_{uuid4().hex}_{sanitize_filename(filename)}"
 
 
+def default_pipeline_config() -> dict:
+    """A new project's settings: the values the VSR Interview Flow Chart suggests over GSRv2's defaults."""
+    return dict(VSR_DOCUMENT_SETTINGS)
+
+
 class Project(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True, default="")
-    # Stored PipelineConfig overrides (gsr.pipeline.config field names).
-    pipeline_config = models.JSONField(default=dict, blank=True)
+    # Stored PipelineConfig overrides (gsr.pipeline.config field names); projects saved before the VSR document
+    # values became the defaults keep their stored (possibly empty) overrides, i.e. GSRv2's defaults.
+    pipeline_config = models.JSONField(default=default_pipeline_config, blank=True)
     # Interview roles (teacher, student pairs) and the number of interview moments.
     # Outside pipeline_config so role changes do not invalidate analysis results.
     interview_config = models.JSONField(default=dict, blank=True)

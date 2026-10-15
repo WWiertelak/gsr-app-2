@@ -19,7 +19,7 @@ from PIL import Image
 
 from gsr import charts, params
 from gsr.models import AnalysisResult, Dataset, Project
-from gsr.pipeline.config import PipelineConfig
+from gsr.pipeline.config import VSR_DOCUMENT_SETTINGS, PipelineConfig
 from gsr.pipeline.preprocessing import build_stage_export_frame, run_pipeline, serialize_preview
 from gsr.services.analysis import analyze_files
 from gsr.services.datasets import add_dataset
@@ -710,18 +710,19 @@ def test_analysis_settings_live_in_the_drawer_with_run_and_apply_buttons(client,
     form = _settings_form(page)
     assert '<form class="drawer-form" id="analysis-settings"' in form and "Analysis settings</h2>" in form
     assert '<input type="hidden" name="tab" value="synchronization" data-tab-input>' in form
+    # The fixture keeps GSRv2's thresholds, like a project saved before the VSR document values became the defaults.
     assert ("<li>Threshold: 0.6</li><li>Window: 30 s</li><li>High/Low z: 1/-1</li><li>Min. participants: 2</li>"
-            "<li>2 changed</li>") in _run_bar(page)
+            "<li>4 changed</li>") in _run_bar(page)
     assert 'class="hint"' not in form and 'role="tooltip" id="tip-contagion_surrogate_count"' in form
     assert ">Apply settings</button>" in form
     # Advanced sections holding a changed setting open (both surrogate counts differ here); others stay shut.
     assert '<details class="advanced" id="advanced-synchrony" open>' in form
     assert '<details class="advanced" id="advanced-coarousal" open>' in form
-    project.pipeline_config = {}
+    project.pipeline_config = dict(VSR_DOCUMENT_SETTINGS)
     project.save()
     form = _settings_form(client.get(reverse("gsr:analysis", args=[project.pk])).content.decode())
     assert '<details class="advanced" id="advanced-synchrony">' in form and 'class="badge changed"' not in form
-    project.pipeline_config = dict(FAST, synchrony_dtw_enabled=False)
+    project.pipeline_config = dict(FAST, synchrony_dtw_enabled=False, **VSR_DOCUMENT_SETTINGS)
     project.save()
     form = _settings_form(client.get(reverse("gsr:analysis", args=[project.pk])).content.decode())
     assert '<div class="f bool changed">' in form and '<span class="badge changed">3 changed</span>' in form
@@ -761,7 +762,7 @@ def test_polish_screens_use_polish_numbers_and_labels(client, project) -> None:
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
     assert "Próg: 0,75" in _run_bar(page) and "Próg wysoki/niski z: 1/-1" in _run_bar(page)
     form = _settings_form(page)
-    assert "zmienione (domyślnie 0,6)" in form
+    assert "zmienione (domyślnie 0,8)" in form
     # The input fields keep dot decimals: that is what <input type="number"> accepts.
     assert 'name="synchrony_threshold" step="any" value="0.75"' in form
     fragment = _run_analysis(client, project).content.decode()
@@ -919,7 +920,8 @@ def test_analysis_reset_keeps_cleaning_settings(client, project) -> None:
     project.save()
     client.post(reverse("gsr:analysis_reset", args=[project.pk]), {"tab": "coarousal"})
     project.refresh_from_db()
-    assert project.pipeline_config == {"median_kernel": 9}
+    # The Analysis settings go back to the application's defaults, the VSR document values included.
+    assert project.pipeline_config == {"median_kernel": 9, **VSR_DOCUMENT_SETTINGS}
 
 
 # ─── 4 Export ────────────────────────────────────────────────────────────────

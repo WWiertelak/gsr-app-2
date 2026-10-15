@@ -31,7 +31,7 @@ from django.views.decorators.http import require_POST
 from . import charts, params, vsr_text
 from .errors import UserError, describe, no_overlap_message
 from .models import AnalysisResult, Dataset, InterviewMoment, Project
-from .pipeline.config import PipelineConfig
+from .pipeline.config import VSR_DOCUMENT_SETTINGS, PipelineConfig
 from .pipeline.vsr import PRIMARY, RESERVE
 from .reporting.report import render_report_pdf, report_text, resolve_lang
 from .reporting.vsr_charts import AVERAGE_COLOR, lesson_ticks
@@ -85,7 +85,7 @@ def _current_values(project: Project) -> dict[str, Any]:
     try:
         return PipelineConfig.from_dict(project.pipeline_config).model_dump()
     except ValueError:
-        return PipelineConfig().model_dump()
+        return dict(params.DEFAULTS)
 
 
 def _applied_values(result: AnalysisResult | None) -> dict[str, Any] | None:
@@ -678,6 +678,7 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         "error": error,
         "analysis_blocked": analysis_blocked,
         "colors": colors,
+        "vsr_document": _vsr_document(project, values, "analysis"),
     }
     if result is not None:
         payload = result.payload
@@ -751,10 +752,12 @@ def analysis(request: HttpRequest, pk: Any) -> HttpResponse:
 @require_POST
 def analysis_reset(request: HttpRequest, pk: Any) -> HttpResponse:
     project = _project(pk)
-    names = {param.name for param in params.ANALYSIS_PARAMS}
-    project.pipeline_config = {key: value for key, value in (project.pipeline_config or {}).items()
-                               if key not in names}
+    project.pipeline_config = params.reset_analysis(project.pipeline_config)
     project.save(update_fields=["pipeline_config", "updated_at"])
+    return _analysis_after_settings(request, project)
+
+
+def _analysis_after_settings(request: HttpRequest, project: Project) -> HttpResponse:
     tab = request.POST.get("tab") if request.POST.get("tab") in ANALYSIS_TABS else ANALYSIS_TABS[0]
     if not _is_htmx(request):
         return redirect(f"{reverse('gsr:analysis', args=[project.pk])}?tab={tab}")
@@ -762,9 +765,31 @@ def analysis_reset(request: HttpRequest, pk: Any) -> HttpResponse:
                  _analysis_context(project, tab))
 
 
+def _vsr_document(project: Project, values: dict[str, Any], page: str) -> dict[str, Any]:
+    """The values the VSR Interview Flow Chart suggests next to the project's, for the "use them" action."""
+    rows = params.vsr_document_rows(values, _interview_config(project).to_storage())
+    return {"rows": rows, "differs": any(row["differs"] for row in rows), "page": page,
+            "action": reverse("gsr:vsr_defaults", args=[project.pk])}
+
+
+@require_POST
+def vsr_defaults(request: HttpRequest, pk: Any) -> HttpResponse:
+    """Set the Analysis settings and the moment counts the VSR Interview Flow Chart suggests; the rest stays."""
+    project = _project(pk)
+    project.pipeline_config = {**(project.pipeline_config or {}), **VSR_DOCUMENT_SETTINGS}
+    project.interview_config = {**(project.interview_config or {}), **params.VSR_DOCUMENT_COUNTS}
+    project.save(update_fields=["pipeline_config", "interview_config", "updated_at"])
+    if request.POST.get("page") == "interviews":
+        if not _is_htmx(request):
+            return _interviews_redirect(request, project, None)
+        return _interviews_page(request, project, request.POST.get("tab"))
+    return _analysis_after_settings(request, project)
+
+
 # ─── 4 Interviews ────────────────────────────────────────────────────────────
 
 MOMENT_CHART_HEIGHT = 190
+LESSON_CHART_HEIGHT = 340
 
 
 def _interview_config(project: Project) -> InterviewConfig:
@@ -844,10 +869,7 @@ def _moment_view(item: curation.CuratedMoment, interview: dict[str, Any], payloa
     """One card of an interview's list: the moment as the researcher kept it, its preview and its justification."""
     row = item.row
     lesson = payload.get("lesson") or {"start_seconds": 0.0, "end_seconds": 0.0}
-    start, span = lesson["start_seconds"], lesson["end_seconds"] - lesson["start_seconds"]
     duration = row.end_seconds - row.start_seconds
-    left = min(max((row.start_seconds - start) / span, 0.0), 1.0) * 100 if span > 0 else 0.0
-    width = min(max(duration / span * 100, 0.6), 100 - left) if span > 0 else 100.0
     view = {
         "id": str(row.pk),
         "row": row,
@@ -865,7 +887,8 @@ def _moment_view(item: curation.CuratedMoment, interview: dict[str, Any], payloa
         "duration_seconds": duration,
         "start_clock": item.start_clock,
         "end_clock": item.end_clock,
-        "bar": {"left": f"{left:.2f}", "width": f"{width:.2f}"},
+        "bar": _bar(row.start_seconds, row.end_seconds, lesson),
+        "from_timeline": not row.is_manual and bool(row.proposal.get(curation.FROM_TIMELINE)),
         "chart": _moment_chart(payload, interview, row, colors, item.number),
         "chart_height": MOMENT_CHART_HEIGHT,
     }
@@ -875,14 +898,83 @@ def _moment_view(item: curation.CuratedMoment, interview: dict[str, Any], payloa
     return view
 
 
+def _bar(start: float, end: float, lesson: dict[str, Any]) -> dict[str, str]:
+    """Left edge and width (percent of the analysed period) of a stretch on the lesson timeline."""
+    origin, span = lesson["start_seconds"], lesson["end_seconds"] - lesson["start_seconds"]
+    left = min(max((start - origin) / span, 0.0), 1.0) * 100 if span > 0 else 0.0
+    width = min(max((end - start) / span * 100, 0.6), 100 - left) if span > 0 else 100.0
+    return {"left": f"{left:.2f}", "width": f"{width:.2f}"}
+
+
+# A candidate's place relative to the interview's list: on it (primary or reserve), rejected from it, or not on it.
+CANDIDATE_OTHER = "other"
+CANDIDATE_REJECTED = "rejected"
+
+
+def _candidate_views(interview: dict[str, Any], lesson: dict[str, Any],
+                     curated: list[curation.CuratedMoment], tab: str) -> list[dict[str, Any]]:
+    """Every candidate moment of the interview (``pipeline/vsr`` ``candidates``) with where it stands on the list."""
+    on_list = {identity: item for item in curated if (identity := curation.row_identity(item.row)) is not None}
+    views = []
+    for candidate in interview.get("candidates", []):
+        item = on_list.get(curation.candidate_identity(candidate))
+        if item is None:
+            state, number, moment_id = CANDIDATE_OTHER, None, None
+        else:
+            state, number, moment_id = item.role or CANDIDATE_REJECTED, item.number, str(item.row.pk)
+        step, rank = candidate["step"], candidate["candidate_rank"]
+        views.append({
+            "id": f"{tab}-c{step}-{rank}",
+            "step": step,
+            "rank": rank,
+            "count": candidate["candidate_count"],
+            "state": state,
+            "number": number,
+            "moment_id": moment_id,
+            "start_seconds": candidate["start_seconds"],
+            "end_seconds": candidate["end_seconds"],
+            "duration_seconds": candidate["end_seconds"] - candidate["start_seconds"],
+            "start_clock": candidate.get("start_clock"),
+            "end_clock": candidate.get("end_clock"),
+            "bar": _bar(candidate["start_seconds"], candidate["end_seconds"], lesson),
+            "step_title": vsr_text.step_title(step),
+            "sentence": vsr_text.justification(candidate, interview["kind"]),
+        })
+    return views
+
+
+def _lesson_chart(payload: dict[str, Any], interview: dict[str, Any], colors: list[str | None],
+                  candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The interview's two signals over the whole analysed period with every candidate shaded, for ``lessonSignals``
+    (static/gsr/js/charts.js); None for moments chosen before the signals were stored."""
+    minutes = [round(seconds / 60.0, 4) for seconds in payload.get("trace_seconds") or []]
+    trace = interview.get("trace") or {}
+    if len(minutes) < 2 or any(len(trace.get(side) or []) != len(minutes) for side in ("a", "b")):
+        return None
+    return {
+        "series": [
+            {"alias": name, "color": color or AVERAGE_COLOR, "points": [[x, y] for x, y in zip(minutes, values)]}
+            for name, color, values in zip(_signal_names(interview), colors, (trace["a"], trace["b"]))
+        ],
+        "candidates": [
+            {"id": item["id"], "start": item["start_seconds"] / 60.0, "end": item["end_seconds"] / 60.0,
+             "step": item["step"], "state": item["state"], "number": item["number"]}
+            for item in candidates
+        ],
+        "range": {"min": minutes[0], "max": minutes[-1]},
+    }
+
+
 def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, Any],
                     curated: list[curation.CuratedMoment], colors: dict[str, str]) -> dict[str, Any]:
     lesson = payload.get("lesson") or {"start_seconds": 0.0, "end_seconds": 0.0}
     quality = payload.get("quality", {})
     line_colors = interview_colors(colors, interview)
     counts = interview.get("candidate_counts", {})
+    tab = f"interview-{index + 1}"
+    candidates = _candidate_views(interview, lesson, curated, tab)
     return {
-        "tab": f"interview-{index + 1}",
+        "tab": tab,
         "kind": interview["kind"],
         "label": _interview_label(interview),
         "participants": interview["participants"],
@@ -897,6 +989,15 @@ def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, An
         "kept_count": sum(1 for item in curated if item.role is not None),
         "stats": interview["stats"],
         "ticks": lesson_ticks(lesson["start_seconds"], lesson["end_seconds"]),
+        # Moments chosen before every candidate was stored have none: choosing again adds them.
+        "has_candidates": "candidates" in interview,
+        "candidate_lanes": [
+            {**step, "candidates": [item for item in candidates if item["step"] == step["number"]]}
+            for step in vsr_text.steps()
+        ],
+        "candidate_list": candidates,
+        "lesson_chart": _lesson_chart(payload, interview, line_colors, candidates),
+        "lesson_chart_height": LESSON_CHART_HEIGHT,
         "poor_signals": [{"alias": alias, "pct": number_format(quality[alias]["rejected_pct"], 0)}
                          for alias in interview["participants"]
                          if quality.get(alias, {}).get("level") == "poor"],
@@ -925,6 +1026,7 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
         "step_names": vsr_text.steps(),
         # The card form the last action came from, reopened with its values and its error.
         "moment_form": moment_form or {},
+        "vsr_document": _vsr_document(project, _current_values(project), "interviews"),
     }
     if result is not None:
         payload = result.payload
@@ -1057,6 +1159,24 @@ def interview_moment_add(request: HttpRequest, pk: Any) -> HttpResponse:
         start, end = _moment_times(request)
         moment = curation.add_manual(project, result, key, start, end, request.POST.get("reason", ""),
                                      request.POST.get("note", ""))
+    except ValueError as exc:
+        return _moment_response(request, project, str(exc), form, "")
+    return _moment_response(request, project, None, form, f"moment-{moment.pk}")
+
+
+@require_POST
+def interview_candidate_add(request: HttpRequest, pk: Any) -> HttpResponse:
+    """Put a candidate moment from the lesson timeline on the interview's list (or restore it when rejected)."""
+    project = _project(pk)
+    result = _vsr_result_or_404(project)
+    key = request.POST.get("interview", "")
+    try:
+        step, rank = int(request.POST.get("step", "")), int(request.POST.get("rank", ""))
+    except ValueError:
+        raise Http404("Unknown candidate.") from None
+    form = {"id": f"candidate-{key}", "action": "candidate"}
+    try:
+        moment = curation.add_candidate(project, result, key, step, rank)
     except ValueError as exc:
         return _moment_response(request, project, str(exc), form, "")
     return _moment_response(request, project, None, form, f"moment-{moment.pk}")

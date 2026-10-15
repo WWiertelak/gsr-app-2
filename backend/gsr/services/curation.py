@@ -30,6 +30,9 @@ MAX_NOTE_LENGTH = 2000
 # The forms show whole seconds, so times within half a second count as equal.
 TIME_TOLERANCE = 0.5
 
+# Set on the proposal of a candidate the researcher added from the lesson timeline (not selected by the steps).
+FROM_TIMELINE = "added_from_timeline"
+
 _LESSON_TIME = re.compile(r"^(?:(\d+):)?(\d+):(\d{1,2}(?:[.,]\d+)?)$")
 
 
@@ -111,6 +114,11 @@ def sync_interview_moments(project: Project, result: AnalysisResult) -> None:
     those decisions through the same reconciliation as any other recomputation.
     """
     proposals = {interview["key"]: interview["moments"] for interview in result.payload.get("interviews", [])}
+    candidates = {
+        interview["key"]: {_identity(item["step"], item["start_seconds"], item["end_seconds"])
+                           for item in interview.get("candidates", [])}
+        for interview in result.payload.get("interviews", [])
+    }
     rows_by_key: dict[str, list[InterviewMoment]] = {}
     for row in project.interview_moments.order_by("position", "created_at"):
         rows_by_key.setdefault(row.interview_key, []).append(row)
@@ -136,7 +144,9 @@ def sync_interview_moments(project: Project, result: AnalysisResult) -> None:
             if row.is_manual or id(row) in matched:
                 survivors.append(row)
             elif is_decided(row):
-                row.needs_check = True
+                # A candidate the researcher added from the timeline needs no check while the Analysis still has it.
+                row.needs_check = not (row.proposal.get(FROM_TIMELINE)
+                                       and _row_identity(row) in candidates.get(key, set()))
                 survivors.append(row)
             else:
                 row.delete()
@@ -380,6 +390,54 @@ def add_manual(project: Project, result: AnalysisResult, key: str, start: float,
         end_seconds=end,
         reason=reason,
         note=note,
+        position=len(kept),
+    )
+    _renumber(kept + [moment] + [row for row in rows if row.status == InterviewMoment.STATUS_REJECTED])
+    return moment
+
+
+def candidate_identity(candidate: dict[str, Any]) -> tuple[int, float, float]:
+    return _identity(candidate["step"], candidate["start_seconds"], candidate["end_seconds"])
+
+
+def row_identity(row: InterviewMoment) -> tuple[int, float, float] | None:
+    """A proposed row's step and proposed times, as ``candidate_identity`` gives them; None for a manual one."""
+    return _row_identity(row)
+
+
+@transaction.atomic
+def add_candidate(project: Project, result: AnalysisResult, key: str, step: int, rank: int) -> InterviewMoment:
+    """Put a candidate from the lesson timeline (``step``, ``rank`` within the step) on the interview's list.
+
+    A candidate already on the list as a rejected moment is restored; otherwise it is added after the kept moments,
+    accepted, with its step's justification like a proposed moment.
+    """
+    interview = next((item for item in result.payload.get("interviews", []) if item["key"] == key), None)
+    if interview is None:
+        raise ValueError(gettext("Choose an interview of the current proposals."))
+    candidate = next((item for item in interview.get("candidates", [])
+                      if item["step"] == step and item["candidate_rank"] == rank), None)
+    if candidate is None:
+        raise ValueError(gettext("This candidate is no longer in the moments chosen from the Analysis. Reload the page."))
+    rows = ordered_rows(project.interview_moments.filter(interview_key=key))
+    existing = next((row for row in rows if _row_identity(row) == candidate_identity(candidate)), None)
+    if existing is not None:
+        if existing.status != InterviewMoment.STATUS_REJECTED:
+            raise ValueError(gettext("This candidate is already on the interview's list."))
+        set_status(existing, InterviewMoment.STATUS_ACCEPTED)
+        return existing
+    start, end = _validate_times(project, result, key, candidate["start_seconds"], candidate["end_seconds"])
+    kept = [row for row in rows if row.status != InterviewMoment.STATUS_REJECTED]
+    moment = InterviewMoment.objects.create(
+        project=project,
+        interview_key=key,
+        source=InterviewMoment.SOURCE_PROPOSED,
+        status=InterviewMoment.STATUS_ACCEPTED,
+        original_start_seconds=candidate["start_seconds"],
+        original_end_seconds=candidate["end_seconds"],
+        start_seconds=start,
+        end_seconds=end,
+        proposal={**candidate, "number": None, "status": None, "pass_number": None, FROM_TIMELINE: True},
         position=len(kept),
     )
     _renumber(kept + [moment] + [row for row in rows if row.status == InterviewMoment.STATUS_REJECTED])

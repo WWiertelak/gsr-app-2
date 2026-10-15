@@ -4,6 +4,7 @@
 {% block hidden %}<input type="hidden" name="tab" value="{{ tab }}" data-tab-input>{% endblock %}
 {% block title %}{% translate "Analysis settings" %}{% endblock %}
 {% block groups %}
+{% include "gsr/partials/vsr_document.html" with in_drawer=True %}
 <fieldset class="group">
   <legend class="group-head"><span>{% translate "Synchronization settings" %}</span></legend>
   <div class="fields">{% for row in sync_essential %}{% include "gsr/partials/param_field.html" %}{% endfor %}</div>

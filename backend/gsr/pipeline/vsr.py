@@ -397,13 +397,10 @@ def _clock_start(result: PipelineResult) -> datetime | None:
         return None
 
 
-def _moment_payload(proposal: Proposal, clock_start: datetime | None) -> dict[str, Any]:
-    candidate = proposal.candidate
+def _candidate_payload(candidate: Candidate, rank: int, count: int, clock_start: datetime | None) -> dict[str, Any]:
+    """A candidate moment as stored: its step, times, correlation and the Analysis episodes it was made from."""
     state_episode = candidate.shared if candidate.step == 1 else candidate.episode
     payload: dict[str, Any] = {
-        "number": proposal.number,
-        "status": proposal.status,
-        "pass_number": proposal.pass_number,
         "step": candidate.step,
         "start_seconds": round(candidate.start_seconds, 1),
         "end_seconds": round(candidate.end_seconds, 1),
@@ -415,8 +412,8 @@ def _moment_payload(proposal: Proposal, clock_start: datetime | None) -> dict[st
         # The interview's people in the shared state: 2 of 2 in a pair; for the teacher, the students with them.
         "in_state": state_episode.in_episode if state_episode and state_episode.state else None,
         "people": state_episode.people if state_episode and state_episode.state else None,
-        "candidate_rank": proposal.rank,
-        "candidate_count": proposal.candidate_count,
+        "candidate_rank": rank,
+        "candidate_count": count,
         "start_clock": None,
         "end_clock": None,
     }
@@ -424,6 +421,15 @@ def _moment_payload(proposal: Proposal, clock_start: datetime | None) -> dict[st
         payload["start_clock"] = (clock_start + timedelta(seconds=candidate.start_seconds)).strftime("%H:%M:%S")
         payload["end_clock"] = (clock_start + timedelta(seconds=candidate.end_seconds)).strftime("%H:%M:%S")
     return payload
+
+
+def _moment_payload(proposal: Proposal, clock_start: datetime | None) -> dict[str, Any]:
+    return {
+        "number": proposal.number,
+        "status": proposal.status,
+        "pass_number": proposal.pass_number,
+        **_candidate_payload(proposal.candidate, proposal.rank, proposal.candidate_count, clock_start),
+    }
 
 
 def _trace(values: np.ndarray, stride: int) -> list[float]:
@@ -446,6 +452,11 @@ def _interview_payload(key: str, kind: str, participants: list[str], frame: Any,
         "kind": kind,
         "participants": participants,
         "candidate_counts": {str(number): len(candidates) for number, candidates in steps.items()},
+        # Every moment that answers a step, selected or not, for the lesson timeline (STEPS 1-5, strongest first).
+        "candidates": [
+            _candidate_payload(candidate, rank, len(candidates), clock_start)
+            for candidates in steps.values() for rank, candidate in enumerate(candidates, start=1)
+        ],
         "moments": [_moment_payload(proposal, clock_start) for proposal in proposals],
         "stats": {
             "primary_count": primary,

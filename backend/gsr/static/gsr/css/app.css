@@ -529,8 +529,38 @@ button.icon:not(:disabled):hover { color: var(--error); background: var(--error-
 .step-counts .count { grid-column: 2; grid-row: 1; font-size: var(--fs-md); font-weight: 600; }
 .step-counts .step-type { grid-column: 1 / -1; }
 .tabs.interview-tabs { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
-.lesson-timeline { margin: var(--s2) 0 var(--s5); }
+.lesson-timeline { display: grid; gap: 3px; margin: var(--s2) 0 var(--s3); }
+.lt-lane { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); align-items: center; gap: var(--s2); }
+.lt-lane-label { overflow: hidden; color: var(--ink-2); font-size: var(--fs-xs); white-space: nowrap; text-overflow: ellipsis; }
+.lt-lane-label b { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 2px; border-radius: 50%; background: var(--sunken); color: var(--ink); }
 .lt-track { position: relative; height: 30px; border-radius: var(--r-sm); background: var(--sunken); }
+.lt-track.candidates { height: 20px; background: var(--canvas); }
+.lt-none { position: absolute; left: var(--s2); top: 2px; color: var(--ink-3); font-size: var(--fs-xs); }
+.lt-candidate { position: absolute; top: 2px; bottom: 2px; display: grid; place-items: center; min-width: 8px; border: 1.5px solid var(--accent); border-radius: 3px; background: var(--surface); color: var(--accent); font-size: 11px; line-height: 1; text-decoration: none; }
+.lt-candidate.primary { background: var(--accent); color: #fff; }
+.lt-candidate.reserve { background: var(--accent-weak); border-style: dashed; }
+.lt-candidate.other { border-color: var(--ink-3); background: var(--surface); }
+.lt-candidate.rejected { border-color: var(--line-2); background: repeating-linear-gradient(135deg, var(--sunken) 0 3px, var(--line-2) 3px 4px); }
+.lt-candidate:hover, .lt-candidate:focus-visible, .lt-candidate[aria-expanded="true"] { z-index: 1; outline: 2px solid var(--ink); outline-offset: 1px; }
+.legend.other { border-color: var(--ink-3); border-width: 1.5px; }
+.legend.rejected { border-color: var(--line-2); background: repeating-linear-gradient(135deg, var(--sunken) 0 3px, var(--line-2) 3px 4px); }
+.candidate-detail { display: none; margin: 0 0 var(--s3); padding: var(--s3) var(--s4); border: 1px solid var(--line-2); border-left: 3px solid var(--ink-3); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-pop); }
+.candidate-detail:target, .candidate-detail.open { display: block; }
+.js .candidate-detail:target:not(.open) { display: none; }
+.candidate-detail.primary, .candidate-detail.reserve { border-left-color: var(--accent); }
+.candidate-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); }
+.candidate-head .grow { flex: 1 1 auto; }
+.candidate-sentence { margin: var(--s2) 0; }
+.candidate-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.vsr-document { margin: 0 0 var(--s4); padding: var(--s3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--sunken); font-size: var(--fs-sm); }
+.vsr-document.differs { border-color: var(--warn); background: var(--warn-weak); }
+.vsr-document-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin: 0 0 var(--s1); }
+.vsr-document-rows { display: grid; gap: 2px; margin: 0 0 var(--s2); padding: 0; list-style: none; }
+.vsr-document-rows li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s2); }
+.vsr-document-rows li.differs .value { color: var(--warn); }
+.vsr-document p.muted { margin: var(--s1) 0 0; }
+.roles-form + .vsr-document { margin: var(--s4) 0 0; }
+@media (max-width: 640px) { .lt-lane { grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr); } }
 .lt-grid { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line-2); }
 .lt-moment { position: absolute; top: 3px; bottom: 3px; display: grid; place-items: center; min-width: 18px; border: 2px solid var(--accent); border-radius: 4px; background: var(--accent); color: #fff; font-size: var(--fs-xs); }
 .lt-moment.reserve { background: var(--surface); color: var(--accent); border-style: dashed; }

@@ -12,6 +12,7 @@ researcher's actions. Every action posts to gsr:interview_moment and swaps the m
     <span class="moment-when">{{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}</span>
     {% if moment.proposed_role == "reserve" %}<span class="muted small">{% translate "proposed as reserve" %}</span>
     {% elif moment.proposed_role == "primary" %}<span class="muted small">{% translate "proposed as primary" %}</span>{% endif %}
+    {% if moment.from_timeline %}<span class="muted small">{% translate "added from the timeline" %}</span>{% endif %}
     {% if moment.time_changed %}<span class="badge changed">{% translate "time changed" %}</span>{% endif %}
     {% if moment.row.needs_check %}<span class="badge warning">{% translate "check" %}</span>{% endif %}
   </div>
