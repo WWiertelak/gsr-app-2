@@ -694,4 +694,38 @@
     openDrawerOnError();
     hydrate(document);
   });
+  // Delegation keeps the pair editor working after HTMX replaces the form.
+  document.addEventListener("click", function (event) {
+    var add = event.target.closest("[data-add-pair]");
+    var remove = event.target.closest("[data-remove-pair]");
+    if (!add && !remove) return;
+    var pairs = (add || remove).closest("[data-pairs]");
+    var rows = pairs.querySelectorAll(".pair-row");
+    var focus;
+    if (add) {
+      var row = rows[0].cloneNode(true);
+      row.querySelectorAll("select").forEach(function (select) { select.value = ""; });
+      rows[rows.length - 1].after(row);
+      focus = row.querySelector("select");
+    } else if (rows.length > 1) {
+      var removed = remove.closest(".pair-row");
+      var next = removed.nextElementSibling;
+      if (!next || !next.classList.contains("pair-row")) next = removed.previousElementSibling;
+      focus = next.querySelector("select");
+      removed.remove();
+    }
+    rows = pairs.querySelectorAll(".pair-row");
+    rows.forEach(function (row, index) {
+      var label = pairs.dataset.pairLabel + " " + (index + 1);
+      row.querySelector(".pair-n").textContent = label;
+      row.querySelectorAll("select").forEach(function (select, side) {
+        select.id = "pair-" + (index + 1) + (side ? "-right" : "-left");
+        var caption = row.querySelectorAll("label")[side];
+        caption.htmlFor = select.id;
+        caption.textContent = label + ", " + (side ? pairs.dataset.secondLabel : pairs.dataset.firstLabel);
+      });
+      row.querySelector("[data-remove-pair]").disabled = rows.length === 1;
+    });
+    if (focus) focus.focus();
+  });
 })();

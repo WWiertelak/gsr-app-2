@@ -23,7 +23,7 @@ from django.utils.translation import gettext
 
 from ..models import AnalysisResult, InterviewMoment, Project
 from ..pipeline.vsr import PRIMARY, RESERVE
-from .vsr import moment_counts, video_time
+from .vsr import moment_counts
 
 MAX_REASON_LENGTH = 1000
 MAX_NOTE_LENGTH = 2000
@@ -44,8 +44,6 @@ class CuratedMoment:
     role: str | None
     start_clock: str | None
     end_clock: str | None
-    start_video: str | None
-    end_video: str | None
 
     @property
     def proposed_role(self) -> str | None:
@@ -106,7 +104,12 @@ def _merge_order(survivors: list[InterviewMoment], engine_index: dict[int, int],
 
 @transaction.atomic
 def sync_interview_moments(project: Project, result: AnalysisResult) -> None:
-    """Bring the interview lists in line with the stored proposals, keeping every researcher decision."""
+    """Bring the interview lists in line with the stored proposals, keeping every researcher decision.
+
+    Decisions and manual moments for removed interview keys remain archived here.
+    Only keys in the current result are rendered/exported; re-adding a key restores
+    those decisions through the same reconciliation as any other recomputation.
+    """
     proposals = {interview["key"]: interview["moments"] for interview in result.payload.get("interviews", [])}
     rows_by_key: dict[str, list[InterviewMoment]] = {}
     for row in project.interview_moments.order_by("position", "created_at"):
@@ -171,7 +174,7 @@ def _clock(clock_start: datetime | None, seconds: float) -> str | None:
     return None if clock_start is None else (clock_start + timedelta(seconds=seconds)).strftime("%H:%M:%S")
 
 
-def _times(row: InterviewMoment, clock_start: datetime | None, video_start: str | None) -> dict[str, str | None]:
+def _times(row: InterviewMoment, clock_start: datetime | None) -> dict[str, str | None]:
     if not row.is_manual and not row.time_changed:
         start_clock, end_clock = row.proposal.get("start_clock"), row.proposal.get("end_clock")
     else:
@@ -179,8 +182,6 @@ def _times(row: InterviewMoment, clock_start: datetime | None, video_start: str 
     return {
         "start_clock": start_clock,
         "end_clock": end_clock,
-        "start_video": video_time(start_clock, video_start),
-        "end_video": video_time(end_clock, video_start),
     }
 
 
@@ -197,11 +198,10 @@ def ordered_rows(rows: Iterable[InterviewMoment]) -> list[InterviewMoment]:
 
 
 def curated_interviews(project: Project, result: AnalysisResult) -> dict[str, list[CuratedMoment]]:
-    """Every interview's list (by interview key) with numbers, roles and lesson / clock / video times."""
+    """Every interview's list (by interview key) with numbers, roles and lesson / sensor clock times."""
     payload = result.payload
     target = primary_target(result)
     clock_start = lesson_clock_start(payload)
-    video_start = (payload.get("roles") or {}).get("video_start_time")
     rows_by_key: dict[str, list[InterviewMoment]] = {}
     for row in project.interview_moments.all():
         rows_by_key.setdefault(row.interview_key, []).append(row)
@@ -219,7 +219,7 @@ def curated_interviews(project: Project, result: AnalysisResult) -> dict[str, li
                     row=row,
                     number=None if rejected else kept,
                     role=None if rejected else (PRIMARY if kept <= target else RESERVE),
-                    **_times(row, clock_start, video_start),
+                    **_times(row, clock_start),
                 )
             )
         curated[interview["key"]] = items

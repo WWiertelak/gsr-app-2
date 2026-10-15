@@ -37,7 +37,11 @@ signals and a one-sentence justification from the Analysis values; the researche
 rejects, reorders, retimes or adds moments, and choosing again keeps those decisions) → 5 Export (bilingual PDF report
 for other researchers, with the interview moments and their justifications as its own
 section; CSV tables including `vsr_moments.csv`, a run settings + results JSON, chart PNGs, or
-all of it as a ZIP). There is no login yet: add Django
+all of it as a ZIP). Re-running or changing an earlier step marks later saved results
+outdated until each is refreshed in order. Interview pairs can be added and removed
+with the form buttons; removed pairs retain curated decisions for restoration when
+the same pair is added again. Moments show lesson time and the GSR sensor clock,
+which the researcher uses to locate the moment. There is no login yet: add Django
 authentication before hosting the app for more than one person.
 
 ## Layout

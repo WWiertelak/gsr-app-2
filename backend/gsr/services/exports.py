@@ -145,7 +145,7 @@ def coarousal_state_percentages_csv(coarousal: dict[str, Any]) -> bytes:
 VSR_MOMENT_COLUMNS = (
     "interview", "interview_type", "participants", "number", "status", "decision", "source", "step", "step_name",
     "pass", "lesson_start_s", "lesson_end_s", "time_changed", "proposed_start_s", "proposed_end_s", "clock_start",
-    "clock_end", "video_start", "video_end", "analysis_episode", "correlation", "shared_state", "in_shared_state",
+    "clock_end", "analysis_episode", "correlation", "shared_state", "in_shared_state",
     "candidate_rank", "candidate_count", "justification", "reason", "note", "stale",
 )
 
@@ -196,8 +196,6 @@ def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
                 "proposed_end_s": moment["original_end_seconds"],
                 "clock_start": moment["start_clock"],
                 "clock_end": moment["end_clock"],
-                "video_start": moment["start_video"],
-                "video_end": moment["end_video"],
                 "analysis_episode": _episode_label(moment["episode"]),
                 "correlation": moment["correlation"],
                 "shared_state": moment["shared_state"],

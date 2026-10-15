@@ -12,6 +12,7 @@
         <div>
           <h2 id="stale-title">{% blocktranslate with time=computed_time %}The export describes the run from {{ time }}{% endblocktranslate %}</h2>
           <p>{% if stale_causes %}{% translate "Changed since then:" %} {{ stale_causes|join:"; " }}. {% else %}{% translate "Settings or signals changed since then." %} {% endif %}{% translate "Run the analysis again to include the changes." %}</p>
+          <p>{% translate "Refresh outdated steps in order:" %} {% for step in stale_steps %}<a href="{{ step.url }}">{{ step.number }} {{ step.label }}</a>{% if not forloop.last %} → {% endif %}{% endfor %}</p>
           <div class="actions">
             <form method="post" action="{% url 'gsr:export_rerun' project.pk %}" data-busy
                   hx-post="{% url 'gsr:export_rerun' project.pk %}" hx-target="#main" hx-swap="innerHTML"

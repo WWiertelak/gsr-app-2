@@ -23,7 +23,6 @@ from .analysis import AnalysisError
 from .interview import InterviewRoles, compute_vsr_signature, load_interview_config
 from .results import FALLBACK_SIGNAL_COLOR, get_result, is_stale, signal_colors, stored_pipeline_result
 
-SECONDS_PER_DAY = 24 * 3600
 # The signals a moment preview shows on each side of the moment: at least this, or half the moment if it is longer.
 PREVIEW_CONTEXT_SECONDS = 30.0
 
@@ -34,32 +33,8 @@ def interview_students(roles: InterviewRoles, aliases: list[str]) -> list[str]:
     The students are the recordings in the student pairs; without pairs, every other
     recording of the analysis run.
     """
-    paired = [alias for pair in roles.student_pairs for alias in pair]
+    paired = list(dict.fromkeys(alias for pair in roles.student_pairs for alias in pair))
     return paired or [alias for alias in aliases if alias != roles.teacher_alias]
-
-
-def _clock_seconds(text: str | None) -> int | None:
-    if not text:
-        return None
-    hours, minutes, seconds = (int(part) for part in text.split(":"))
-    return hours * 3600 + minutes * 60 + seconds
-
-
-def video_time(clock: str | None, video_start: str | None) -> str | None:
-    """A sensor clock time as a position in the video (H:MM:SS), or None before the video starts or without its start.
-
-    A moment up to 12 hours before the video start is before the video; an earlier
-    one is read as after midnight.
-    """
-    moment, start = _clock_seconds(clock), _clock_seconds(video_start)
-    if moment is None or start is None:
-        return None
-    offset = moment - start
-    if offset < -SECONDS_PER_DAY // 2:
-        offset += SECONDS_PER_DAY
-    if offset < 0:
-        return None
-    return f"{offset // 3600}:{offset // 60 % 60:02d}:{offset % 60:02d}"
 
 
 def _signal_quality(result: Any, aliases: list[str]) -> dict[str, dict[str, Any]]:
@@ -117,17 +92,12 @@ def compute_interviews(project: Project) -> AnalysisResult:
     except PipelineError as exc:
         raise AnalysisError.from_pipeline(exc) from exc
 
-    for interview in payload["interviews"]:
-        for moment in interview["moments"]:
-            moment["start_video"] = video_time(moment["start_clock"], roles.video_start_time)
-            moment["end_video"] = video_time(moment["end_clock"], roles.video_start_time)
     times = result.merged_decimated["time"]
     payload.update(
         roles={
             "teacher_alias": roles.teacher_alias,
             "student_pairs": [list(pair) for pair in roles.student_pairs],
             "students": students,
-            "video_start_time": roles.video_start_time,
         },
         # The analysed period on the moments' time axis (relative seconds), for the lesson timeline, and the
         # sensor clock at lesson time 0, for the clock times of moments the researcher adds or moves.
@@ -232,8 +202,6 @@ def _curated_moments(items: list[Any]) -> list[dict[str, Any]]:
             "duration_seconds": row.end_seconds - row.start_seconds,
             "start_clock": item.start_clock,
             "end_clock": item.end_clock,
-            "start_video": item.start_video,
-            "end_video": item.end_video,
             "time_changed": row.time_changed,
             "original_start_seconds": row.original_start_seconds,
             "original_end_seconds": row.original_end_seconds,

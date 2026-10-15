@@ -15,7 +15,6 @@ from gsr.services.interview import (
     apply_interview_config,
     compute_vsr_signature,
     load_interview_config,
-    parse_video_start_time,
     validate_count,
 )
 from gsr.services.results import compute_analysis, current_signature, is_stale
@@ -46,31 +45,11 @@ def lesson_project(tmp_path: Path, isolated_storage):
     return project
 
 
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        (None, None),
-        ("", None),
-        ("9:30:00", "09:30:00"),
-        ("09:05:07", "09:05:07"),
-    ],
-)
-def test_parse_video_start_time_accepts_clock_values(value, expected) -> None:
-    assert parse_video_start_time(value) == expected
-
-
-@pytest.mark.parametrize("value", ["9:30", "25:00:00", "12:60:00", "noon"])
-def test_parse_video_start_time_rejects_invalid_values(value) -> None:
-    with pytest.raises(ValueError, match="video_start_time"):
-        parse_video_start_time(value)
-
-
 @pytest.mark.django_db
 def test_load_interview_config_defaults(lesson_project) -> None:
     config = load_interview_config(lesson_project)
     assert config.roles.teacher_alias is None
     assert config.roles.student_pairs == ()
-    assert config.roles.video_start_time is None
     # The document's 5 moments and a reserve of 3 (8 in all).
     assert (config.primary_count, config.reserve_count) == (5, 3)
 
@@ -93,25 +72,25 @@ def test_apply_interview_config_stores_roles_and_moment_counts(lesson_project) -
     config = load_interview_config(lesson_project)
     assert config.roles.teacher_alias == "T"
     assert config.roles.student_pairs == (("S1", "S2"),)
-    assert config.roles.video_start_time == "10:00:00"
     assert (config.primary_count, config.reserve_count) == (4, 2)
-    assert set(stored) == {"teacher_alias", "student_pairs", "video_start_time", "primary_moment_count",
+    assert "video_start_time" not in stored
+    assert set(stored) == {"teacher_alias", "student_pairs", "primary_moment_count",
                            "reserve_moment_count"}
 
 
 @pytest.mark.django_db
-def test_apply_interview_config_rejects_unknown_alias_and_overlapping_students(lesson_project) -> None:
+def test_apply_interview_config_validates_participants_and_duplicate_pairs(lesson_project) -> None:
     with translation.override("en"):
         with pytest.raises(ValueError, match="Unknown teacher"):
             apply_interview_config(lesson_project, {"teacher_alias": "missing"})
-        with pytest.raises(ValueError, match="only one pair"):
-            apply_interview_config(lesson_project, {"student_pairs": [["S1", "S2"], ["S1", "S3"]]})
+        with pytest.raises(ValueError, match="only once"):
+            apply_interview_config(lesson_project, {"student_pairs": [["S1", "S2"], ["S2", "S1"]]})
         with pytest.raises(ValueError, match="teacher"):
             apply_interview_config(lesson_project, {"teacher_alias": "T", "student_pairs": [["T", "S1"]]})
         with pytest.raises(ValueError, match="two different"):
             apply_interview_config(lesson_project, {"student_pairs": [["S1", "S1"]]})
-    with pytest.raises(ValueError, match="tylko do jednej pary"):
-        apply_interview_config(lesson_project, {"student_pairs": [["S1", "S2"], ["S1", "S3"]]})
+    with pytest.raises(ValueError, match="tylko raz"):
+        apply_interview_config(lesson_project, {"student_pairs": [["S1", "S2"], ["S2", "S1"]]})
 
 
 @pytest.mark.parametrize(("name", "value"), [
@@ -249,5 +228,4 @@ def test_deleting_a_recording_drops_it_from_interview_roles(client, lesson_proje
     config = load_interview_config(lesson_project)
     assert config.roles.teacher_alias is None
     assert config.roles.student_pairs == ()
-    assert config.roles.video_start_time == "09:00:00"
     compute_vsr_signature(lesson_project)

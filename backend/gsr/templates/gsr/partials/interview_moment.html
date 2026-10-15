@@ -40,7 +40,6 @@ researcher's actions. Every action posts to gsr:interview_moment and swaps the m
       <dl class="moment-times">
         <div><dt>{% translate "Lesson" %}</dt><dd>{{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }} <span class="muted">({{ moment.duration_seconds|seconds_mmss }})</span></dd></div>
         <div><dt>{% translate "Sensor clock" %}</dt><dd>{% if moment.start_clock %}{{ moment.start_clock }}–{{ moment.end_clock }}{% else %}—{% endif %}</dd></div>
-        <div><dt>{% translate "Video" %}</dt><dd>{% if moment.start_video %}{{ moment.start_video }}–{{ moment.end_video|default:"…" }}{% elif result_roles.video_start_time %}<span class="muted">{% translate "before the video starts" %}</span>{% else %}<span class="muted">{% translate "set the video start" %}</span>{% endif %}</dd></div>
       </dl>
       {% if moment.row.note %}<p class="moment-note small"><b>{% translate "Note:" %}</b> {{ moment.row.note|linebreaksbr }}</p>{% endif %}
     </div>
