@@ -88,8 +88,7 @@ moment counts are the existing defaults; the reset does not change them, they ar
 step. Interview pairs can be added and removed
 with the form buttons; removed pairs retain curated decisions for restoration when
 the same pair is added again. Moments show lesson time and the GSR sensor clock,
-which the researcher uses to locate the moment. There is no login yet: add Django
-authentication before hosting the app for more than one person.
+which the researcher uses to locate the moment.
 
 ## Layout
 
