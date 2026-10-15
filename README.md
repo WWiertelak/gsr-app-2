@@ -43,8 +43,10 @@ all of it as a ZIP). Re-running or changing an earlier step marks later saved re
 outdated until each is refreshed in order. New projects start with the values the VSR Interview Flow
 Chart suggests (co-movement correlation above 0.8 for the synchronization and co-movement thresholds,
 5 moments per interview plus 3 in reserve, and step 5 "no synchrony" for a correlation below 0.1, set
-on the Interviews step); projects saved earlier keep their settings (step 5 below 0) until "Reset
-defaults" in the Analysis settings sets them. Interview pairs can be added and removed
+on the Interviews step); projects saved earlier keep their thresholds (step 5 below 0) until "Reset
+defaults" in the Analysis settings sets the 0.8 thresholds and the step 5 threshold of 0.1. The 5 + 3
+moment counts are the existing defaults; the reset does not change them, they are edited on the Interviews
+step. Interview pairs can be added and removed
 with the form buttons; removed pairs retain curated decisions for restoration when
 the same pair is added again. Moments show lesson time and the GSR sensor clock,
 which the researcher uses to locate the moment. There is no login yet: add Django
