@@ -1,6 +1,41 @@
-# gsr-app-2
+![GSR_APP 2.0 — From signals to shared moments](docs/assets/hero.svg)
 
-GSR_APP 2.0 - GSR sensor data upload, cleaning, joint synchronization and co-arousal analysis (Django)
+# GSR_APP 2.0
+
+**A local research workspace for GSR data, group synchronization, co-arousal, and VSR interviews.**
+
+[Quick start](#quick-start) · [App tour](#what-it-does) · [Workflow notes](#workflow-notes) · [Research methodology](docs/research-gsrv2.md)
+
+## What it does
+
+Turn eSense skin-conductance recordings into an explorable group session. Import recordings,
+inspect and clean the signals, analyze how participants' signals move together, then curate
+moments for video-stimulated recall (VSR) interviews and export a research report.
+
+The tour below shows the real app with **synthetic demo data only**. Click any screenshot to
+see it at full size.
+
+| **1 · Import** | **2 · Cleaning** |
+| --- | --- |
+| [![Import screen with uploaded eSense recordings and their shared recording period](docs/assets/import.png)](docs/assets/import.png) | [![Cleaning screen with signal quality summaries and cleaned GSR traces](docs/assets/cleaning.png)](docs/assets/cleaning.png) |
+| Upload CSV recordings, assign aliases, and inspect the common recording period. | Review signal quality, exclude recordings, and preview synchronized, cleaned signals. |
+| **3 · Analysis / Synchronization** | **3 · Analysis / Co-arousal** |
+| [![Synchronization tab showing correlated participant signals and detected episodes](docs/assets/synchronization.png)](docs/assets/synchronization.png) | [![Co-arousal tab showing shared high and low arousal states over time](docs/assets/coarousal.png)](docs/assets/coarousal.png) |
+| Explore pairs and subgroups whose signals move together. | Inspect shared high/low arousal states and co-movement in a second tab of the same run. |
+| **4 · Interviews** | **5 · Export / PDF** |
+| [![Interviews screen with student pairs and a timeline of candidate VSR moments](docs/assets/interviews.png)](docs/assets/interviews.png) | [![Export screen with bilingual PDF reports, CSV tables, JSON results, chart PNGs, and ZIP downloads](docs/assets/export.png)](docs/assets/export.png) |
+| Choose teacher and student-pair interviews; review, accept, reject, or adjust suggested moments. | Share a PDF report in English or Polish, or download tables, settings, results, and charts. |
+
+### Key features
+
+- **One connected workflow:** Import → Cleaning → Analysis → Interviews → Export, with saved results and outdated-result warnings.
+- **Two complementary analyses:** group synchronization and co-arousal, with interactive charts and episode tables.
+- **Researcher-led interviews:** candidate timelines, signal previews, evidence-based justifications, and preserved curation decisions.
+- **Portable outputs:** bilingual PDF, CSV, JSON, chart PNGs, or a complete ZIP bundle.
+- **Local-first setup:** one Docker container, persistent storage, and an English/Polish interface.
+
+The app currently has no login for the research workspace. Use it locally for one person;
+add Django authentication before hosting it for multiple users. The admin has a separate login.
 
 ## Quick start
 
@@ -23,6 +58,8 @@ docker compose exec app python manage.py createsuperuser
 
 Enter a username, an optional email and a password when asked, then log in at
 <http://localhost:8017/admin/> with that username and password.
+
+## Workflow notes
 
 The processing pipeline is extracted from GSRv2 with unchanged results; the
 segment-based analysis was dropped. See [docs/research-gsrv2.md](docs/research-gsrv2.md)
@@ -51,8 +88,7 @@ moment counts are the existing defaults; the reset does not change them, they ar
 step. Interview pairs can be added and removed
 with the form buttons; removed pairs retain curated decisions for restoration when
 the same pair is added again. Moments show lesson time and the GSR sensor clock,
-which the researcher uses to locate the moment. There is no login yet: add Django
-authentication before hosting the app for more than one person.
+which the researcher uses to locate the moment.
 
 ## Layout
 

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="480" viewBox="0 0 1440 480" role="img" aria-labelledby="title desc">
+  <title id="title">GSR_APP 2.0 — From signals to shared moments</title>
+  <desc id="desc">A teal signal illustration beside the GSR_APP workflow: import, clean, analyze, interview, export.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#0f1b24"/><stop offset="1" stop-color="#183841"/></linearGradient>
+    <linearGradient id="band"><stop stop-color="#14b8a6" stop-opacity="0"/><stop offset=".5" stop-color="#14b8a6" stop-opacity=".16"/><stop offset="1" stop-color="#14b8a6" stop-opacity="0"/></linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#8caeb7" stroke-opacity=".09"/></pattern>
+    <clipPath id="chart"><rect x="804" y="64" width="572" height="298" rx="16"/></clipPath>
+  </defs>
+  <rect width="1440" height="480" rx="20" fill="url(#bg)"/>
+  <rect x="804" y="64" width="572" height="298" rx="16" fill="#10252e" stroke="#31505b"/>
+  <g clip-path="url(#chart)">
+    <rect x="804" y="64" width="572" height="298" fill="url(#grid)"/>
+    <rect x="1040" y="64" width="176" height="298" fill="url(#band)"/>
+    <path d="M824 218C858 218 858 212 888 215S932 234 956 221 982 219 1002 215 1027 119 1052 126 1073 207 1104 202 1127 153 1154 166 1178 225 1210 216 1238 209 1266 217 1298 203 1356 207" fill="none" stroke="#2dd4bf" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M824 255C852 260 874 246 898 253S935 263 958 257 986 261 1008 249 1028 163 1054 168 1079 250 1107 243 1130 198 1157 206 1181 263 1211 257 1245 250 1271 257 1305 243 1356 250" fill="none" stroke="#e5bd79" stroke-width="3" stroke-linecap="round"/>
+    <path d="M824 295C858 288 878 301 902 295S936 307 964 298 987 303 1012 291 1034 208 1058 214 1082 289 1110 283 1136 241 1159 247 1186 305 1217 296 1244 298 1270 293 1304 301 1356 288" fill="none" stroke="#a8a0e5" stroke-width="3" stroke-linecap="round"/>
+    <path d="M1052 96V326M1154 96V326" stroke="#74cfc8" stroke-opacity=".3" stroke-dasharray="4 6"/>
+  </g>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="64" y="91" fill="#7edbd0" font-size="15" letter-spacing="3">GSR RESEARCH WORKSPACE</text>
+    <text x="60" y="171" fill="#f6fafb" font-size="64" font-weight="700" letter-spacing="-2">GSR_APP <tspan fill="#7edbd0">2.0</tspan></text>
+    <text x="64" y="235" fill="#f6fafb" font-size="32" font-weight="600">From signals to shared moments.</text>
+    <text x="64" y="282" fill="#b1c6cf" font-size="20">Explore group synchronization and co-arousal.</text>
+    <text x="64" y="312" fill="#b1c6cf" font-size="20">Prepare interviews. Share the evidence.</text>
+    <circle cx="832" cy="91" r="4" fill="#2dd4bf"/>
+    <text x="846" y="97" fill="#a9c4cd" font-size="13" letter-spacing="1">ILLUSTRATIVE SIGNALS</text>
+    <path d="M64 381H1376" stroke="#36505a"/>
+    <g font-size="17" fill="#d6e4e9">
+      <text x="64" y="429"><tspan fill="#7edbd0">01</tspan>  Import</text>
+      <text x="340" y="429"><tspan fill="#7edbd0">02</tspan>  Cleaning</text>
+      <text x="616" y="429"><tspan fill="#7edbd0">03</tspan>  Analysis</text>
+      <text x="892" y="429"><tspan fill="#7edbd0">04</tspan>  Interviews</text>
+      <text x="1200" y="429"><tspan fill="#7edbd0">05</tspan>  Export</text>
+    </g>
+  </g>
+</svg>
