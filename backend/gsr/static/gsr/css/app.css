@@ -564,6 +564,9 @@ button.icon:not(:disabled):hover { color: var(--error); background: var(--error-
 .moment-list { display: grid; gap: var(--s3); margin: 0; padding: 0; list-style: none; }
 .moment-card { padding: var(--s3) var(--s4); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--r-md); }
 .moment-card.reserve { border-left-style: dashed; }
+.moment-card.flash { animation: moment-flash 1.6s ease-out; }
+@keyframes moment-flash { from { box-shadow: 0 0 0 3px var(--accent); background: var(--accent-weak); } to { box-shadow: 0 0 0 3px transparent; } }
+@media (prefers-reduced-motion: reduce) { .moment-card.flash { animation: none; box-shadow: 0 0 0 2px var(--accent); } }
 .moment-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); margin-bottom: var(--s2); }
 .moment-n { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: var(--fs-xs); font-weight: 600; }
 .moment-card.reserve .moment-n { background: var(--surface); color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }

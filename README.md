@@ -35,8 +35,10 @@ Projects → 1 Import → 2 Cleaning → 3 Analysis (Synchronization | Co-arousa
 Analysis episodes by the steps of the "VSR Interview Flow Chart", each with a preview of the
 signals and a one-sentence justification from the Analysis values; a lesson timeline shows every
 candidate moment the Analysis found, one row per step, and the interview's signals across the whole
-lesson; the researcher accepts, rejects, reorders, retimes or adds moments, also straight from the
-timeline, and choosing again keeps those decisions) → 5 Export (bilingual PDF report
+lesson with every candidate shaded on the chart itself (primary moments filled and numbered,
+reserve moments dashed and numbered, other candidates light grey, rejected ones dotted, a key on
+the chart, a click on a band opens it); the researcher accepts, rejects, reorders, retimes or adds
+moments, also straight from the timeline, and choosing again keeps those decisions) → 5 Export (bilingual PDF report
 for other researchers, with the interview moments and their justifications as its own
 section; CSV tables including `vsr_moments.csv`, a run settings + results JSON, chart PNGs, or
 all of it as a ZIP). Re-running or changing an earlier step marks later saved results

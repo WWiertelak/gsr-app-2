@@ -1933,8 +1933,8 @@ msgid "Signals across the lesson"
 msgstr "Sygnały w całej lekcji"
 
 #: gsr/templates/gsr/partials/interviews_main.html:215
-msgid "every candidate shaded; scroll or drag the slider to zoom"
-msgstr "wszystkie fragmenty zacienione; przybliż kółkiem myszy lub suwakiem"
+msgid "every candidate shaded, click one to open it; scroll or drag the slider to zoom"
+msgstr "wszystkie fragmenty zacienione, kliknij jeden, aby go otworzyć; przybliż kółkiem myszy lub suwakiem"
 
 #: gsr/templates/gsr/partials/interviews_main.html:217
 #, python-format

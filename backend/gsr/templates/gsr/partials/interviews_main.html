@@ -212,7 +212,7 @@
           {% if interview.lesson_chart %}
             <div class="section-head section-gap">
               <h3>{% translate "Signals across the lesson" %}</h3>
-              <span class="subtitle">{% translate "every candidate shaded; scroll or drag the slider to zoom" %}</span>
+              <span class="subtitle">{% translate "every candidate shaded, click one to open it; scroll or drag the slider to zoom" %}</span>
             </div>
             {% blocktranslate with name=interview.label asvar lesson_chart_label %}Signals of {{ name }} across the lesson{% endblocktranslate %}
             {% include "gsr/partials/chart.html" with label=lesson_chart_label kind="lessonSignals" data=interview.lesson_chart chart_id="lesson-chart-"|add:interview.tab name="lesson_"|add:interview.tab height=interview.lesson_chart_height %}

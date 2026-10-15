@@ -513,12 +513,71 @@
 
   // The Interviews list colours (app.css --accent): a candidate on the list as primary or reserve is shaded with it.
   var ACCENT = "#0b6e74";
+  // Primary: strong fill, solid edge, number on a filled pill. Reserve: light fill, dashed edge, number on an
+  // outlined pill. Other candidates: light neutral band. Rejected: barely-there dotted band.
   var CANDIDATE_STYLES = {
-    primary: { color: "rgba(11,110,116,0.24)", borderColor: ACCENT, borderWidth: 1 },
-    reserve: { color: "rgba(11,110,116,0.10)", borderColor: ACCENT, borderWidth: 1, borderType: "dashed" },
+    primary: { color: "rgba(11,110,116,0.34)", borderColor: ACCENT, borderWidth: 2 },
+    reserve: { color: "rgba(11,110,116,0.07)", borderColor: ACCENT, borderWidth: 1.5, borderType: "dashed" },
     other: { color: T.episode, borderColor: T.episodeEdge, borderWidth: 1 },
-    rejected: { color: "rgba(20,33,43,0.03)", borderColor: T.line, borderWidth: 1, borderType: "dotted" }
+    rejected: { color: "rgba(20,33,43,0.02)", borderColor: T.line, borderWidth: 1, borderType: "dotted" }
   };
+  var CANDIDATE_LABELS = {
+    primary: { color: "#ffffff", backgroundColor: ACCENT, borderColor: ACCENT, borderWidth: 1.5 },
+    reserve: { color: ACCENT, backgroundColor: "#ffffff", borderColor: ACCENT, borderWidth: 1.5 }
+  };
+  var CANDIDATE_LEGEND = [
+    { state: "primary", label: "candidatePrimary", fallback: "primary" },
+    { state: "reserve", label: "candidateReserve", fallback: "reserve" },
+    { state: "other", label: "candidateOther", fallback: "other candidate" },
+    { state: "rejected", label: "candidateRejected", fallback: "rejected" }
+  ];
+  var LEGEND_FONT = "11px " + FONT;
+
+  // Numbers sit at the bottom of the plot, below the signals; neighbours alternate between two rows.
+  function candidateLabel(candidate, row) {
+    var style = CANDIDATE_LABELS[candidate.state];
+    if (!style || !candidate.number) {
+      return { show: false };
+    }
+    return Object.assign({
+      show: true,
+      position: "insideBottom",
+      distance: 4 + row * 20,
+      formatter: String(candidate.number),
+      fontSize: 11,
+      fontWeight: 700,
+      padding: [1, 6],
+      borderRadius: 3
+    }, style);
+  }
+
+  // A key to the shading drawn on the chart itself (it is also part of the saved PNG).
+  function candidateLegend(labels) {
+    var x = 0;
+    var children = [];
+    CANDIDATE_LEGEND.forEach(function (entry) {
+      var text = labels[entry.label] || entry.fallback;
+      var style = CANDIDATE_STYLES[entry.state];
+      var width = window.echarts && window.echarts.format && window.echarts.format.getTextRect
+        ? window.echarts.format.getTextRect(text, LEGEND_FONT).width
+        : text.length * 6.5;
+      children.push({
+        type: "rect",
+        left: x,
+        top: 1,
+        shape: { width: 14, height: 10, r: 2 },
+        style: {
+          fill: style.color,
+          stroke: style.borderColor,
+          lineWidth: Math.min(style.borderWidth, 1.5),
+          lineDash: style.borderType === "dashed" ? [3, 2] : style.borderType === "dotted" ? [1, 2] : null
+        }
+      });
+      children.push({ type: "text", left: x + 19, top: 0, style: { text: text, font: LEGEND_FONT, fill: T.ink2 } });
+      x += 19 + width + 14;
+    });
+    return { width: x - 14, element: { type: "group", right: 44, top: 6, silent: true, children: children } };
+  }
 
   // An interview's two z-scored signals over the whole analysed period, every candidate moment shaded by where it
   // stands on the interview's list (moments on the list labelled with their number); zoom with the wheel or slider.
@@ -539,16 +598,32 @@
       return null;
     }
     var candidates = data.candidates || [];
+    var legend = candidates.length ? candidateLegend(labels) : null;
     if (candidates.length) {
+      // Shaded widest first so a short band stays visible and clickable on top of a long one.
+      var numbered = 0;
+      var shaded = candidates.slice().sort(function (a, b) {
+        return (b.end - b.start) - (a.end - a.start);
+      });
+      var rows = {};
+      candidates.filter(function (candidate) {
+        return candidate.number;
+      }).sort(function (a, b) {
+        return a.start - b.start;
+      }).forEach(function (candidate) {
+        rows[candidate.id] = numbered++ % 2;
+      });
       series[0].markArea = {
-        silent: true,
-        label: { show: true, position: "insideTop", distance: 4, color: ACCENT, fontSize: 11, fontWeight: 600 },
-        data: candidates.map(function (candidate) {
+        label: { show: false },
+        emphasis: { itemStyle: { borderWidth: 2.5 } },
+        data: shaded.map(function (candidate) {
+          var style = CANDIDATE_STYLES[candidate.state] || CANDIDATE_STYLES.other;
           return [
             {
               xAxis: candidate.start,
-              name: candidate.number ? String(candidate.number) : "",
-              itemStyle: CANDIDATE_STYLES[candidate.state] || CANDIDATE_STYLES.other
+              name: candidate.id,
+              itemStyle: style,
+              label: candidateLabel(candidate, rows[candidate.id] || 0)
             },
             { xAxis: candidate.end }
           ];
@@ -569,14 +644,23 @@
           return params && params.length ? [mmss(params[0].axisValue)].concat(rows).join("<br/>") : "";
         }
       },
-      legend: { type: "scroll", top: 2, left: 52, right: 40, itemHeight: 8, textStyle: { fontSize: 11 } },
+      legend: { type: "scroll", top: 2, left: 52, right: legend ? legend.width + 56 : 40, itemHeight: 8, textStyle: { fontSize: 11 } },
+      graphic: legend ? [legend.element] : undefined,
       grid: { left: 44, right: 18, top: 34, bottom: 64 },
       dataZoom: [
         { type: "inside", xAxisIndex: 0, filterMode: "none" },
         { type: "slider", xAxisIndex: 0, filterMode: "none", height: 18, bottom: 8, labelFormatter: mmss }
       ],
       xAxis: valueAxis({ min: range.min, max: range.max, axisLabel: { formatter: mmss } }),
-      yAxis: valueAxis({ name: labels.zscore || "z", nameGap: 10, scale: true }),
+      yAxis: valueAxis({
+        name: labels.zscore || "z",
+        nameGap: 10,
+        scale: true,
+        // Room under the signals for the moment numbers.
+        min: function (extent) {
+          return Math.floor(extent.min - (extent.max - extent.min) * 0.18);
+        }
+      }),
       series: series
     };
   }
