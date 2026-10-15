@@ -57,7 +57,7 @@ def validate_roles(roles: dict[str, Any], aliases: set[str]) -> InterviewRoles:
     raw_pairs = roles.get("student_pairs") or []
     if not isinstance(raw_pairs, list):
         raise ValueError(gettext("student_pairs must be a list of pairs"))
-    seen_pairs: set[frozenset[str]] = set()
+    seen_students: set[str] = set()
     pairs: list[tuple[str, str]] = []
     for index, item in enumerate(raw_pairs):
         if not isinstance(item, (list, tuple)) or len(item) != 2:
@@ -73,9 +73,9 @@ def validate_roles(roles: dict[str, Any], aliases: set[str]) -> InterviewRoles:
                     "index": index + 1,
                     "alias": alias,
                 })
-        if frozenset((left, right)) in seen_pairs:
-            raise ValueError(gettext("Each student pair may appear only once"))
-        seen_pairs.add(frozenset((left, right)))
+        if left in seen_students or right in seen_students:
+            raise ValueError(gettext("Each student recording may appear in only one pair"))
+        seen_students.update((left, right))
         if teacher is not None and teacher in (left, right):
             raise ValueError(gettext("The teacher recording cannot be in a student pair"))
         pairs.append((left, right))

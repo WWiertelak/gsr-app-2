@@ -94,11 +94,11 @@
 
     {% if not result %}
       <div class="empty-state">
-        <p>{% if analysis_ready %}{% translate "No moments yet. Choose the interview participants, then “Choose moments”." %}{% else %}{% translate "No moments yet. Run the Analysis first." %}{% endif %}</p>
+        <p>{% if analysis_ready %}{% translate "No moments yet. Choose the interview participants, then “Choose moments”." %}{% elif stale_from %}{% include "gsr/partials/stale_from.html" %}{% else %}{% translate "No moments yet. Run the Analysis first." %}{% endif %}</p>
       </div>
     {% else %}
       {% if stale %}
-        <div class="alert warning stale-note">{% if analysis_ready %}{% translate "The participants, the number of moments or the Analysis changed since these moments were chosen. Choose them again." %}{% else %}{% translate "The Analysis changed since these moments were chosen. Run the Analysis, then choose the moments again." %}{% endif %}</div>
+        <div class="alert warning stale-note">{% if stale_from %}{% include "gsr/partials/stale_from.html" %}{% elif analysis_ready %}{% translate "The participants, the number of moments or the Analysis changed since these moments were chosen. Choose them again." %}{% else %}{% translate "The Analysis changed since these moments were chosen. Run the Analysis, then choose the moments again." %}{% endif %}</div>
       {% endif %}
       {% if interviews %}
         <div class="tabs interview-tabs" role="tablist" aria-labelledby="vsr-results-title">

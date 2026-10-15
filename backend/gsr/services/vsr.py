@@ -33,7 +33,7 @@ def interview_students(roles: InterviewRoles, aliases: list[str]) -> list[str]:
     The students are the recordings in the student pairs; without pairs, every other
     recording of the analysis run.
     """
-    paired = list(dict.fromkeys(alias for pair in roles.student_pairs for alias in pair))
+    paired = [alias for pair in roles.student_pairs for alias in pair]
     return paired or [alias for alias in aliases if alias != roles.teacher_alias]
 
 

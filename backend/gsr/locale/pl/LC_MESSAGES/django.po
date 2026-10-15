@@ -682,8 +682,8 @@ msgid "Unknown recording in pair %(index)d: %(alias)s"
 msgstr "Nieznane nagranie w parze %(index)d: %(alias)s"
 
 #: gsr/services/interview.py:77
-msgid "Each student pair may appear only once"
-msgstr "Każda para uczniów może wystąpić tylko raz"
+msgid "Each student recording may appear in only one pair"
+msgstr "Każde nagranie ucznia może należeć tylko do jednej pary"
 
 #: gsr/services/interview.py:80
 msgid "The teacher recording cannot be in a student pair"
@@ -1336,16 +1336,25 @@ msgid "Settings or signals changed since then."
 msgstr "Od tego czasu zmieniono ustawienia lub sygnały."
 
 #: gsr/templates/gsr/partials/export_main.html:14
-msgid "Run the analysis again to include the changes."
-msgstr "Uruchom analizę ponownie, aby uwzględnić zmiany."
+msgid "Refresh the outdated steps to include the changes."
+msgstr "Odśwież nieaktualne etapy, aby uwzględnić zmiany."
 
 #: gsr/templates/gsr/partials/export_main.html:15
 msgid "Refresh outdated steps in order:"
 msgstr "Odśwież nieaktualne etapy po kolei:"
 
 #: gsr/templates/gsr/partials/export_main.html:20
-msgid "Run the analysis again"
-msgstr "Uruchom analizę ponownie"
+msgid "Refresh outdated steps"
+msgstr "Odśwież nieaktualne etapy"
+
+#: gsr/templates/gsr/partials/stale_from.html:1
+#, python-format
+msgid ""
+"The <a href=\"%(url)s\">%(step)s</a> step is outdated: refresh it and the "
+"following steps in order."
+msgstr ""
+"Etap <a href=\"%(url)s\">%(step)s</a> jest nieaktualny: odśwież go i kolejne "
+"etapy po kolei."
 
 #: gsr/templates/gsr/partials/export_main.html:22
 #, python-format

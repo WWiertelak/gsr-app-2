@@ -79,18 +79,18 @@ def test_apply_interview_config_stores_roles_and_moment_counts(lesson_project) -
 
 
 @pytest.mark.django_db
-def test_apply_interview_config_validates_participants_and_duplicate_pairs(lesson_project) -> None:
+def test_apply_interview_config_rejects_unknown_alias_and_overlapping_students(lesson_project) -> None:
     with translation.override("en"):
         with pytest.raises(ValueError, match="Unknown teacher"):
             apply_interview_config(lesson_project, {"teacher_alias": "missing"})
-        with pytest.raises(ValueError, match="only once"):
-            apply_interview_config(lesson_project, {"student_pairs": [["S1", "S2"], ["S2", "S1"]]})
+        with pytest.raises(ValueError, match="only one pair"):
+            apply_interview_config(lesson_project, {"student_pairs": [["S1", "S2"], ["S1", "S3"]]})
         with pytest.raises(ValueError, match="teacher"):
             apply_interview_config(lesson_project, {"teacher_alias": "T", "student_pairs": [["T", "S1"]]})
         with pytest.raises(ValueError, match="two different"):
             apply_interview_config(lesson_project, {"student_pairs": [["S1", "S1"]]})
-    with pytest.raises(ValueError, match="tylko raz"):
-        apply_interview_config(lesson_project, {"student_pairs": [["S1", "S2"], ["S2", "S1"]]})
+    with pytest.raises(ValueError, match="tylko do jednej pary"):
+        apply_interview_config(lesson_project, {"student_pairs": [["S1", "S2"], ["S1", "S3"]]})
 
 
 @pytest.mark.parametrize(("name", "value"), [

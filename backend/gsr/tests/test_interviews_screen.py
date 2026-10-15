@@ -182,7 +182,8 @@ def test_moments_of_an_outdated_analysis_are_shown_as_outdated(client, lesson) -
     with translation.override("en"):
         html = client.get(reverse("gsr:interviews", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
     assert "Outdated result" in html and "Up to date" not in html
-    assert "The Analysis changed since these moments were chosen." in html
+    assert "step is outdated: refresh it and the following steps in order." in html
+    assert f'<a href="{reverse("gsr:analysis", args=[lesson.pk])}">Analysis</a>' in html
     assert _role_submits(client, lesson) == [(True, "Choose again")]
 
 
@@ -278,12 +279,12 @@ def test_invalid_roles_show_the_error_and_keep_the_posted_rows(client, lesson) -
     with translation.override("en"):
         response = client.post(
             reverse("gsr:interviews", args=[lesson.pk]),
-            _roles(pair_left=["S1", "S2"], pair_right=["S2", "S1"]),
+            _roles(pair_left=["S1", "S1"], pair_right=["S2", "S3"]),
             HTTP_ACCEPT_LANGUAGE="en",
             **HTMX,
         )
     html = response.content.decode()
-    assert "only once" in html
+    assert "only one pair" in html
     assert get_result(lesson, AnalysisResult.KIND_VSR) is None
 
 
@@ -360,9 +361,9 @@ def test_staleness_cascades_and_recomputing_clears_only_that_step(client, lesson
 
 
 @pytest.mark.django_db
-def test_pairs_can_grow_beyond_three_and_shrink_to_one(client, lesson) -> None:
+def test_pairs_can_be_added_and_removed(client, lesson) -> None:
     compute_analysis(lesson)
-    pairs = [("S1", "S2"), ("S1", "S3"), ("S1", "S4"), ("S2", "S3")]
+    pairs = [("S1", "S2"), ("S3", "S4")]
     for configured in (pairs, pairs[:1]):
         response = client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles(
             pair_left=[left for left, _ in configured], pair_right=[right for _, right in configured],
@@ -372,8 +373,35 @@ def test_pairs_can_grow_beyond_three_and_shrink_to_one(client, lesson) -> None:
         assert lesson.interview_config["student_pairs"] == [list(pair) for pair in configured]
         result = get_result(lesson, AnalysisResult.KIND_VSR)
         assert [item["key"] for item in result.payload["interviews"]] == ["+".join(pair) for pair in configured] + ["T"]
-        assert result.payload["roles"]["students"] == list(dict.fromkeys(a for pair in configured for a in pair))
+        assert result.payload["roles"]["students"] == [alias for pair in configured for alias in pair]
         html = response.content.decode()
         assert html.count('name="pair_left"') == len(configured)
         assert "data-add-pair" in html and html.count("data-remove-pair") == len(configured)
         assert "video_start_time" not in html
+
+
+@pytest.mark.django_db
+def test_outdated_steps_point_to_the_first_outdated_step_and_refresh_in_order(client, lesson) -> None:
+    from gsr.services.results import compute_cleaning, export_is_stale
+
+    compute_cleaning(lesson)
+    compute_analysis(lesson)
+    lesson.interview_config = apply_interview_config(lesson, {"student_pairs": [["S1", "S2"]]})
+    lesson.save()
+    compute_interviews(lesson)
+    lesson.pipeline_config = {**lesson.pipeline_config, "median_kernel": 7}
+    lesson.save()
+    compute_analysis(lesson)
+
+    cleaning_link = f'<a href="{reverse("gsr:cleaning", args=[lesson.pk])}">Cleaning</a> step is outdated'
+    with translation.override("en"):
+        for screen in ("analysis", "interviews"):
+            html = client.get(reverse(f"gsr:{screen}", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
+            assert cleaning_link in html
+    client.post(reverse("gsr:export_rerun", args=[lesson.pk]))
+    assert not export_is_stale(lesson)
+
+    dataset = lesson.datasets.get(alias="S4")
+    client.post(reverse("gsr:dataset_exclude", args=[lesson.pk, dataset.pk]), {"next": "analysis"})
+    assert not is_stale(lesson, get_result(lesson, AnalysisResult.KIND_CLEANING))
+    assert not is_stale(lesson, get_result(lesson, AnalysisResult.KIND_ANALYSIS))

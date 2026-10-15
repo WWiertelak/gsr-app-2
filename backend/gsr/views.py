@@ -140,6 +140,16 @@ def _steps(project: Project, current: str) -> list[dict[str, Any]]:
     ]
 
 
+def _stale_before(project: Project, step: str) -> dict[str, Any] | None:
+    """The first outdated step before ``step``: refreshing it and the steps after it clears ``step`` too."""
+    for item in _steps(project, step):
+        if item["current"]:
+            return None
+        if item["stale"]:
+            return item
+    return None
+
+
 def _cleaning_status(result: AnalysisResult | None) -> str:
     if result is None:
         return _("not run")
@@ -449,7 +459,10 @@ def dataset_exclude(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespo
         error = _run(compute_cleaning, project, step)
     elif step in ("analysis", "interviews", "export"):
         # The interview moments come from the analysis run: rerun the analysis, then choose them again on the screen.
-        error = _run(compute_analysis, project, step)
+        error = None
+        if get_result(project, AnalysisResult.KIND_CLEANING) is not None:
+            error = _run(compute_cleaning, project, step)
+        error = error or _run(compute_analysis, project, step)
     else:
         return redirect("gsr:upload", project.pk)
     if not _is_htmx(request):
@@ -661,6 +674,7 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         "settings_summary": params.analysis_summary(values, _applied_values(result)),
         "result": result,
         "stale": is_stale(project, result),
+        "stale_from": _stale_before(project, "analysis"),
         "error": error,
         "analysis_blocked": analysis_blocked,
         "colors": colors,
@@ -905,6 +919,7 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
         "analysis": analysis,
         "analysis_stale": analysis_stale,
         "analysis_ready": analysis is not None and not analysis_stale,
+        "stale_from": _stale_before(project, "interviews"),
         "analysis_settings": params.analysis_summary(_applied_values(analysis) or {}) if analysis else [],
         "error": error,
         "step_names": vsr_text.steps(),
@@ -1207,9 +1222,14 @@ def _export_context(project: Project, error: UserError | None = None) -> dict[st
 
 @require_POST
 def export_rerun(request: HttpRequest, pk: Any) -> HttpResponse:
-    """The outdated-run banner's "Run the analysis again": rerun with the current settings and signals."""
+    """The outdated-run banner's "Refresh outdated steps": rerun each outdated step in order."""
     project = _project(pk)
-    error = _run(compute_analysis, project, "export")
+    error = None
+    for kind, compute in ((AnalysisResult.KIND_CLEANING, compute_cleaning),
+                          (AnalysisResult.KIND_ANALYSIS, compute_analysis),
+                          (AnalysisResult.KIND_VSR, compute_interviews)):
+        if error is None and is_stale(project, get_result(project, kind)):
+            error = _run(compute, project, "export")
     if not _is_htmx(request):
         if error:
             messages.error(request, error.message)

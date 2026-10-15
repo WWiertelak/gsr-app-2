@@ -11,13 +11,13 @@
         <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18h.01"/></svg>
         <div>
           <h2 id="stale-title">{% blocktranslate with time=computed_time %}The export describes the run from {{ time }}{% endblocktranslate %}</h2>
-          <p>{% if stale_causes %}{% translate "Changed since then:" %} {{ stale_causes|join:"; " }}. {% else %}{% translate "Settings or signals changed since then." %} {% endif %}{% translate "Run the analysis again to include the changes." %}</p>
+          <p>{% if stale_causes %}{% translate "Changed since then:" %} {{ stale_causes|join:"; " }}. {% else %}{% translate "Settings or signals changed since then." %} {% endif %}{% translate "Refresh the outdated steps to include the changes." %}</p>
           <p>{% translate "Refresh outdated steps in order:" %} {% for step in stale_steps %}<a href="{{ step.url }}">{{ step.number }} {{ step.label }}</a>{% if not forloop.last %} → {% endif %}{% endfor %}</p>
           <div class="actions">
             <form method="post" action="{% url 'gsr:export_rerun' project.pk %}" data-busy
                   hx-post="{% url 'gsr:export_rerun' project.pk %}" hx-target="#main" hx-swap="innerHTML"
                   hx-indicator="#busy" hx-disabled-elt="find button">
-              {% csrf_token %}<button type="submit">{% translate "Run the analysis again" %}</button>
+              {% csrf_token %}<button type="submit">{% translate "Refresh outdated steps" %}</button>
             </form>
             <a class="button secondary" href="#report-card" data-export-anyway>{% blocktranslate with time=computed_time %}Export the {{ time }} run anyway{% endblocktranslate %}</a>
           </div>
