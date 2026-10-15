@@ -44,6 +44,38 @@
     var chart = window.echarts.init(element, window.GSRCharts.theme);
     chart.setOption(option);
     element._gsrChart = chart;
+    if (element.dataset.chart === "lessonSignals") {
+      chart.on("click", function (event) {
+        if (event.componentType === "markArea") {
+          openCandidate(element, readData(element.dataset.source), event.name);
+        }
+      });
+    }
+  }
+
+  // A click on a shaded candidate on the lesson chart: a moment on the list scrolls to its card and flashes it; any
+  // other candidate opens its panel under the lesson timeline.
+  function openCandidate(chartElement, data, id) {
+    var candidate = ((data && data.candidates) || []).filter(function (item) {
+      return item.id === id;
+    })[0];
+    var tab = chartElement.closest("[data-tab-panel]") || document;
+    var card = candidate && candidate.moment_id && document.getElementById("moment-" + candidate.moment_id);
+    if (card && candidate.state !== "rejected") {
+      card.scrollIntoView({ block: "center", behavior: "smooth" });
+      card.classList.remove("flash");
+      void card.offsetWidth;
+      card.classList.add("flash");
+      return;
+    }
+    var link = tab.querySelector('[data-candidate="' + id + '"]');
+    if (link) {
+      if (link.getAttribute("aria-expanded") !== "true") {
+        link.click();
+      } else {
+        link.scrollIntoView({ block: "nearest" });
+      }
+    }
   }
 
   // "Merge overlaps" swaps the co-arousal episode table for the non-overlapping timeline (aria-controls names both).

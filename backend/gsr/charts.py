@@ -33,6 +33,10 @@ def chart_labels() -> dict[str, str]:
         "state": _("State"),
         "timeMin": _("Time (min)"),
         "savePng": _("Save PNG"),
+        "candidatePrimary": _("primary"),
+        "candidateReserve": _("reserve"),
+        "candidateOther": _("other candidate"),
+        "candidateRejected": _("rejected"),
     }
 
 

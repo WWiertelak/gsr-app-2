@@ -941,7 +941,7 @@ def _lesson_chart(payload: dict[str, Any], interview: dict[str, Any], colors: li
         ],
         "candidates": [
             {"id": item["id"], "start": item["start_seconds"] / 60.0, "end": item["end_seconds"] / 60.0,
-             "step": item["step"], "state": item["state"], "number": item["number"]}
+             "step": item["step"], "state": item["state"], "number": item["number"], "moment_id": item["moment_id"]}
             for item in candidates
         ],
         "range": {"min": minutes[0], "max": minutes[-1]},
