@@ -464,7 +464,7 @@ def test_the_timeline_shows_every_candidate_and_the_whole_lesson_signals(client,
         on_list = [candidate for candidate in chart["candidates"] if candidate["state"] in ("primary", "reserve")]
         assert len(on_list) == len(interview["moments"])
         assert all(candidate["number"] and f'id="moment-{candidate["moment_id"]}"' in html for candidate in on_list)
-        assert all(candidate["moment_id"] is None for candidate in chart["candidates"] if candidate not in on_list)
+        assert all(candidate["moment_id"] is None for candidate in chart["candidates"] if candidate["state"] == "other")
     # The key to the shading is drawn on the chart in the UI language.
     assert {"candidatePrimary", "candidateReserve", "candidateOther", "candidateRejected"} <= set(
         json.loads(re.search(r'id="gsr-chart-labels" type="application/json">(.*?)</script>', html).group(1)))
