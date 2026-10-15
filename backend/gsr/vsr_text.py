@@ -85,10 +85,11 @@ def _details(proposal: dict[str, Any], kind: str) -> list[str]:
                 shared_state(proposal, kind) if step == 1 else _("no shared arousal state")]
     if step in (3, 4):
         return [_episode(proposal["episode"], times), shared_state(proposal, kind), r, _("no co-movement")]
+    relation = (_("the signals moved in the opposite direction") if proposal["correlation"] < 0
+                else _("the signals were not related"))
     if proposal.get("episode"):
-        return [_episode(proposal["episode"], times), r, _("the signals moved in the opposite direction")]
-    return [_("%(times)s outside the synchronization and co-arousal episodes") % {"times": times}, r,
-            _("the signals did not move together")]
+        return [_episode(proposal["episode"], times), r, relation]
+    return [_("%(times)s outside the synchronization and co-arousal episodes") % {"times": times}, r, relation]
 
 
 def justification(proposal: dict[str, Any], kind: str) -> str:

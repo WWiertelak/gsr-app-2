@@ -158,6 +158,25 @@ def test_the_number_of_moments_is_the_interview_settings_only(client, lesson) ->
 
 
 @pytest.mark.django_db
+def test_the_asynchrony_threshold_is_set_next_to_the_number_of_moments(client, lesson) -> None:
+    compute_analysis(lesson)
+    page = client.get(reverse("gsr:interviews", args=[lesson.pk])).content.decode()
+    assert 'name="asynchrony_threshold" value="0.1"' in page and "Krok 5: korelacja poniżej" in page
+
+    client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles(asynchrony_threshold="0,2"), **HTMX)
+    lesson.refresh_from_db()
+    assert lesson.interview_config["asynchrony_threshold"] == 0.2
+    assert get_result(lesson, AnalysisResult.KIND_VSR).payload["asynchrony_threshold"] == 0.2
+
+    with translation.override("en"):
+        html = client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles(asynchrony_threshold="2"),
+                           HTTP_ACCEPT_LANGUAGE="en", **HTMX).content.decode()
+    assert "The asynchrony threshold must be a number from -1.0 to 1.0." in html
+    lesson.refresh_from_db()
+    assert lesson.interview_config["asynchrony_threshold"] == 0.2
+
+
+@pytest.mark.django_db
 def test_an_outdated_analysis_is_not_worked_around(client, lesson) -> None:
     compute_analysis(lesson)
     lesson.pipeline_config = {**lesson.pipeline_config, "synchrony_threshold": 0.5}

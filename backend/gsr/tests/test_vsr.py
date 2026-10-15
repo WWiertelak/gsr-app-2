@@ -22,6 +22,7 @@ from gsr.pipeline.preprocessing import run_pipeline
 from gsr.pipeline.synchrony import compute_synchrony
 from gsr.pipeline.vsr import (
     COAROUSAL,
+    DEFAULT_ASYNCHRONY_THRESHOLD,
     HIGH,
     LOW,
     PRIMARY,
@@ -66,10 +67,11 @@ def _windows(values_by_span: list[tuple[float, float, float]], end: float = 1800
 
 
 def _steps(synchrony: list[dict], coarousal: list[dict], windows: Windows, kind: str = "dyad",
-           participants: list[str] | None = None) -> dict[int, list[Candidate]]:
+           participants: list[str] | None = None,
+           asynchrony_threshold: float = DEFAULT_ASYNCHRONY_THRESHOLD) -> dict[int, list[Candidate]]:
     comovement, shared = interview_episodes(kind, participants or ["S1", "S2"], {"episodes": synchrony},
                                             {"episodes": coarousal}, CONFIG, LESSON)
-    return candidates_by_step(windows, comovement, shared, CONFIG, LESSON)
+    return candidates_by_step(windows, comovement, shared, CONFIG, LESSON, asynchrony_threshold)
 
 
 # ─── Which Analysis episodes belong to an interview ─────────────────────────
@@ -207,6 +209,46 @@ def test_an_episode_whose_signals_moved_in_opposite_directions_is_no_synchrony()
     assert "synchronization episode E1" in english and "opposite direction" in english
     assert "co-movement" not in english
     assert "przeciwnym kierunku" in polish
+
+
+def test_no_synchrony_is_a_correlation_below_the_documents_0_1() -> None:
+    # "Asynchronous = below 0.1": stretches at 0.05 and -0.3 qualify, one at exactly 0.1 does not; a co-movement
+    # episode whose r is 0.05 is no synchrony either.
+    windows = _windows([(400, 460, 0.05), (600, 660, 0.1), (800, 860, -0.3), (1000, 1060, 0.05)])
+    synchrony = [_sync(1000, 1060, ["S1", "S2"])]
+
+    steps = _steps(synchrony, [], windows)
+
+    assert DEFAULT_ASYNCHRONY_THRESHOLD == 0.1
+    assert steps[2] == []
+    assert sorted((round(c.start_seconds), round(c.end_seconds), c.episode is not None) for c in steps[5]) == [
+        (400.0, 460.0, False), (800.0, 860.0, False), (1000.0, 1060.0, True)]
+
+    texts = {}
+    for candidate in steps[5]:
+        moment = _moment_payload(Proposal(1, PRIMARY, 1, 1, 1, candidate), None)
+        with translation.override("en"):
+            english = vsr_text.justification(moment, "dyad")
+        with translation.override("pl"):
+            polish = vsr_text.justification(moment, "dyad")
+        texts[round(candidate.start_seconds)] = (english, polish)
+    # Below zero the signals moved in the opposite direction; from zero up to the threshold they were not related.
+    assert "the signals moved in the opposite direction" in texts[800][0]
+    assert "przeciwnym kierunku" in texts[800][1]
+    for start in (400, 1000):
+        assert "the signals were not related" in texts[start][0] and "opposite" not in texts[start][0]
+        assert "sygnały nie były powiązane" in texts[start][1]
+    assert "synchronization episode E1" in texts[1000][0]
+
+
+def test_a_saved_project_keeps_no_synchrony_below_zero() -> None:
+    windows = _windows([(400, 460, 0.05), (800, 860, -0.3), (1000, 1060, 0.05)])
+    synchrony = [_sync(1000, 1060, ["S1", "S2"])]
+
+    steps = _steps(synchrony, [], windows, asynchrony_threshold=0.0)
+
+    assert [(c.start_seconds, c.end_seconds) for c in steps[5]] == [(800.0, 860.0)]
+    assert [round(c.start_seconds) for c in steps[2]] == [1000]
 
 
 def test_candidates_of_one_step_are_ranked_strongest_first() -> None:

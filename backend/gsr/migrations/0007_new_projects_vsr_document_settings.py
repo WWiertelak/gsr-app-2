@@ -16,4 +16,9 @@ class Migration(migrations.Migration):
             name='pipeline_config',
             field=models.JSONField(blank=True, default=gsr.models.default_pipeline_config),
         ),
+        migrations.AlterField(
+            model_name='project',
+            name='interview_config',
+            field=models.JSONField(blank=True, default=gsr.models.default_interview_config),
+        ),
     ]

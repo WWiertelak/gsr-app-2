@@ -21,7 +21,6 @@ urlpatterns = [
     path("projects/<uuid:pk>/cleaning/clean_signals.csv", views.cleaning_csv, name="cleaning_csv"),
     path("projects/<uuid:pk>/analysis/", views.analysis, name="analysis"),
     path("projects/<uuid:pk>/analysis/reset/", views.analysis_reset, name="analysis_reset"),
-    path("projects/<uuid:pk>/vsr-defaults/", views.vsr_defaults, name="vsr_defaults"),
     path("projects/<uuid:pk>/interviews/", views.interviews, name="interviews"),
     path("projects/<uuid:pk>/interviews/moments/add/", views.interview_moment_add, name="interview_moment_add"),
     path("projects/<uuid:pk>/interviews/candidates/add/", views.interview_candidate_add,

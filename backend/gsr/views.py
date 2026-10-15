@@ -31,14 +31,16 @@ from django.views.decorators.http import require_POST
 from . import charts, params, vsr_text
 from .errors import UserError, describe, no_overlap_message
 from .models import AnalysisResult, Dataset, InterviewMoment, Project
-from .pipeline.config import VSR_DOCUMENT_SETTINGS, PipelineConfig
-from .pipeline.vsr import PRIMARY, RESERVE
+from .pipeline.config import PipelineConfig
+from .pipeline.vsr import DEFAULT_ASYNCHRONY_THRESHOLD, PRIMARY, RESERVE
 from .reporting.report import render_report_pdf, report_text, resolve_lang
 from .reporting.vsr_charts import AVERAGE_COLOR, lesson_ticks
 from .services import curation, exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
 from .services.interview import (
+    ASYNCHRONY_KEY,
+    ASYNCHRONY_LIMITS,
     COUNT_LIMITS,
     InterviewConfig,
     InterviewRoles,
@@ -678,7 +680,6 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         "error": error,
         "analysis_blocked": analysis_blocked,
         "colors": colors,
-        "vsr_document": _vsr_document(project, values, "analysis"),
     }
     if result is not None:
         payload = result.payload
@@ -753,7 +754,8 @@ def analysis(request: HttpRequest, pk: Any) -> HttpResponse:
 def analysis_reset(request: HttpRequest, pk: Any) -> HttpResponse:
     project = _project(pk)
     project.pipeline_config = params.reset_analysis(project.pipeline_config)
-    project.save(update_fields=["pipeline_config", "updated_at"])
+    project.interview_config = {**(project.interview_config or {}), ASYNCHRONY_KEY: DEFAULT_ASYNCHRONY_THRESHOLD}
+    project.save(update_fields=["pipeline_config", "interview_config", "updated_at"])
     return _analysis_after_settings(request, project)
 
 
@@ -763,27 +765,6 @@ def _analysis_after_settings(request: HttpRequest, project: Project) -> HttpResp
         return redirect(f"{reverse('gsr:analysis', args=[project.pk])}?tab={tab}")
     return _page(request, project, "analysis", "gsr/partials/analysis_main.html",
                  _analysis_context(project, tab))
-
-
-def _vsr_document(project: Project, values: dict[str, Any], page: str) -> dict[str, Any]:
-    """The values the VSR Interview Flow Chart suggests next to the project's, for the "use them" action."""
-    rows = params.vsr_document_rows(values, _interview_config(project).to_storage())
-    return {"rows": rows, "differs": any(row["differs"] for row in rows), "page": page,
-            "action": reverse("gsr:vsr_defaults", args=[project.pk])}
-
-
-@require_POST
-def vsr_defaults(request: HttpRequest, pk: Any) -> HttpResponse:
-    """Set the Analysis settings and the moment counts the VSR Interview Flow Chart suggests; the rest stays."""
-    project = _project(pk)
-    project.pipeline_config = {**(project.pipeline_config or {}), **VSR_DOCUMENT_SETTINGS}
-    project.interview_config = {**(project.interview_config or {}), **params.VSR_DOCUMENT_COUNTS}
-    project.save(update_fields=["pipeline_config", "interview_config", "updated_at"])
-    if request.POST.get("page") == "interviews":
-        if not _is_htmx(request):
-            return _interviews_redirect(request, project, None)
-        return _interviews_page(request, project, request.POST.get("tab"))
-    return _analysis_after_settings(request, project)
 
 
 # ─── 4 Interviews ────────────────────────────────────────────────────────────
@@ -811,7 +792,9 @@ def _role_form(project: Project, roles: dict[str, Any]) -> dict[str, Any]:
         "pairs": [{"number": index + 1, "left": left, "right": right} for index, (left, right) in enumerate(pairs)],
         "primary_moment_count": roles.get("primary_moment_count"),
         "reserve_moment_count": roles.get("reserve_moment_count"),
+        "asynchrony_threshold": roles.get(ASYNCHRONY_KEY),
         "limits": COUNT_LIMITS,
+        "asynchrony_limits": ASYNCHRONY_LIMITS,
     }
 
 
@@ -823,7 +806,7 @@ def _posted_roles(request: HttpRequest) -> dict[str, Any]:
         "teacher_alias": (request.POST.get("teacher_alias") or "").strip() or None,
         "student_pairs": pairs,
     }
-    for name in COUNT_LIMITS:
+    for name in (*COUNT_LIMITS, ASYNCHRONY_KEY):
         if name in request.POST:
             roles[name] = request.POST[name]
     return roles
@@ -1026,7 +1009,6 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
         "step_names": vsr_text.steps(),
         # The card form the last action came from, reopened with its values and its error.
         "moment_form": moment_form or {},
-        "vsr_document": _vsr_document(project, _current_values(project), "interviews"),
     }
     if result is not None:
         payload = result.payload
