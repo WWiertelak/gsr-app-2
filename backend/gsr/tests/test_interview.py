@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from importlib import import_module
 from pathlib import Path
 
@@ -17,7 +19,7 @@ from gsr.services.interview import (
     load_interview_config,
     validate_count,
 )
-from gsr.services.results import compute_analysis, current_signature, is_stale
+from gsr.services.results import compute_analysis, current_signature, included_datasets, is_stale
 
 from .sample_data import Participant, write_group
 
@@ -75,7 +77,7 @@ def test_apply_interview_config_stores_roles_and_moment_counts(lesson_project) -
     assert (config.primary_count, config.reserve_count) == (4, 2)
     assert "video_start_time" not in stored
     assert set(stored) == {"teacher_alias", "student_pairs", "primary_moment_count",
-                           "reserve_moment_count"}
+                           "reserve_moment_count", "asynchrony_threshold"}
 
 
 @pytest.mark.django_db
@@ -112,6 +114,36 @@ def test_moment_counts_accept_whole_number_text() -> None:
 def test_invalid_moment_count_is_explained_in_polish(lesson_project) -> None:
     with pytest.raises(ValueError, match="Liczba momentów głównych musi być liczbą całkowitą od 1 do 20"):
         apply_interview_config(lesson_project, {"primary_moment_count": "0"})
+
+
+@pytest.mark.django_db
+def test_a_saved_project_without_the_asynchrony_threshold_keeps_its_moments_signature(lesson_project) -> None:
+    roles = {"teacher_alias": "T", "student_pairs": [["S1", "S2"]], "primary_moment_count": 5,
+             "reserve_moment_count": 3}
+    Project.objects.filter(pk=lesson_project.pk).update(interview_config=roles)
+    lesson_project.refresh_from_db()
+    # The signature stored with moments chosen before the setting existed: the roles and counts only.
+    document = {
+        "analysis": None,
+        "datasets": [[str(dataset.id), dataset.alias, dataset.file_sha256]
+                     for dataset in included_datasets(lesson_project)],
+        **roles,
+    }
+    saved = hashlib.sha256(json.dumps(document, sort_keys=True).encode("utf-8")).hexdigest()
+
+    assert load_interview_config(lesson_project).asynchrony_threshold == 0.0
+    assert compute_vsr_signature(lesson_project) == saved
+    lesson_project.interview_config = apply_interview_config(lesson_project, {"primary_moment_count": 5})
+    assert compute_vsr_signature(lesson_project) == saved
+    lesson_project.interview_config = apply_interview_config(lesson_project, {"asynchrony_threshold": "0.1"})
+    assert compute_vsr_signature(lesson_project) != saved
+
+
+@pytest.mark.django_db
+def test_invalid_asynchrony_threshold_is_explained_in_polish(lesson_project) -> None:
+    for value in ("1.5", "abc", True):
+        with pytest.raises(ValueError, match="Próg asynchronii musi być liczbą od -1.0 do 1.0"):
+            apply_interview_config(lesson_project, {"asynchrony_threshold": value})
 
 
 @pytest.mark.django_db

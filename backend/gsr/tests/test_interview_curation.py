@@ -417,3 +417,96 @@ def test_video_migration_preserves_sensor_times_and_researcher_decisions(propose
     assert moment.proposal["start_clock"] == old_clock
     assert moment.status == InterviewMoment.STATUS_ACCEPTED
     assert result.computed_at == old_time
+
+
+def _with_candidates(project: Project, moments: list[tuple[int, float, float]],
+                     others: list[tuple[int, float, float]]) -> AnalysisResult:
+    """A stored proposal whose interview also lists candidates the steps did not select (``others``)."""
+    result = _fake_result(project, moments)
+    interview = result.payload["interviews"][0]
+    ranks: dict[int, int] = {}
+    candidates = []
+    for step, start, end in sorted(moments + others, key=lambda item: item[0]):
+        ranks[step] = ranks.get(step, 0) + 1
+        candidates.append({"step": step, "start_seconds": start, "end_seconds": end, "correlation": 0.85,
+                           "episode": None, "shared_episode": None, "shared_state": None, "in_state": None,
+                           "people": None, "candidate_rank": ranks[step], "candidate_count": 0,
+                           "start_clock": None, "end_clock": None})
+    interview.update(candidates=candidates, kind="dyad", participants=["A", "B"],
+                     stats={"complete": True, "primary_count": 2, "primary_target": 2})
+    result.save()
+    return result
+
+
+def _rank(result: AnalysisResult, start: float) -> tuple[int, int]:
+    candidate = next(item for item in result.payload["interviews"][0]["candidates"] if item["start_seconds"] == start)
+    return candidate["step"], candidate["candidate_rank"]
+
+
+@pytest.mark.django_db
+def test_a_candidate_from_the_timeline_joins_the_list_accepted_after_the_kept_moments() -> None:
+    project = Project.objects.create(name="Kandydaci")
+    result = _with_candidates(project, [(1, 10, 40), (2, 100, 130)], [(2, 200, 230), (5, 300, 330)])
+    curation.sync_interview_moments(project, result)
+
+    moment = curation.add_candidate(project, result, "A+B", *_rank(result, 200))
+    assert moment.source == InterviewMoment.SOURCE_PROPOSED and moment.status == InterviewMoment.STATUS_ACCEPTED
+    assert (moment.start_seconds, moment.end_seconds) == (200, 230) and not moment.time_changed
+    assert moment.proposal["step"] == 2 and moment.proposal[curation.FROM_TIMELINE] is True
+    assert [item.row.start_seconds for item in _list(project, result, "A+B")] == [10, 100, 200]
+
+    with pytest.raises(ValueError, match="already on the interview's list"):
+        curation.add_candidate(project, result, "A+B", *_rank(result, 200))
+    with pytest.raises(ValueError, match="no longer in the moments"):
+        curation.add_candidate(project, result, "A+B", 3, 1)
+    with pytest.raises(ValueError, match="Choose an interview"):
+        curation.add_candidate(project, result, "X+Y", 2, 1)
+
+    # Choosing again keeps it on the list without asking for a check while the Analysis still has the candidate...
+    curation.sync_interview_moments(project, result)
+    moment.refresh_from_db()
+    assert not moment.needs_check and moment.status == InterviewMoment.STATUS_ACCEPTED
+    # ...and asks for one once it no longer does.
+    result = _with_candidates(project, [(1, 10, 40), (2, 100, 130)], [(5, 300, 330)])
+    curation.sync_interview_moments(project, result)
+    moment.refresh_from_db()
+    assert moment.needs_check
+
+
+@pytest.mark.django_db
+def test_a_rejected_candidate_is_restored_and_an_overlapping_one_is_refused() -> None:
+    project = Project.objects.create(name="Kandydaci")
+    result = _with_candidates(project, [(1, 10, 40), (2, 100, 130)], [(5, 110, 140)])
+    curation.sync_interview_moments(project, result)
+    rows = {row.start_seconds: row for row in project.interview_moments.all()}
+
+    with pytest.raises(ValueError, match="overlaps another moment"):
+        curation.add_candidate(project, result, "A+B", *_rank(result, 110))
+    curation.set_status(rows[100], InterviewMoment.STATUS_REJECTED)
+    curation.add_candidate(project, result, "A+B", *_rank(result, 110))
+    with pytest.raises(ValueError, match="overlaps another moment"):
+        curation.add_candidate(project, result, "A+B", *_rank(result, 100))  # rejected, but 110-140 took its place
+
+    rows[100].refresh_from_db()
+    assert rows[100].status == InterviewMoment.STATUS_REJECTED
+    curation.set_status(InterviewMoment.objects.get(start_seconds=110), InterviewMoment.STATUS_REJECTED)
+    restored = curation.add_candidate(project, result, "A+B", *_rank(result, 100))
+    assert restored.pk == rows[100].pk and restored.status == InterviewMoment.STATUS_ACCEPTED
+
+
+@pytest.mark.django_db
+def test_adding_a_candidate_posts_through_htmx_and_without_javascript(client) -> None:
+    project = Project.objects.create(name="Kandydaci")
+    result = _with_candidates(project, [(1, 10, 40)], [(3, 200, 230), (4, 300, 330)])
+    curation.sync_interview_moments(project, result)
+    url = reverse("gsr:interview_candidate_add", args=[project.pk])
+
+    fragment = client.post(url, {"interview": "A+B", "step": 3, "rank": 1, "tab": "interview-1"}, **HTMX)
+    assert fragment.status_code == 200 and project.interview_moments.filter(start_seconds=200).exists()
+    response = client.post(url, {"interview": "A+B", "step": 4, "rank": 1, "tab": "interview-1"})
+    added = project.interview_moments.get(start_seconds=300)
+    assert response.status_code == 302 and response["Location"].endswith(f"?tab=interview-1#moment-{added.pk}")
+
+    fragment = client.post(url, {"interview": "A+B", "step": 4, "rank": 1, "tab": "interview-1"}, **HTMX)
+    assert "already on the interview" in fragment.content.decode() or "już na liście" in fragment.content.decode()
+    assert client.post(url, {"interview": "A+B", "step": "x", "rank": 1}).status_code == 404

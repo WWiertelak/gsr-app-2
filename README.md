@@ -33,12 +33,20 @@ Polish or English (switch in the left rail). The workflow is
 Projects → 1 Import → 2 Cleaning → 3 Analysis (Synchronization | Co-arousal tabs, one run)
 → 4 Interviews (VSR interview moments per student pair and for the teacher, chosen from the
 Analysis episodes by the steps of the "VSR Interview Flow Chart", each with a preview of the
-signals and a one-sentence justification from the Analysis values; the researcher accepts,
-rejects, reorders, retimes or adds moments, and choosing again keeps those decisions) → 5 Export (bilingual PDF report
+signals and a one-sentence justification from the Analysis values; a lesson timeline shows every
+candidate moment the Analysis found, one row per step, and the interview's signals across the whole
+lesson; the researcher accepts, rejects, reorders, retimes or adds moments, also straight from the
+timeline, and choosing again keeps those decisions) → 5 Export (bilingual PDF report
 for other researchers, with the interview moments and their justifications as its own
 section; CSV tables including `vsr_moments.csv`, a run settings + results JSON, chart PNGs, or
 all of it as a ZIP). Re-running or changing an earlier step marks later saved results
-outdated until each is refreshed in order. Interview pairs can be added and removed
+outdated until each is refreshed in order. New projects start with the values the VSR Interview Flow
+Chart suggests (co-movement correlation above 0.8 for the synchronization and co-movement thresholds,
+5 moments per interview plus 3 in reserve, and step 5 "no synchrony" for a correlation below 0.1, set
+on the Interviews step); projects saved earlier keep their thresholds (step 5 below 0) until "Reset
+defaults" in the Analysis settings sets the 0.8 thresholds and the step 5 threshold of 0.1. The 5 + 3
+moment counts are the existing defaults; the reset does not change them, they are edited on the Interviews
+step. Interview pairs can be added and removed
 with the form buttons; removed pairs retain curated decisions for restoration when
 the same pair is added again. Moments show lesson time and the GSR sensor clock,
 which the researcher uses to locate the moment. There is no login yet: add Django

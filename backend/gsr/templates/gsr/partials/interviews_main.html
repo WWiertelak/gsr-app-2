@@ -77,6 +77,11 @@
             </div>
             <span class="muted small">{% translate "The VSR flow chart asks for 5 moments and a few in reserve (8 in all)." %}</span>
           </fieldset>
+          <div class="f">
+            <label for="asynchrony-threshold">{% translate "Step 5: correlation below" %}</label>
+            <input type="number" id="asynchrony-threshold" name="asynchrony_threshold" value="{{ roles.asynchrony_threshold|stringformat:'s' }}" min="{{ roles.asynchrony_limits.0 }}" max="{{ roles.asynchrony_limits.1 }}" step="any" required>
+            <span class="muted small">{% translate "No synchrony: the VSR flow chart counts r below 0.1 as asynchronous." %}</span>
+          </div>
         </div>
       </div>
       <p class="roles-help muted small">{% translate "“Choose moments” saves the participants and takes the moments from the Analysis: its episodes are sorted into steps 1–5 of the VSR flow chart, the strongest first." %}</p>
@@ -132,17 +137,86 @@
 
           <div class="section-head section-gap">
             <h3>{% translate "Lesson timeline" %}</h3>
-            <span class="subtitle"><span class="legend primary"></span>{% translate "primary" %} <span class="legend reserve"></span>{% translate "reserve" %}</span>
+            <span class="subtitle lt-legend"><span class="legend primary"></span>{% translate "primary" %} <span class="legend reserve"></span>{% translate "reserve" %}{% if interview.has_candidates %} <span class="legend other"></span>{% translate "other candidate" %} <span class="legend rejected"></span>{% translate "rejected" %}{% endif %}</span>
           </div>
-          <div class="lesson-timeline" role="img" aria-label="{% translate 'Lesson timeline' %}: {% for moment in interview.moments %}{% if not moment.rejected %}{{ moment.number }} {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}">
-            <div class="lt-track">
-              {% for tick in interview.ticks %}<span class="lt-grid" style="left: {{ tick.pct }}%"></span>{% endfor %}
-              {% for moment in interview.moments %}{% if not moment.rejected %}
-                <a class="lt-moment{% if not moment.primary %} reserve{% endif %}" href="#moment-{{ moment.id }}" style="left: {{ moment.bar.left }}%; width: {{ moment.bar.width }}%" title="{{ moment.number }} · {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}"><b>{{ moment.number }}</b></a>
-              {% endif %}{% endfor %}
+          {% if interview.has_candidates %}
+            <p class="muted small">{% translate "Every moment the Analysis found for this interview, one row per step. Select one to see it; a candidate that is not on the list can be added to it." %}</p>
+          {% else %}
+            <p class="muted small">{% translate "These moments were chosen before every candidate was kept. Choose again to see all the moments the Analysis found." %}</p>
+          {% endif %}
+          {% if moment_form.id == "candidate-"|add:interview.key and moment_form.error %}<p class="alert error" role="alert">{{ moment_form.error }}</p>{% endif %}
+          <div class="lesson-timeline">
+            <div class="lt-lane">
+              <span class="lt-lane-label">{% translate "On the list" %}</span>
+              <div class="lt-track" role="img" aria-label="{% translate 'Moments on the list' %}: {% for moment in interview.moments %}{% if not moment.rejected %}{{ moment.number }} {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}">
+                {% for tick in interview.ticks %}<span class="lt-grid" style="left: {{ tick.pct }}%"></span>{% endfor %}
+                {% for moment in interview.moments %}{% if not moment.rejected %}
+                  <a class="lt-moment{% if not moment.primary %} reserve{% endif %}" href="#moment-{{ moment.id }}" style="left: {{ moment.bar.left }}%; width: {{ moment.bar.width }}%" title="{{ moment.number }} · {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}"><b>{{ moment.number }}</b></a>
+                {% endif %}{% endfor %}
+              </div>
             </div>
-            <div class="lt-axis" aria-hidden="true">{% for tick in interview.ticks %}<span style="left: {{ tick.pct }}%">{{ tick.seconds|seconds_mmss }}</span>{% endfor %}</div>
+            {% if interview.has_candidates %}
+              {% for lane in interview.candidate_lanes %}
+                <div class="lt-lane">
+                  <span class="lt-lane-label" title="{{ lane.name }}"><b>{{ lane.number }}</b> {{ lane.name }}</span>
+                  <div class="lt-track candidates">
+                    {% for tick in interview.ticks %}<span class="lt-grid" style="left: {{ tick.pct }}%"></span>{% endfor %}
+                    {% for candidate in lane.candidates %}
+                      <a class="lt-candidate {{ candidate.state }}" href="#{{ candidate.id }}" data-candidate="{{ candidate.id }}" aria-controls="{{ candidate.id }}" aria-expanded="false" style="left: {{ candidate.bar.left }}%; width: {{ candidate.bar.width }}%" title="{{ candidate.step_title }} · {{ candidate.start_seconds|seconds_mmss }}–{{ candidate.end_seconds|seconds_mmss }}{% if candidate.number %} · {{ candidate.number }}{% endif %}"><span class="sr-only">{{ candidate.step_title }}, {{ candidate.start_seconds|seconds_mmss }}–{{ candidate.end_seconds|seconds_mmss }}</span>{% if candidate.number %}<b aria-hidden="true">{{ candidate.number }}</b>{% endif %}</a>
+                    {% empty %}
+                      <span class="lt-none">{% translate "none" %}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endfor %}
+            {% endif %}
+            <div class="lt-lane">
+              <span aria-hidden="true"></span>
+              <div class="lt-axis" aria-hidden="true">{% for tick in interview.ticks %}<span style="left: {{ tick.pct }}%">{{ tick.seconds|seconds_mmss }}</span>{% endfor %}</div>
+            </div>
           </div>
+          {% for candidate in interview.candidate_list %}
+            <div class="candidate-detail {{ candidate.state }}" id="{{ candidate.id }}" data-candidate-panel tabindex="-1">
+              <div class="candidate-head">
+                <strong>{{ candidate.step_title }}</strong>
+                <span class="moment-when">{{ candidate.start_seconds|seconds_mmss }}–{{ candidate.end_seconds|seconds_mmss }} <span class="muted">({{ candidate.duration_seconds|seconds_mmss }})</span></span>
+                {% if candidate.start_clock %}<span class="muted small">{% translate "Sensor clock" %} {{ candidate.start_clock }}–{{ candidate.end_clock }}</span>{% endif %}
+                <span class="muted small">{% blocktranslate with rank=candidate.rank count=candidate.count %}candidate {{ rank }} of {{ count }} in this step{% endblocktranslate %}</span>
+                {% if candidate.state == "primary" %}<span class="badge sig">{% blocktranslate with number=candidate.number %}primary, moment {{ number }}{% endblocktranslate %}</span>
+                {% elif candidate.state == "reserve" %}<span class="badge neutral">{% blocktranslate with number=candidate.number %}reserve, moment {{ number }}{% endblocktranslate %}</span>
+                {% elif candidate.state == "rejected" %}<span class="badge poor">{% translate "rejected" %}</span>
+                {% else %}<span class="badge">{% translate "not on the list" %}</span>{% endif %}
+                <span class="grow"></span>
+                <a class="drawer-close small" href="#panel-{{ interview.tab }}" data-candidate-close aria-label="{% translate 'Close' %}" title="{% translate 'Close' %}"><span aria-hidden="true">×</span></a>
+              </div>
+              <p class="candidate-sentence">{{ candidate.sentence }}</p>
+              <div class="candidate-actions">
+                {% if candidate.state == "other" or candidate.state == "rejected" %}
+                  <form method="post" action="{% url 'gsr:interview_candidate_add' project.pk %}"
+                        hx-post="{% url 'gsr:interview_candidate_add' project.pk %}" hx-target="#main" hx-swap="innerHTML" hx-disabled-elt="find button">
+                    {% csrf_token %}
+                    <input type="hidden" name="tab" value="{{ interview.tab }}">
+                    <input type="hidden" name="interview" value="{{ interview.key }}">
+                    <input type="hidden" name="step" value="{{ candidate.step }}">
+                    <input type="hidden" name="rank" value="{{ candidate.rank }}">
+                    <button type="submit" class="small">{% if candidate.state == "rejected" %}{% translate "Restore to the list" %}{% else %}+ {% translate "Add to the list" %}{% endif %}</button>
+                  </form>
+                {% else %}
+                  <a class="button secondary small" href="#moment-{{ candidate.moment_id }}">{% translate "Go to the moment" %}</a>
+                {% endif %}
+                <button type="button" class="ghost small" data-candidate-zoom="{{ candidate.id }}"{% if not interview.lesson_chart %} hidden{% endif %}>{% translate "Show in the signals" %}</button>
+              </div>
+            </div>
+          {% endfor %}
+
+          {% if interview.lesson_chart %}
+            <div class="section-head section-gap">
+              <h3>{% translate "Signals across the lesson" %}</h3>
+              <span class="subtitle">{% translate "every candidate shaded; scroll or drag the slider to zoom" %}</span>
+            </div>
+            {% blocktranslate with name=interview.label asvar lesson_chart_label %}Signals of {{ name }} across the lesson{% endblocktranslate %}
+            {% include "gsr/partials/chart.html" with label=lesson_chart_label kind="lessonSignals" data=interview.lesson_chart chart_id="lesson-chart-"|add:interview.tab name="lesson_"|add:interview.tab height=interview.lesson_chart_height %}
+          {% endif %}
 
           <div class="section-head section-gap">
             <h3>{% translate "Moments" %}</h3>

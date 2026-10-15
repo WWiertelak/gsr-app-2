@@ -23,6 +23,8 @@ urlpatterns = [
     path("projects/<uuid:pk>/analysis/reset/", views.analysis_reset, name="analysis_reset"),
     path("projects/<uuid:pk>/interviews/", views.interviews, name="interviews"),
     path("projects/<uuid:pk>/interviews/moments/add/", views.interview_moment_add, name="interview_moment_add"),
+    path("projects/<uuid:pk>/interviews/candidates/add/", views.interview_candidate_add,
+         name="interview_candidate_add"),
     path("projects/<uuid:pk>/interviews/moments/<uuid:moment_pk>/", views.interview_moment, name="interview_moment"),
     path("projects/<uuid:pk>/export/", views.export, name="export"),
     path("projects/<uuid:pk>/export/rerun/", views.export_rerun, name="export_rerun"),

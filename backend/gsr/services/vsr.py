@@ -20,7 +20,7 @@ from ..pipeline.common import PipelineError
 from ..pipeline.preprocessing import _signal_quality_level
 from ..pipeline.vsr import DEFAULT_PRIMARY_COUNT, DEFAULT_RESERVE_COUNT, PRIMARY, _clock_start, compute_vsr
 from .analysis import AnalysisError
-from .interview import InterviewRoles, compute_vsr_signature, load_interview_config
+from .interview import SAVED_ASYNCHRONY_THRESHOLD, InterviewRoles, compute_vsr_signature, load_interview_config
 from .results import FALLBACK_SIGNAL_COLOR, get_result, is_stale, signal_colors, stored_pipeline_result
 
 # The signals a moment preview shows on each side of the moment: at least this, or half the moment if it is longer.
@@ -88,7 +88,7 @@ def compute_interviews(project: Project) -> AnalysisResult:
     students = interview_students(roles, result.aliases) if roles.teacher_alias is not None else []
     try:
         payload = compute_vsr(result, analysis.payload, pipeline_config, roles.student_pairs, roles.teacher_alias,
-                              students, config.primary_count, config.reserve_count)
+                              students, config.primary_count, config.reserve_count, config.asynchrony_threshold)
     except PipelineError as exc:
         raise AnalysisError.from_pipeline(exc) from exc
 
@@ -270,6 +270,7 @@ def report_data(project: Project) -> dict[str, Any] | None:
         "analysis_settings": payload.get("analysis_settings") or {},
         "analysis_computed_at": payload.get("analysis_computed_at"),
         "counts": {"primary": primary_target, "reserve": reserve_target},
+        "asynchrony_threshold": payload.get("asynchrony_threshold", SAVED_ASYNCHRONY_THRESHOLD),
         "roles": payload["roles"],
         "lesson": payload["lesson"],
         "quality": payload["quality"],

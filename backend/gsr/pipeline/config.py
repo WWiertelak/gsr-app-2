@@ -68,6 +68,14 @@ _FIELD_RULES: dict[str, tuple[Any, ...]] = {
 }
 _NULLABLE = {"time_range_from", "time_range_to"}
 
+# The Analysis values the "VSR Interview Flow Chart" suggests (page 1, GSR participants: "Correlation criteria for
+# types of synchrony ... Synchronous = above 0.8"): both co-movement thresholds behind its steps 1-2. New projects
+# start with them; ``PipelineConfig`` keeps GSRv2's defaults, so the pipeline and saved projects are unchanged.
+VSR_DOCUMENT_SETTINGS: dict[str, Any] = {
+    "synchrony_threshold": 0.8,
+    "contagion_comovement_rho": 0.8,
+}
+
 
 def _coerce(name: str, value: Any) -> Any:
     if value is None:

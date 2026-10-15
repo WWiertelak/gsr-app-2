@@ -3,8 +3,8 @@
  * swaps), the merged co-arousal episode table switch, analysis tabs (ARIA tabs with arrow keys), collapsible result
  * tables, info tooltips, confirm dialogs, the settings drawer (opened from the run bar, kept open with its unapplied edits across
  * HTMX swaps), the Upload drop zone and its Separate/Overlay view switch, progress for plain form posts and on the
- * button that started a computation, the Upload overlap timeline's analysed-period handles, and the Export screen's
- * chart capture for the PDF report and the ZIP.
+ * button that started a computation, the Upload overlap timeline's analysed-period handles, the Interviews lesson
+ * timeline's candidate panels, and the Export screen's chart capture for the PDF report and the ZIP.
  */
 (function () {
   "use strict";
@@ -694,6 +694,50 @@
     openDrawerOnError();
     hydrate(document);
   });
+  // ── Interviews lesson timeline: a candidate opens its detail panel (one at a time per interview); "Show in the
+  // signals" zooms the interview's lesson chart to it. Without JS the links fall back to :target. ──
+  function setCandidate(link, open) {
+    var panel = document.getElementById(link.getAttribute("aria-controls"));
+    link.setAttribute("aria-expanded", open ? "true" : "false");
+    if (panel) {
+      panel.classList.toggle("open", open);
+    }
+    return panel;
+  }
+
+  document.addEventListener("click", function (event) {
+    var link = event.target.closest("[data-candidate]");
+    var close = event.target.closest("[data-candidate-close]");
+    var zoom = event.target.closest("[data-candidate-zoom]");
+    if (link) {
+      event.preventDefault();
+      var open = link.getAttribute("aria-expanded") !== "true";
+      var scope = link.closest("[data-tab-panel]") || document;
+      scope.querySelectorAll('[data-candidate][aria-expanded="true"]').forEach(function (other) {
+        setCandidate(other, false);
+      });
+      var panel = setCandidate(link, open);
+      if (open && panel) {
+        panel.scrollIntoView({ block: "nearest" });
+      }
+    } else if (close) {
+      event.preventDefault();
+      var opened = close.closest("[data-candidate-panel]");
+      var owner = opened && document.querySelector('[data-candidate][aria-controls="' + opened.id + '"]');
+      if (owner) {
+        setCandidate(owner, false);
+        owner.focus();
+      }
+    } else if (zoom) {
+      var tab = zoom.closest("[data-tab-panel]");
+      var chartElement = tab && tab.querySelector('[data-chart="lessonSignals"]');
+      if (chartElement && chartElement._gsrChart && window.GSRCharts.zoomTo) {
+        window.GSRCharts.zoomTo(chartElement._gsrChart, readData(chartElement.dataset.source), zoom.dataset.candidateZoom);
+        chartElement.scrollIntoView({ block: "nearest" });
+      }
+    }
+  });
+
   // Delegation keeps the pair editor working after HTMX replaces the form.
   document.addEventListener("click", function (event) {
     var add = event.target.closest("[data-add-pair]");

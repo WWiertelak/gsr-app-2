@@ -511,6 +511,93 @@
     };
   }
 
+  // The Interviews list colours (app.css --accent): a candidate on the list as primary or reserve is shaded with it.
+  var ACCENT = "#0b6e74";
+  var CANDIDATE_STYLES = {
+    primary: { color: "rgba(11,110,116,0.24)", borderColor: ACCENT, borderWidth: 1 },
+    reserve: { color: "rgba(11,110,116,0.10)", borderColor: ACCENT, borderWidth: 1, borderType: "dashed" },
+    other: { color: T.episode, borderColor: T.episodeEdge, borderWidth: 1 },
+    rejected: { color: "rgba(20,33,43,0.03)", borderColor: T.line, borderWidth: 1, borderType: "dotted" }
+  };
+
+  // An interview's two z-scored signals over the whole analysed period, every candidate moment shaded by where it
+  // stands on the interview's list (moments on the list labelled with their number); zoom with the wheel or slider.
+  function lessonSignals(data, labels, opts) {
+    var seen = {};
+    var series = (data.series || []).map(function (entry) {
+      return {
+        type: "line",
+        name: entry.alias,
+        showSymbol: false,
+        sampling: "lttb",
+        lineStyle: { width: 1.4, color: entry.color, type: participantLineType(entry.color, seen) },
+        itemStyle: { color: entry.color },
+        data: entry.points
+      };
+    });
+    if (!series.length) {
+      return null;
+    }
+    var candidates = data.candidates || [];
+    if (candidates.length) {
+      series[0].markArea = {
+        silent: true,
+        label: { show: true, position: "insideTop", distance: 4, color: ACCENT, fontSize: 11, fontWeight: 600 },
+        data: candidates.map(function (candidate) {
+          return [
+            {
+              xAxis: candidate.start,
+              name: candidate.number ? String(candidate.number) : "",
+              itemStyle: CANDIDATE_STYLES[candidate.state] || CANDIDATE_STYLES.other
+            },
+            { xAxis: candidate.end }
+          ];
+        })
+      };
+    }
+    var range = data.range || {};
+    return {
+      animation: false,
+      toolbox: toolbox(labels, opts),
+      tooltip: {
+        trigger: "axis",
+        formatter: function (params) {
+          var rows = (params || []).map(function (item) {
+            var value = Array.isArray(item.value) ? item.value[1] : item.value;
+            return item.marker + escapeHtml(item.seriesName) + ": " + formatNumber(value, 2);
+          });
+          return params && params.length ? [mmss(params[0].axisValue)].concat(rows).join("<br/>") : "";
+        }
+      },
+      legend: { type: "scroll", top: 2, left: 52, right: 40, itemHeight: 8, textStyle: { fontSize: 11 } },
+      grid: { left: 44, right: 18, top: 34, bottom: 64 },
+      dataZoom: [
+        { type: "inside", xAxisIndex: 0, filterMode: "none" },
+        { type: "slider", xAxisIndex: 0, filterMode: "none", height: 18, bottom: 8, labelFormatter: mmss }
+      ],
+      xAxis: valueAxis({ min: range.min, max: range.max, axisLabel: { formatter: mmss } }),
+      yAxis: valueAxis({ name: labels.zscore || "z", nameGap: 10, scale: true }),
+      series: series
+    };
+  }
+
+  // Zoom a lessonSignals chart to one candidate (by id) with some lesson time on each side.
+  function zoomTo(chart, data, id) {
+    var candidate = ((data && data.candidates) || []).filter(function (item) {
+      return item.id === id;
+    })[0];
+    if (!candidate) {
+      return;
+    }
+    var range = data.range || {};
+    var context = Math.max(0.5, (candidate.end - candidate.start) / 2);
+    chart.dispatchAction({
+      type: "dataZoom",
+      startValue: Math.max(range.min, candidate.start - context),
+      endValue: Math.min(range.max, candidate.end + context)
+    });
+  }
+
   // ── Heatmap cell labels: ink or white, whichever contrasts more with the cell colour ──
   var HEATMAP_COLORS = [LOW, "#92c5de", NEUTRAL_STATE, "#f4a582", HIGH];
 
@@ -785,6 +872,7 @@
     cleanVsRaw: cleanVsRaw,
     episodeSignals: episodeSignals,
     momentSignals: momentSignals,
+    lessonSignals: lessonSignals,
     heatmap: heatmap,
     coarousalStates: coarousalStates
   };
@@ -798,6 +886,7 @@
       return builder(data, labels || {}, opts || {});
     },
     kinds: Object.keys(BUILDERS),
+    zoomTo: zoomTo,
     // Pass to echarts.init so the chart (on screen or captured for the PDF) uses the shared theme.
     theme: THEME,
     locale: null
