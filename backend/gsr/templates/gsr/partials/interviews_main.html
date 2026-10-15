@@ -36,7 +36,8 @@
       {% csrf_token %}
       <input type="hidden" name="tab" value="{{ tab|default:'' }}" data-tab-input>
       <div class="roles-grid">
-        <fieldset class="roles-pairs">
+        <fieldset class="roles-pairs" data-pairs data-pair-label="{% translate 'Pair' %}"
+                  data-first-label="{% translate 'first student' %}" data-second-label="{% translate 'second student' %}">
           <legend>{% translate "Student pairs" %}</legend>
           {% for pair in roles.pairs %}
             <div class="pair-row">
@@ -52,9 +53,11 @@
                 <option value="">—</option>
                 {% for recording in roles.recordings %}<option value="{{ recording.alias }}"{% if recording.alias == pair.right %} selected{% endif %}>{{ recording.alias }}{% if not recording.included %} ({% translate "excluded" %}){% endif %}</option>{% endfor %}
               </select>
+              <button type="button" class="secondary" data-remove-pair{% if roles.pairs|length == 1 %} disabled{% endif %}>{% translate "Remove pair" %}</button>
             </div>
           {% endfor %}
-          <p class="group-help">{% translate "Fill an empty row to add a pair; clear both fields of a row to remove it." %}</p>
+          <button type="button" class="secondary" data-add-pair>{% translate "Add pair" %}</button>
+          <p class="group-help">{% translate "Add or remove pairs before choosing moments. Removed pairs keep their curated moments in the archive; adding the same pair again restores them." %}</p>
         </fieldset>
         <div class="roles-side">
           <div class="f">
@@ -64,11 +67,6 @@
               {% for recording in roles.recordings %}<option value="{{ recording.alias }}"{% if recording.alias == roles.teacher %} selected{% endif %}>{{ recording.alias }}{% if not recording.included %} ({% translate "excluded" %}){% endif %}</option>{% endfor %}
             </select>
             <span class="muted small">{% translate "Compared with the students' average signal: each student is z-scored, then averaged." %}</span>
-          </div>
-          <div class="f">
-            <label for="video-start">{% translate "Video start (sensor clock)" %}</label>
-            <input id="video-start" type="text" name="video_start_time" value="{{ roles.video_start_time }}" placeholder="HH:MM:SS" inputmode="numeric" autocomplete="off">
-            <span class="muted small">{% translate "The clock time on the GSR sensors when the video recording starts; the moments then get video timecodes." %}</span>
           </div>
           <fieldset class="f moment-counts">
             <legend>{% translate "Moments per interview" %}</legend>
@@ -96,11 +94,11 @@
 
     {% if not result %}
       <div class="empty-state">
-        <p>{% if analysis_ready %}{% translate "No moments yet. Choose the interview participants, then “Choose moments”." %}{% else %}{% translate "No moments yet. Run the Analysis first." %}{% endif %}</p>
+        <p>{% if analysis_ready %}{% translate "No moments yet. Choose the interview participants, then “Choose moments”." %}{% elif stale_from %}{% include "gsr/partials/stale_from.html" %}{% else %}{% translate "No moments yet. Run the Analysis first." %}{% endif %}</p>
       </div>
     {% else %}
       {% if stale %}
-        <div class="alert warning stale-note">{% if analysis_ready %}{% translate "The participants, the number of moments or the Analysis changed since these moments were chosen. Choose them again." %}{% else %}{% translate "The Analysis changed since these moments were chosen. Run the Analysis, then choose the moments again." %}{% endif %}</div>
+        <div class="alert warning stale-note">{% if stale_from %}{% include "gsr/partials/stale_from.html" %}{% elif analysis_ready %}{% translate "The participants, the number of moments or the Analysis changed since these moments were chosen. Choose them again." %}{% else %}{% translate "The Analysis changed since these moments were chosen. Run the Analysis, then choose the moments again." %}{% endif %}</div>
       {% endif %}
       {% if interviews %}
         <div class="tabs interview-tabs" role="tablist" aria-labelledby="vsr-results-title">

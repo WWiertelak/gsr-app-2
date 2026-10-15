@@ -97,7 +97,7 @@ def test_proposing_creates_one_undecided_row_per_proposal_in_engine_order(propos
     assert [item.role for item in items] == [moment["status"] for moment in moments]
     first = items[0]
     assert first.start_clock == moments[0]["start_clock"]
-    assert first.start_video == moments[0]["start_video"]
+    assert not hasattr(first, "start_video")
 
 
 @pytest.mark.django_db
@@ -148,7 +148,7 @@ def test_changing_the_time_needs_a_reason_unless_it_goes_back_to_the_proposal(pr
     assert row.time_changed and row.start_seconds == round(start + 5, 1) and row.reason
     item = _list(project, result)[0]
     assert item.start_clock != result.payload["interviews"][0]["moments"][0]["start_clock"]
-    assert item.start_video is not None
+    assert item.start_clock is not None
 
     # Whole seconds in the form: within half a second of the proposal is the proposal.
     curation.change_time(row, result, round(start), round(end), "")
@@ -278,10 +278,10 @@ def test_the_lists_are_created_for_proposals_stored_before_curation() -> None:
     curation.ensure_synced(project, result)
     items = _list(project, result, "A+B")
     assert [item.row.start_seconds for item in items] == [10, 100]
-    # Clock and video times of a moved moment come from the lesson clock read back from a proposed moment.
+    # Sensor clock times of a moved moment come from the lesson clock read back from a proposed moment.
     curation.change_time(items[0].row, result, 60, 90, "Later")
     item = _list(project, result, "A+B")[0]
-    assert (item.start_clock, item.end_clock, item.start_video) == ("09:01:00", "09:01:30", "0:00:30")
+    assert (item.start_clock, item.end_clock) == ("09:01:00", "09:01:30")
 
 
 @pytest.mark.django_db
@@ -303,7 +303,7 @@ def test_a_moved_moment_reads_a_lesson_clock_stored_without_a_date() -> None:
     row = _list(project, result, "A+B")[0].row
     curation.change_time(row, result, 60, 90, "Later")
     item = _list(project, result, "A+B")[0]
-    assert (item.start_clock, item.end_clock, item.start_video) == ("09:01:00", "09:01:30", "0:00:30")
+    assert (item.start_clock, item.end_clock) == ("09:01:00", "09:01:30")
 
 
 def test_lesson_times_parse_as_minutes_and_seconds() -> None:
@@ -367,3 +367,53 @@ def test_a_failed_form_comes_back_open_with_its_error(client, proposed) -> None:
 def test_card_actions_need_proposals(client, lesson) -> None:
     url = reverse("gsr:interview_moment_add", args=[lesson.pk])
     assert client.post(url, {"interview": "S1+S2"}).status_code == 404
+
+
+@pytest.mark.django_db
+def test_removed_pairs_archive_decisions_and_restore_them_when_added_again(proposed) -> None:
+    project, result = proposed
+    moment = _list(project, result)[0].row
+    curation.set_status(moment, InterviewMoment.STATUS_ACCEPTED)
+    curation.set_note(moment, "Keep this question")
+    for pairs in ([["S1", "T"]], [["S1", "S2"]]):
+        project.interview_config = apply_interview_config(project, {"student_pairs": pairs})
+        project.save()
+        result = compute_interviews(project)
+        moment.refresh_from_db()
+        assert moment.status == InterviewMoment.STATUS_ACCEPTED and moment.note == "Keep this question"
+        assert list(curation.curated_interviews(project, result)) == ["+".join(pairs[0])]
+    assert any(item.row.pk == moment.pk for item in _list(project, result))
+
+
+@pytest.mark.django_db
+def test_video_migration_preserves_sensor_times_and_researcher_decisions(proposed) -> None:
+    from importlib import import_module
+
+    from django.apps import apps
+
+    project, result = proposed
+    moment = _list(project, result)[0].row
+    curation.set_status(moment, InterviewMoment.STATUS_ACCEPTED)
+    project.interview_config["video_start_time"] = "11:59:00"
+    project.save()
+    result.config["video_start_time"] = "11:59:00"
+    result.payload["roles"]["video_start_time"] = "11:59:00"
+    result.payload["interviews"][0]["moments"][0]["start_video"] = "0:01:00"
+    result.save()
+    moment.proposal["start_video"] = "0:01:00"
+    moment.proposal["end_video"] = "0:02:00"
+    moment.save()
+    old_clock = moment.proposal["start_clock"]
+    old_time = result.computed_at
+    migration = import_module("gsr.migrations.0006_remove_video_times")
+    migration.forwards(apps, None)
+    project.refresh_from_db()
+    result.refresh_from_db()
+    moment.refresh_from_db()
+    assert "video_start_time" not in project.interview_config
+    assert "video_start_time" not in result.config and "video_start_time" not in result.payload["roles"]
+    assert "start_video" not in result.payload["interviews"][0]["moments"][0]
+    assert "start_video" not in moment.proposal and "end_video" not in moment.proposal
+    assert moment.proposal["start_clock"] == old_clock
+    assert moment.status == InterviewMoment.STATUS_ACCEPTED
+    assert result.computed_at == old_time

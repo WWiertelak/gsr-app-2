@@ -3,7 +3,7 @@
 Lays out the moments of the Interviews step (``services/vsr.report_data``: the researcher's
 list without rejected moments, or the chosen moments while nothing is decided): the Analysis
 run and settings they come from, and per interview a table of the moments with lesson,
-sensor-clock and video times, and a card per moment with the same preview chart and the same
+sensor-clock times, and a card per moment with the same preview chart and the same
 one-sentence justification (``vsr_text``) as the Interviews screen. Report strings live here
 in Polish and English like the rest of the report; the justification goes through gettext
 under the report language.
@@ -38,10 +38,8 @@ _TEXT: dict[str, dict[str, str]] = {
         "analysis_run": "Przebieg Analizy",
         "moment_counts": "Momenty na wywiad",
         "moment_counts_value": "{primary} głównych + {reserve} rezerwowych",
-        "video_start": "Start nagrania wideo (zegar czujnika)",
-        "video_start_missing": "nie podano",
         "times_note": "Czas lekcji liczy się od wspólnego początku nagrań, jak w Analizie; zegar czujnika to zegar "
-                      "zapisany w nagraniach; kod wideo wymaga podania startu nagrania.",
+                      "zapisany w nagraniach GSR, według którego badacz odnajduje moment.",
         "pair": "Para {left} + {right}",
         "teacher": "Nauczyciel {alias}",
         "teacher_against": "Nauczyciel {alias} względem średniej sygnałów uczniów (każdy uczeń w z-score): "
@@ -59,7 +57,6 @@ _TEXT: dict[str, dict[str, str]] = {
         "col_status": "Status",
         "col_lesson": "Czas lekcji",
         "col_clock": "Zegar czujnika",
-        "col_video": "Wideo",
         "col_episode": "Epizod Analizy",
         "decision": "Decyzja",
         "accepted": "zaakceptowany",
@@ -83,7 +80,6 @@ _TEXT: dict[str, dict[str, str]] = {
         "reserve": "rezerwowy",
         "cards_heading": "Podgląd i uzasadnienie każdego momentu",
         "lesson": "Lekcja",
-        "before_video": "przed startem wideo",
         "chart_note": "Sygnały (z-score) wokół momentu (zacieniony), jak na kroku Wywiady.",
         "chart_label": "Sygnały wokół momentu {number}",
         "no_moments": "Brak momentów na liście.",
@@ -129,10 +125,8 @@ _TEXT: dict[str, dict[str, str]] = {
         "analysis_run": "Analysis run",
         "moment_counts": "Moments per interview",
         "moment_counts_value": "{primary} primary + {reserve} reserve",
-        "video_start": "Video start (sensor clock)",
-        "video_start_missing": "not set",
         "times_note": "Lesson time counts from the recordings' common start, as in the Analysis; the sensor clock is "
-                      "the clock stored in the recordings; the video timecode needs the video start.",
+                      "the clock stored in the GSR recordings, used by the researcher to locate the moment.",
         "pair": "Pair {left} + {right}",
         "teacher": "Teacher {alias}",
         "teacher_against": "Teacher {alias} against the average of the students' signals (each student z-scored): "
@@ -150,7 +144,6 @@ _TEXT: dict[str, dict[str, str]] = {
         "col_status": "Status",
         "col_lesson": "Lesson time",
         "col_clock": "Sensor clock",
-        "col_video": "Video",
         "col_episode": "Analysis episode",
         "decision": "Decision",
         "accepted": "accepted",
@@ -174,7 +167,6 @@ _TEXT: dict[str, dict[str, str]] = {
         "reserve": "reserve",
         "cards_heading": "Preview and justification of each moment",
         "lesson": "Lesson",
-        "before_video": "before the video starts",
         "chart_note": "Signals (z-scores) around the moment (shaded), as on the Interviews step.",
         "chart_label": "Signals around moment {number}",
         "no_moments": "There are no moments on the list.",
@@ -240,12 +232,6 @@ def _decision(lang: str, moment: dict[str, Any]) -> str:
     return f"{text}, {_t(lang, 'time_changed')}" if moment["time_changed"] else text
 
 
-def _video(lang: str, moment: dict[str, Any], video_start: str | None) -> str:
-    if moment["start_video"]:
-        return f"{moment['start_video']}–{moment['end_video'] or '…'}"
-    return _t(lang, "before_video") if video_start else "—"
-
-
 def _clock(moment: dict[str, Any]) -> str:
     return f"{moment['start_clock']}–{moment['end_clock']}" if moment["start_clock"] else "—"
 
@@ -276,14 +262,12 @@ def _source_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
     labels = {param.name: str(param.label) for param in params.ANALYSIS_PARAMS}
     rows = [[labels.get(name, name), params.display_number(settings[name])] for name in _SETTINGS if name in settings]
     computed = (vsr.get("analysis_computed_at") or "")[:16].replace("T", " ")
-    video_start = (vsr["roles"] or {}).get("video_start_time") or _t(lang, "video_start_missing")
     counts = vsr["counts"]
     rows = [
         [_t(lang, "analysis_run"), computed or "—"],
         *rows,
         [_t(lang, "moment_counts"), _t(lang, "moment_counts_value", primary=counts["primary"],
                                        reserve=counts["reserve"])],
-        [_t(lang, "video_start"), video_start],
     ]
     return [
         {"type": "h2", "text": _t(lang, "source_heading")},
@@ -350,7 +334,6 @@ def _chart(vsr: dict[str, Any], interview: dict[str, Any], moment: dict[str, Any
 
 
 def _moment_cards(interview: dict[str, Any], vsr: dict[str, Any], lang: str) -> dict[str, Any]:
-    video_start = (vsr["roles"] or {}).get("video_start_time")
     cards = []
     for moment in interview["moments"]:
         manual = moment["source"] == "manual"
@@ -364,7 +347,6 @@ def _moment_cards(interview: dict[str, Any], vsr: dict[str, Any], lang: str) -> 
             "times": [
                 (_t(lang, "lesson"), _lesson(moment)),
                 (_t(lang, "col_clock"), _clock(moment)),
-                (_t(lang, "col_video"), _video(lang, moment, video_start)),
             ],
             "chart": _chart(vsr, interview, moment, lang),
             "chart_note": _t(lang, "chart_note"),
@@ -377,7 +359,6 @@ def _moment_cards(interview: dict[str, Any], vsr: dict[str, Any], lang: str) -> 
 
 
 def _interview_blocks(interview: dict[str, Any], vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
-    video_start = (vsr["roles"] or {}).get("video_start_time")
     lesson = vsr["lesson"]
     moments = interview["moments"]
     blocks: list[dict[str, Any]] = [{"type": "h2", "text": _interview_label(lang, interview)}]
@@ -397,12 +378,12 @@ def _interview_blocks(interview: dict[str, Any], vsr: dict[str, Any], lang: str)
         {"type": "h3", "text": _t(lang, "moments_heading")},
         _table(
             [_t(lang, key) for key in ("col_number", "col_status", "decision", "col_step", "col_lesson", "col_clock",
-                                       "col_video", "col_episode")]
+                                       "col_episode")]
             + ["r"],
             [[str(moment["number"]), _status(lang, moment), _decision(lang, moment), _step_cell(lang, moment),
-              _lesson(moment), _clock(moment), _video(lang, moment, video_start), _episode_cell(lang, moment),
+              _lesson(moment), _clock(moment), _episode_cell(lang, moment),
               vsr_text.correlation(moment["correlation"])] for moment in moments],
-            numeric=(0, 8),
+            numeric=(0, 7),
         ),
         {"type": "h3", "text": _t(lang, "cards_heading")},
         _moment_cards(interview, vsr, lang),

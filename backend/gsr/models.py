@@ -30,7 +30,7 @@ class Project(models.Model):
     description = models.TextField(blank=True, default="")
     # Stored PipelineConfig overrides (gsr.pipeline.config field names).
     pipeline_config = models.JSONField(default=dict, blank=True)
-    # Interview roles (teacher, student dyads, video clock) and the number of interview moments.
+    # Interview roles (teacher, student pairs) and the number of interview moments.
     # Outside pipeline_config so role changes do not invalidate analysis results.
     interview_config = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

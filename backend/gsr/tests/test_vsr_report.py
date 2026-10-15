@@ -100,6 +100,7 @@ def _moment_count(project: Project) -> int:
 def test_polish_report_lists_every_interview_with_times_previews_and_one_sentence_each(proposed) -> None:
     page = _page(proposed, "pl")
     texts = _texts(page)
+    assert "Wideo" not in texts and "Start nagrania wideo (zegar czujnika)" not in texts
     for heading in ("Momenty do wywiadów VSR", "Para S1 + S2", "Para S3 + S4", "Nauczyciel T", "Kroki schematu VSR",
                     "Źródło: Analiza", "Oś lekcji", "Wybrane momenty", "Podgląd i uzasadnienie każdego momentu",
                     "8. Momenty do wywiadów VSR"):
@@ -107,7 +108,6 @@ def test_polish_report_lists_every_interview_with_times_previews_and_one_sentenc
 
     data = report_data(proposed)
     first = data["interviews"][0]["moments"][0]
-    assert first["start_video"] in texts or f"{first['start_video']}–{first['end_video']}" in texts
     assert f"{first['start_clock']}–{first['end_clock']}" in texts
     # One plain Polish sentence per moment, built from the Analysis values; no English quotes of the document.
     sentences = [text for text in texts if text.startswith("Krok ") and "schematu VSR:" in text]
@@ -161,7 +161,7 @@ def test_report_warns_when_the_proposals_are_outdated(proposed) -> None:
     proposed.save()
     texts = _texts(_page(proposed, "pl"))
     assert any(text.startswith("Uczestnicy wywiadów, liczba momentów lub Analiza") for text in texts)
-    assert not any("UWAGA" in text for text in texts)  # the note block already shows its own label
+    assert any("UWAGA" in text for text in texts)  # the whole export is now outdated too
     assert "momenty nieaktualne" in texts
 
 
@@ -224,7 +224,8 @@ def test_vsr_moments_csv_has_one_row_per_moment_with_times_and_justification(pro
     assert {row["interview"] for row in rows} == {"S1+S2", "S3+S4", "T"}
     first = rows[0]
     assert first["interview_type"] == "dyad" and first["participants"] == "S1; S2" and first["number"] == "1"
-    assert first["status"] in ("primary", "reserve") and first["video_start"] and first["clock_start"]
+    assert first["status"] in ("primary", "reserve") and first["clock_start"]
+    assert "video_start" not in first and "video_end" not in first
     assert float(first["lesson_end_s"]) > float(first["lesson_start_s"])
     assert first["justification"].startswith(f"VSR flow chart step {first['step']}: ")
     assert first["step_name"] and (first["analysis_episode"] or first["step"] == "5")
@@ -364,7 +365,7 @@ def test_csv_lists_accepted_retimed_and_manual_moments_with_reasons_and_notes(cu
     manual = next(row for row in own if row["source"] == "manual")
     assert manual["justification"] == "Added by the researcher: the teacher stood next to the pair"
     assert manual["step"] == "" and manual["correlation"] == "" and manual["proposed_start_s"] == ""
-    assert manual["clock_start"] and manual["video_start"]
+    assert manual["clock_start"]
     # A proposed moment's step stays a whole number although a manual row leaves the column empty there.
     assert {row["step"] for row in own if row["source"] == "proposed"} <= {"1", "2", "3", "4", "5"}
     assert {row["interview"] for row in rows} == {"S1+S2", "S3+S4", "T"}

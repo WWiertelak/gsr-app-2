@@ -16,7 +16,7 @@ from gsr.models import AnalysisResult, Project
 from gsr.services.datasets import add_dataset
 from gsr.services.interview import apply_interview_config
 from gsr.services.results import compute_analysis, get_result, is_stale
-from gsr.services.vsr import compute_interviews, interview_students, video_time
+from gsr.services.vsr import compute_interviews, interview_students
 
 from .sample_data import Participant, write_group
 
@@ -182,12 +182,13 @@ def test_moments_of_an_outdated_analysis_are_shown_as_outdated(client, lesson) -
     with translation.override("en"):
         html = client.get(reverse("gsr:interviews", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
     assert "Outdated result" in html and "Up to date" not in html
-    assert "The Analysis changed since these moments were chosen." in html
+    assert "step is outdated: refresh it and the following steps in order." in html
+    assert f'<a href="{reverse("gsr:analysis", args=[lesson.pk])}">Analysis</a>' in html
     assert _role_submits(client, lesson) == [(True, "Choose again")]
 
 
 @pytest.mark.django_db
-def test_moments_carry_lesson_clock_and_video_times(lesson) -> None:
+def test_moments_carry_lesson_and_sensor_clock_times(lesson) -> None:
     compute_analysis(lesson)
     lesson.interview_config = apply_interview_config(
         lesson, {"student_pairs": [["S1", "S2"]], "video_start_time": "11:59:00"}
@@ -197,22 +198,17 @@ def test_moments_carry_lesson_clock_and_video_times(lesson) -> None:
     moments = [moment for interview in result.payload["interviews"] for moment in interview["moments"]]
     assert moments
     for moment in moments:
-        assert moment["start_clock"] and moment["start_video"] == video_time(moment["start_clock"], "11:59:00")
-
-
-def test_video_time_counts_from_the_video_start() -> None:
-    assert video_time("12:01:30", "12:00:00") == "0:01:30"
-    assert video_time("11:59:59", "12:00:00") is None
-    assert video_time("00:00:10", "23:59:00") == "0:01:10"
-    assert video_time("12:00:00", None) is None
+        assert moment["start_clock"] and moment["end_clock"]
+        assert moment["end_seconds"] > moment["start_seconds"]
+        assert "start_video" not in moment and "end_video" not in moment
 
 
 def test_teacher_interview_averages_the_paired_students_or_everyone_else() -> None:
     from gsr.services.interview import InterviewRoles
 
-    paired = InterviewRoles("T", (("S1", "S2"),), None)
+    paired = InterviewRoles("T", (("S1", "S2"),))
     assert interview_students(paired, ["T", "S1", "S2", "S3"]) == ["S1", "S2"]
-    unpaired = InterviewRoles("T", (), None)
+    unpaired = InterviewRoles("T", ())
     assert interview_students(unpaired, ["T", "S1", "S2", "S3"]) == ["S1", "S2", "S3"]
 
 
@@ -293,7 +289,7 @@ def test_invalid_roles_show_the_error_and_keep_the_posted_rows(client, lesson) -
 
 
 @pytest.mark.django_db
-def test_invalid_video_start_shows_a_translated_error(client, lesson) -> None:
+def test_legacy_video_start_is_ignored_and_not_rendered(client, lesson) -> None:
     compute_analysis(lesson)
     with translation.override("pl"):
         response = client.post(
@@ -303,9 +299,9 @@ def test_invalid_video_start_shows_a_translated_error(client, lesson) -> None:
             **HTMX,
         )
     html = response.content.decode()
-    assert "Początek nagrania wideo musi być godziną w formacie HH:MM:SS" in html
-    assert "video_start_time must be" not in html
-    assert get_result(lesson, AnalysisResult.KIND_VSR) is None
+    assert "video_start_time" not in html
+    assert "Start nagrania wideo" not in html
+    assert get_result(lesson, AnalysisResult.KIND_VSR) is not None
 
 
 @pytest.mark.django_db
@@ -315,3 +311,97 @@ def test_rail_lists_interviews_between_analysis_and_export(client, lesson) -> No
     labels = [label for label in ("Analiza", "Wywiady", "Eksport") if label in html]
     assert labels == ["Analiza", "Wywiady", "Eksport"]
     assert html.index("<b>Analiza</b>") < html.index("<b>Wywiady</b>") < html.index("<b>Eksport</b>")
+
+
+@pytest.mark.django_db
+def test_staleness_cascades_and_recomputing_clears_only_that_step(client, lesson) -> None:
+    import csv
+    import io
+
+    from gsr.services.exports import vsr_moments_csv
+    from gsr.services.results import compute_cleaning, export_is_stale
+    from gsr.services.vsr import report_data
+    from gsr.views import _steps, report_payload
+
+    cleaning = compute_cleaning(lesson)
+    analysis = compute_analysis(lesson)
+    lesson.interview_config = apply_interview_config(lesson, {"student_pairs": [["S1", "S2"]]})
+    lesson.save()
+    interviews = compute_interviews(lesson)
+    assert not export_is_stale(lesson)
+
+    lesson.pipeline_config = {**lesson.pipeline_config, "median_kernel": 7}
+    lesson.save()
+    assert all(is_stale(lesson, result) for result in (cleaning, analysis, interviews))
+    # Even an analysis with current inputs stays outdated while Cleaning is outdated.
+    analysis = compute_analysis(lesson)
+    assert is_stale(lesson, analysis)
+    assert {step["key"] for step in _steps(lesson, "export") if step["stale"]} == {
+        "cleaning", "analysis", "interviews", "export",
+    }
+    for screen in ("cleaning", "analysis", "interviews"):
+        assert "run-status stale" in client.get(reverse(f"gsr:{screen}", args=[lesson.pk])).content.decode()
+    assert "data-stale-banner" in client.get(reverse("gsr:export", args=[lesson.pk])).content.decode()
+    assert report_payload(lesson, analysis, {}, "en")["stale"]
+    rows = list(csv.DictReader(io.StringIO(vsr_moments_csv(report_data(lesson)).decode())))
+    assert rows and all(row["stale"] == "True" for row in rows)
+
+    cleaning = compute_cleaning(lesson)
+    assert not is_stale(lesson, cleaning)
+    assert is_stale(lesson, analysis) and is_stale(lesson, interviews)
+    analysis = compute_analysis(lesson)
+    assert not is_stale(lesson, analysis)
+    assert is_stale(lesson, interviews) and export_is_stale(lesson)
+    assert report_payload(lesson, analysis, {}, "en")["stale"]
+    interviews = compute_interviews(lesson)
+    assert not is_stale(lesson, interviews) and not export_is_stale(lesson)
+    # Same settings, new upstream run: the later results still need refreshing.
+    compute_cleaning(lesson)
+    assert is_stale(lesson, analysis) and is_stale(lesson, interviews)
+
+
+@pytest.mark.django_db
+def test_pairs_can_be_added_and_removed(client, lesson) -> None:
+    compute_analysis(lesson)
+    pairs = [("S1", "S2"), ("S3", "S4")]
+    for configured in (pairs, pairs[:1]):
+        response = client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles(
+            pair_left=[left for left, _ in configured], pair_right=[right for _, right in configured],
+        ), **HTMX)
+        assert response.status_code == 200
+        lesson.refresh_from_db()
+        assert lesson.interview_config["student_pairs"] == [list(pair) for pair in configured]
+        result = get_result(lesson, AnalysisResult.KIND_VSR)
+        assert [item["key"] for item in result.payload["interviews"]] == ["+".join(pair) for pair in configured] + ["T"]
+        assert result.payload["roles"]["students"] == [alias for pair in configured for alias in pair]
+        html = response.content.decode()
+        assert html.count('name="pair_left"') == len(configured)
+        assert "data-add-pair" in html and html.count("data-remove-pair") == len(configured)
+        assert "video_start_time" not in html
+
+
+@pytest.mark.django_db
+def test_outdated_steps_point_to_the_first_outdated_step_and_refresh_in_order(client, lesson) -> None:
+    from gsr.services.results import compute_cleaning, export_is_stale
+
+    compute_cleaning(lesson)
+    compute_analysis(lesson)
+    lesson.interview_config = apply_interview_config(lesson, {"student_pairs": [["S1", "S2"]]})
+    lesson.save()
+    compute_interviews(lesson)
+    lesson.pipeline_config = {**lesson.pipeline_config, "median_kernel": 7}
+    lesson.save()
+    compute_analysis(lesson)
+
+    cleaning_link = f'<a href="{reverse("gsr:cleaning", args=[lesson.pk])}">Cleaning</a> step is outdated'
+    with translation.override("en"):
+        for screen in ("analysis", "interviews"):
+            html = client.get(reverse(f"gsr:{screen}", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
+            assert cleaning_link in html
+    client.post(reverse("gsr:export_rerun", args=[lesson.pk]))
+    assert not export_is_stale(lesson)
+
+    dataset = lesson.datasets.get(alias="S4")
+    client.post(reverse("gsr:dataset_exclude", args=[lesson.pk, dataset.pk]), {"next": "analysis"})
+    assert not is_stale(lesson, get_result(lesson, AnalysisResult.KIND_CLEANING))
+    assert not is_stale(lesson, get_result(lesson, AnalysisResult.KIND_ANALYSIS))

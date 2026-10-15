@@ -112,7 +112,28 @@ def get_result(project: Project, kind: str) -> AnalysisResult | None:
 
 
 def is_stale(project: Project, result: AnalysisResult | None) -> bool:
-    return result is not None and result.signature != current_signature(project, result.kind)
+    """A saved result depends on its inputs and every preceding saved step.
+
+    Re-running an earlier step invalidates later results even with identical
+    settings. Missing cleaning previews are allowed: Analysis also runs cleaning.
+    """
+    if result is None:
+        return False
+    if result.signature != current_signature(project, result.kind):
+        return True
+    order = (AnalysisResult.KIND_CLEANING, AnalysisResult.KIND_ANALYSIS, AnalysisResult.KIND_VSR)
+    for kind in order[:order.index(result.kind)]:
+        earlier = get_result(project, kind)
+        if earlier is not None and (earlier.computed_at > result.computed_at or is_stale(project, earlier)):
+            return True
+    return False
+
+
+def export_is_stale(project: Project) -> bool:
+    """Exports are built on demand from the saved analysis and interview results."""
+    return any(is_stale(project, get_result(project, kind)) for kind in (
+        AnalysisResult.KIND_CLEANING, AnalysisResult.KIND_ANALYSIS, AnalysisResult.KIND_VSR,
+    ))
 
 
 def _sample_xy(times: np.ndarray, values: np.ndarray, max_points: int) -> list[list[float]]:

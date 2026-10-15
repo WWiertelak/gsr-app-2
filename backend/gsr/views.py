@@ -8,6 +8,7 @@ plain POST that redirects back to its page.
 from __future__ import annotations
 
 import json
+from itertools import zip_longest
 from typing import Any
 
 import pandas as pd
@@ -50,6 +51,7 @@ from .services.results import (
     FALLBACK_SIGNAL_COLOR,
     compute_analysis,
     compute_cleaning,
+    export_is_stale,
     get_result,
     included_datasets,
     is_stale,
@@ -114,7 +116,7 @@ def _steps(project: Project, current: str) -> list[dict[str, Any]]:
     stale = {"cleaning": is_stale(project, cleaning), "analysis": is_stale(project, analysis)}
     # The interview moments come from the analysis: an outdated analysis makes them outdated too.
     stale["interviews"] = interviews is not None and (is_stale(project, interviews) or stale["analysis"])
-    stale["export"] = stale["analysis"]
+    stale["export"] = export_is_stale(project)
     status = {
         "upload": _recordings_label(recordings) if recordings else _("no recordings"),
         "cleaning": _cleaning_status(cleaning),
@@ -136,6 +138,16 @@ def _steps(project: Project, current: str) -> list[dict[str, Any]]:
         }
         for index, (key, url_name) in enumerate(STEPS)
     ]
+
+
+def _stale_before(project: Project, step: str) -> dict[str, Any] | None:
+    """The first outdated step before ``step``: refreshing it and the steps after it clears ``step`` too."""
+    for item in _steps(project, step):
+        if item["current"]:
+            return None
+        if item["stale"]:
+            return item
+    return None
 
 
 def _cleaning_status(result: AnalysisResult | None) -> str:
@@ -447,7 +459,10 @@ def dataset_exclude(request: HttpRequest, pk: Any, dataset_pk: Any) -> HttpRespo
         error = _run(compute_cleaning, project, step)
     elif step in ("analysis", "interviews", "export"):
         # The interview moments come from the analysis run: rerun the analysis, then choose them again on the screen.
-        error = _run(compute_analysis, project, step)
+        error = None
+        if get_result(project, AnalysisResult.KIND_CLEANING) is not None:
+            error = _run(compute_cleaning, project, step)
+        error = error or _run(compute_analysis, project, step)
     else:
         return redirect("gsr:upload", project.pk)
     if not _is_htmx(request):
@@ -659,6 +674,7 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         "settings_summary": params.analysis_summary(values, _applied_values(result)),
         "result": result,
         "stale": is_stale(project, result),
+        "stale_from": _stale_before(project, "analysis"),
         "error": error,
         "analysis_blocked": analysis_blocked,
         "colors": colors,
@@ -748,7 +764,6 @@ def analysis_reset(request: HttpRequest, pk: Any) -> HttpResponse:
 
 # ─── 4 Interviews ────────────────────────────────────────────────────────────
 
-MIN_PAIR_ROWS = 3  # the document's three student dyads (page 1: "6 students, 3 dyads")
 MOMENT_CHART_HEIGHT = 190
 
 
@@ -757,20 +772,18 @@ def _interview_config(project: Project) -> InterviewConfig:
     try:
         return load_interview_config(project)
     except ValueError:
-        return InterviewConfig(roles=InterviewRoles(None, (), None))
+        return InterviewConfig(roles=InterviewRoles(None, ()))
 
 
 def _role_form(project: Project, roles: dict[str, Any]) -> dict[str, Any]:
-    """The interview participants card: teacher, student pair rows (plus empty rows to add pairs), video start and
-    the number of moments."""
+    """The interview participants card, with at least one editable pair row."""
     pairs = [list(pair) for pair in roles.get("student_pairs") or []]
-    pairs += [["", ""]] * max(MIN_PAIR_ROWS - len(pairs), 1)
+    pairs = pairs or [["", ""]]
     return {
         "recordings": [{"alias": dataset.alias, "included": dataset.included}
                        for dataset in project.datasets.order_by("created_at")],
         "teacher": roles.get("teacher_alias") or "",
         "pairs": [{"number": index + 1, "left": left, "right": right} for index, (left, right) in enumerate(pairs)],
-        "video_start_time": roles.get("video_start_time") or "",
         "primary_moment_count": roles.get("primary_moment_count"),
         "reserve_moment_count": roles.get("reserve_moment_count"),
         "limits": COUNT_LIMITS,
@@ -779,12 +792,11 @@ def _role_form(project: Project, roles: dict[str, Any]) -> dict[str, Any]:
 
 def _posted_roles(request: HttpRequest) -> dict[str, Any]:
     pairs = [[left.strip(), right.strip()]
-             for left, right in zip(request.POST.getlist("pair_left"), request.POST.getlist("pair_right"))
+             for left, right in zip_longest(request.POST.getlist("pair_left"), request.POST.getlist("pair_right"), fillvalue="")
              if left.strip() or right.strip()]
     roles = {
         "teacher_alias": (request.POST.get("teacher_alias") or "").strip() or None,
         "student_pairs": pairs,
-        "video_start_time": request.POST.get("video_start_time") or "",
     }
     for name in COUNT_LIMITS:
         if name in request.POST:
@@ -853,8 +865,6 @@ def _moment_view(item: curation.CuratedMoment, interview: dict[str, Any], payloa
         "duration_seconds": duration,
         "start_clock": item.start_clock,
         "end_clock": item.end_clock,
-        "start_video": item.start_video,
-        "end_video": item.end_video,
         "bar": {"left": f"{left:.2f}", "width": f"{width:.2f}"},
         "chart": _moment_chart(payload, interview, row, colors, item.number),
         "chart_height": MOMENT_CHART_HEIGHT,
@@ -909,6 +919,7 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
         "analysis": analysis,
         "analysis_stale": analysis_stale,
         "analysis_ready": analysis is not None and not analysis_stale,
+        "stale_from": _stale_before(project, "interviews"),
         "analysis_settings": params.analysis_summary(_applied_values(analysis) or {}) if analysis else [],
         "error": error,
         "step_names": vsr_text.steps(),
@@ -1117,7 +1128,7 @@ def _export_groups(project: Project, chart_count: int, vsr: dict[str, Any] | Non
         return {"title": title, "description": description, "kind": kind, "files": files, "stale": stale}
 
     vsr_rows = [row(_("VSR interview moments"),
-                    _("per interview: step, lesson, sensor clock and video times, correlation, justification"), "CSV",
+                    _("per interview: step, lesson and sensor clock times, correlation, justification"), "CSV",
                     [_export_file(project, "vsr_moments.csv")], vsr["stale"])] if vsr is not None else []
     return [
         row(_("Cleaned signals"), _("per participant, relative time, full resolution"), "CSV",
@@ -1187,7 +1198,7 @@ def export(request: HttpRequest, pk: Any) -> HttpResponse:
 
 def _export_context(project: Project, error: UserError | None = None) -> dict[str, Any]:
     result = get_result(project, AnalysisResult.KIND_ANALYSIS)
-    stale = is_stale(project, result)
+    stale = export_is_stale(project)
     context: dict[str, Any] = {"result": result, "stale": stale, "error": error}
     if result is not None:
         values = PipelineConfig.from_dict(result.config).model_dump()
@@ -1204,15 +1215,21 @@ def _export_context(project: Project, error: UserError | None = None) -> dict[st
             zip_name=_download_name(project, "results.zip"),
             computed_time=_computed_time(result),
             stale_causes=_stale_causes(project, result) if stale else [],
+            stale_steps=[step for step in _steps(project, "export") if step["stale"] and step["key"] != "export"],
         )
     return context
 
 
 @require_POST
 def export_rerun(request: HttpRequest, pk: Any) -> HttpResponse:
-    """The outdated-run banner's "Run the analysis again": rerun with the current settings and signals."""
+    """The outdated-run banner's "Refresh outdated steps": rerun each outdated step in order."""
     project = _project(pk)
-    error = _run(compute_analysis, project, "export")
+    error = None
+    for kind, compute in ((AnalysisResult.KIND_CLEANING, compute_cleaning),
+                          (AnalysisResult.KIND_ANALYSIS, compute_analysis),
+                          (AnalysisResult.KIND_VSR, compute_interviews)):
+        if error is None and is_stale(project, get_result(project, kind)):
+            error = _run(compute, project, "export")
     if not _is_htmx(request):
         if error:
             messages.error(request, error.message)
@@ -1276,7 +1293,7 @@ def report_payload(project: Project, result: AnalysisResult, chart_images: dict[
         "project_description": project.description,
         "generated_at": timezone.localtime().strftime("%Y-%m-%d %H:%M"),
         "computed_at": timezone.localtime(result.computed_at).strftime("%Y-%m-%d %H:%M"),
-        "stale": is_stale(project, result),
+        "stale": export_is_stale(project),
         "dataset_aliases": [row["alias"] for row in payload.get("datasets", [])],
         "datasets": payload.get("datasets", []),
         "config": PipelineConfig.from_dict(result.config).model_dump(),

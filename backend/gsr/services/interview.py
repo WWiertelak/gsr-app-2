@@ -2,7 +2,7 @@
 
 The interview moments come from the Analysis results with the Analysis settings, so
 the Interviews step keeps only what is its own: the teacher, the student pairs, the
-video start and how many moments to propose. They stay outside ``pipeline_config``
+number of moments to propose. They stay outside ``pipeline_config``
 and the analysis result signature, so assigning a teacher or pairs does not mark the
 synchronization / co-arousal run stale.
 """
@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -21,18 +20,16 @@ from ..models import AnalysisResult, Project
 from ..pipeline.vsr import DEFAULT_PRIMARY_COUNT, DEFAULT_RESERVE_COUNT
 from .results import included_datasets
 
-_ROLE_KEYS = ("teacher_alias", "student_pairs", "video_start_time")
+_ROLE_KEYS = ("teacher_alias", "student_pairs")
 _COUNT_KEYS = ("primary_moment_count", "reserve_moment_count")
 # (lowest, highest) of each count; the document: "A total of 5 moments ... (ideally)", "(e.g. 8)" with the reserve.
 COUNT_LIMITS = {"primary_moment_count": (1, 20), "reserve_moment_count": (0, 20)}
-_TIME_RE = re.compile(r"^(\d{1,2}):([0-5]\d):([0-5]\d)$")
 
 
 @dataclass(frozen=True)
 class InterviewRoles:
     teacher_alias: str | None
     student_pairs: tuple[tuple[str, str], ...]
-    video_start_time: str | None
 
 
 @dataclass(frozen=True)
@@ -45,20 +42,9 @@ class InterviewConfig:
         return {
             "teacher_alias": self.roles.teacher_alias,
             "student_pairs": [[left, right] for left, right in self.roles.student_pairs],
-            "video_start_time": self.roles.video_start_time,
             "primary_moment_count": self.primary_count,
             "reserve_moment_count": self.reserve_count,
         }
-
-
-def parse_video_start_time(value: Any) -> str | None:
-    """Return ``HH:MM:SS`` or ``None`` when unset; raises ``ValueError`` when invalid."""
-    if value is None or (isinstance(value, str) and not value.strip()):
-        return None
-    match = _TIME_RE.match(str(value).strip())
-    if not match or int(match.group(1)) > 23:
-        raise ValueError("video_start_time must be a clock time HH:MM:SS")
-    return f"{int(match.group(1)):02d}:{match.group(2)}:{match.group(3)}"
 
 
 def validate_roles(roles: dict[str, Any], aliases: set[str]) -> InterviewRoles:
@@ -94,11 +80,7 @@ def validate_roles(roles: dict[str, Any], aliases: set[str]) -> InterviewRoles:
             raise ValueError(gettext("The teacher recording cannot be in a student pair"))
         pairs.append((left, right))
 
-    try:
-        video_start = parse_video_start_time(roles.get("video_start_time"))
-    except ValueError:
-        raise ValueError(gettext("Video start must be a clock time HH:MM:SS")) from None
-    return InterviewRoles(teacher_alias=teacher, student_pairs=tuple(pairs), video_start_time=video_start)
+    return InterviewRoles(teacher_alias=teacher, student_pairs=tuple(pairs))
 
 
 def validate_count(name: str, value: Any) -> int:

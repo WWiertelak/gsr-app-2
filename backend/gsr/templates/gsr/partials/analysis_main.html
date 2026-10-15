@@ -25,7 +25,7 @@
         <button type="submit" class="lg" form="analysis-settings"{% if analysis_blocked %} disabled{% endif %}>{% translate "Run analysis" %}</button>
       </div>
     {% elif stale %}
-      <div class="alert warning stale-note">{% translate "Settings or signals changed since this run. Run the analysis again." %}</div>
+      <div class="alert warning stale-note">{% if stale_from %}{% include "gsr/partials/stale_from.html" %}{% else %}{% translate "Settings or signals changed since this run. Run the analysis again." %}{% endif %}</div>
     {% endif %}
 
     <div class="result{% if stale %} is-stale{% endif %}" role="tabpanel" id="panel-synchronization" aria-labelledby="tab-synchronization" tabindex="0" data-tab-panel="synchronization"{% if tab != "synchronization" %} hidden{% endif %}>
