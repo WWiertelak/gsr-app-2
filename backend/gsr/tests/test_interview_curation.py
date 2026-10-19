@@ -484,6 +484,14 @@ def test_decisions_on_moments_chosen_under_the_earlier_rules_are_kept_and_marked
     assert not by_start[10].needs_check and curation.check_reason(by_start[10]) is None
     assert by_start[10].status == InterviewMoment.STATUS_ACCEPTED
 
+    # A confirmed decision the engine no longer proposes is no longer about the earlier rules: only "dropped".
+    curation.set_status(by_start[200], by_start[200].status)
+    for _ in range(2):
+        curation.sync_interview_moments(project, new)
+        by_start[200].refresh_from_db()
+        assert by_start[200].needs_check and curation.check_reason(by_start[200]) == "dropped"
+    assert by_start[200].status == InterviewMoment.STATUS_REJECTED
+
 
 def _rank(result: AnalysisResult, start: float) -> tuple[int, int]:
     candidate = next(item for item in result.payload["interviews"][0]["candidates"] if item["start_seconds"] == start)

@@ -39,6 +39,8 @@ FROM_TIMELINE = "added_from_timeline"
 # Set on the proposal of a decided moment the engine proposes again after the rules changed: it stays marked for
 # checking until the researcher acts on it.
 REVIEW_AFTER_UPDATE = "review_after_rules_update"
+# Set on the proposal of a moment from the earlier rules once the researcher confirmed or changed its decision.
+RULES_CONFIRMED = "rules_confirmed"
 
 _LESSON_TIME = re.compile(r"^(?:(\d+):)?(\d+):(\d{1,2}(?:[.,]\d+)?)$")
 
@@ -82,8 +84,8 @@ def is_decided(row: InterviewMoment) -> bool:
 
 def _under_earlier_rules(row: InterviewMoment) -> bool:
     """A proposed moment chosen before the VSR flow chart was read by correlation strength (its proposal has no
-    moment type)."""
-    return not row.is_manual and not row.proposal.get("type")
+    moment type) and not confirmed by the researcher since."""
+    return not row.is_manual and not row.proposal.get("type") and not row.proposal.get(RULES_CONFIRMED)
 
 
 def check_reason(row: InterviewMoment) -> str | None:
@@ -342,8 +344,16 @@ def set_status(moment: InterviewMoment, status: str) -> None:
     if status != InterviewMoment.STATUS_REJECTED and moment.status == InterviewMoment.STATUS_REJECTED:
         _check_free(moment)
     moment.status = status
+    _confirm(moment)
+    moment.save(update_fields=["status", "needs_check", "proposal", "updated_at"])
+
+
+def _confirm(moment: InterviewMoment) -> None:
+    """The researcher acted on the moment: it needs no check, and a decision from the earlier rules stops counting as
+    one."""
+    if moment.needs_check and _under_earlier_rules(moment):
+        moment.proposal = {**moment.proposal, RULES_CONFIRMED: True}
     moment.needs_check = False
-    moment.save(update_fields=["status", "needs_check", "updated_at"])
 
 
 def _check_free(moment: InterviewMoment) -> None:
@@ -392,8 +402,8 @@ def change_time(moment: InterviewMoment, result: AnalysisResult, start: float, e
     elif not reason:
         raise ValueError(gettext("Give the reason for the change."))
     moment.start_seconds, moment.end_seconds, moment.reason = start, end, reason
-    moment.needs_check = False
-    moment.save(update_fields=["start_seconds", "end_seconds", "reason", "needs_check", "updated_at"])
+    _confirm(moment)
+    moment.save(update_fields=["start_seconds", "end_seconds", "reason", "needs_check", "proposal", "updated_at"])
 
 
 def set_note(moment: InterviewMoment, note: str) -> None:
