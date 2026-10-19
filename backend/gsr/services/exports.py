@@ -7,6 +7,7 @@ import binascii
 import io
 import platform
 import zipfile
+from datetime import datetime
 from importlib import metadata
 from typing import Any
 
@@ -15,6 +16,7 @@ from django.utils import timezone, translation
 
 from .. import vsr_text
 from ..models import AnalysisResult, Project
+from ..pipeline.common import clock_at, clock_start
 from ..pipeline.config import PipelineConfig
 from ..pipeline.preprocessing import analysed_range, build_stage_export_frame
 from .results import stored_pipeline_result
@@ -59,23 +61,46 @@ def _join(values: Any) -> str:
     return "; ".join(str(value) for value in values or [])
 
 
+def _lesson_clock(stored: AnalysisResult) -> datetime | None:
+    """The recordings' own clock at lesson time 0 of a stored run."""
+    return clock_start(stored.payload.get("preview", {}).get("alignment"))
+
+
+def _minutes_clock(lesson_clock: datetime | None, minutes: Any) -> str | None:
+    return clock_at(lesson_clock, minutes * 60.0) if isinstance(minutes, (int, float)) else None
+
+
 def clean_signals_csv(project: Project, stored: AnalysisResult) -> bytes:
-    """Cleaned signal per participant at full resolution, clipped to the time window (relative minutes)."""
+    """Cleaned signal per participant at full resolution, clipped to the time window.
+
+    Each participant has its samples' own clock (``clock_<alias>``, HH:MM:SS.fff, next to the full
+    ``timestamp_<alias>``) and the lesson time (``relative_time_minutes_<alias>``).
+    """
     result, config = stored_pipeline_result(project, stored)
-    return _csv(build_stage_export_frame(result, "clean", config))
-
-
-def merged_csv(project: Project, stored: AnalysisResult) -> bytes:
-    """The analysis input: scaled, merged and downsampled signals on a shared time axis."""
-    result, _ = stored_pipeline_result(project, stored)
-    frame = result.merged_decimated.rename(columns={"time": "relative_time_minutes"})
+    frame = build_stage_export_frame(result, "clean", config)
+    for column in [name for name in frame.columns if name.startswith("timestamp_")]:
+        clock = pd.to_datetime(frame[column], format="ISO8601").map(
+            lambda value: value.strftime("%H:%M:%S.%f")[:-3] if pd.notna(value) else None)
+        frame.insert(frame.columns.get_loc(column) + 1, f"clock_{column.removeprefix('timestamp_')}", clock)
     return _csv(frame)
 
 
-def synchrony_episodes_csv(synchrony: dict[str, Any]) -> bytes:
+def merged_csv(project: Project, stored: AnalysisResult) -> bytes:
+    """The analysis input: scaled, merged and downsampled signals on a shared time axis (lesson minutes and clock)."""
+    result, _ = stored_pipeline_result(project, stored)
+    frame = result.merged_decimated.rename(columns={"time": "relative_time_minutes"})
+    lesson_clock = clock_start(result.alignment)
+    frame.insert(0, "clock", [clock_at(lesson_clock, minutes * 60.0, milliseconds=True)
+                              for minutes in frame["relative_time_minutes"]])
+    return _csv(frame)
+
+
+def synchrony_episodes_csv(synchrony: dict[str, Any], lesson_clock: datetime | None = None) -> bytes:
     rows = [
         {
             "episode": index + 1,
+            "clock_start": _minutes_clock(lesson_clock, episode["start_relative"]),
+            "clock_end": _minutes_clock(lesson_clock, episode["end_relative"]),
             "start_minutes": episode["start_relative"],
             "end_minutes": episode["end_relative"],
             "duration_minutes": episode["end_relative"] - episode["start_relative"],
@@ -86,8 +111,8 @@ def synchrony_episodes_csv(synchrony: dict[str, Any]) -> bytes:
         }
         for index, episode in enumerate(synchrony.get("episodes", []))
     ]
-    columns = ["episode", "start_minutes", "end_minutes", "duration_minutes", "members", "size", "mean_strength",
-               "peak_strength"]
+    columns = ["episode", "clock_start", "clock_end", "start_minutes", "end_minutes", "duration_minutes", "members",
+               "size", "mean_strength", "peak_strength"]
     return _csv(pd.DataFrame(rows, columns=columns))
 
 
@@ -98,10 +123,11 @@ def synchrony_pairs_csv(synchrony: dict[str, Any]) -> bytes:
     return _csv(pd.DataFrame(rows, columns=columns))
 
 
-def synchrony_windows_csv(synchrony: dict[str, Any]) -> bytes:
+def synchrony_windows_csv(synchrony: dict[str, Any], lesson_clock: datetime | None = None) -> bytes:
     windows = synchrony.get("windows", {})
     frame = pd.DataFrame(
         {
+            "center_clock": [_minutes_clock(lesson_clock, center) for center in windows.get("centers", [])],
             "center_minutes": windows.get("centers", []),
             "group_mean": windows.get("group_mean", []),
             "active_count": windows.get("active_counts", []),
@@ -112,14 +138,16 @@ def synchrony_windows_csv(synchrony: dict[str, Any]) -> bytes:
     return _csv(frame)
 
 
-def coarousal_episodes_csv(coarousal: dict[str, Any]) -> bytes:
-    columns = ["episode", "direction", "start_s", "end_s", "duration_s", "n_contributors", "strength", "contributors",
-               "non_contributors"]
+def coarousal_episodes_csv(coarousal: dict[str, Any], lesson_clock: datetime | None = None) -> bytes:
+    columns = ["episode", "direction", "clock_start", "clock_end", "start_s", "end_s", "duration_s", "n_contributors",
+               "strength", "contributors", "non_contributors"]
     rows = [
         {
             **{key: episode.get(key) for key in ("direction", "start_s", "end_s", "duration_s", "n_contributors",
                                                   "strength")},
             "episode": index + 1,
+            "clock_start": clock_at(lesson_clock, episode.get("start_s")),
+            "clock_end": clock_at(lesson_clock, episode.get("end_s")),
             "contributors": _join(episode.get("contributors")),
             "non_contributors": _join(episode.get("non_contributors")),
         }
@@ -128,10 +156,11 @@ def coarousal_episodes_csv(coarousal: dict[str, Any]) -> bytes:
     return _csv(pd.DataFrame(rows, columns=columns))
 
 
-def coarousal_states_csv(coarousal: dict[str, Any]) -> bytes:
-    """Mean state per participant per 1-minute bin (-1 Low, 0 neutral, +1 High)."""
+def coarousal_states_csv(coarousal: dict[str, Any], lesson_clock: datetime | None = None) -> bytes:
+    """Mean state per participant per 1-minute bin (-1 Low, 0 neutral, +1 High), from the bin's start."""
     timeline = coarousal.get("state_timeline", {})
-    frame = pd.DataFrame({"minute": timeline.get("times_min", [])})
+    times = timeline.get("times_min", [])
+    frame = pd.DataFrame({"clock": [_minutes_clock(lesson_clock, minute) for minute in times], "minute": times})
     for row in timeline.get("per_alias", []):
         frame[row["alias"]] = row["states"]
     return _csv(frame)
@@ -225,9 +254,36 @@ def versions() -> dict[str, str]:
     return found
 
 
+def _with_clocks(items: list[dict[str, Any]], lesson_clock: datetime | None, start: str, end: str,
+                 per_minute: bool) -> list[dict[str, Any]]:
+    """Copies of episodes with ``start_clock`` / ``end_clock`` from their lesson times (minutes or seconds)."""
+    factor = 60.0 if per_minute else 1.0
+
+    def clock(value: Any) -> str | None:
+        return clock_at(lesson_clock, value * factor) if isinstance(value, (int, float)) else None
+
+    return [{**item, "start_clock": clock(item.get(start)), "end_clock": clock(item.get(end))} for item in items]
+
+
 def results_document(project: Project, stored: AnalysisResult) -> dict[str, Any]:
-    """Run settings, input files and results: enough for a recipient to check what was run."""
+    """Run settings, input files and results: enough for a recipient to check what was run.
+
+    Episodes carry the recordings' own clock (``start_clock`` / ``end_clock``) next to their lesson times;
+    ``lesson_clock_start`` is the clock at lesson time 0, so any other lesson time converts the same way.
+    """
     payload = stored.payload
+    lesson_clock = _lesson_clock(stored)
+    synchrony = payload.get("synchrony")
+    if synchrony:
+        synchrony = {**synchrony,
+                     "episodes": _with_clocks(synchrony.get("episodes", []), lesson_clock, "start_relative",
+                                              "end_relative", True)}
+    coarousal = payload.get("coarousal")
+    if coarousal:
+        coarousal = {**coarousal,
+                     "episodes": _with_clocks(coarousal.get("episodes", []), lesson_clock, "start_s", "end_s", False),
+                     "primary_timeline": _with_clocks(coarousal.get("primary_timeline", []), lesson_clock,
+                                                      "start_min", "end_min", True)}
     preview = payload.get("preview", {})
     files = {str(dataset.id): dataset for dataset in project.datasets.all()}
     datasets = []
@@ -244,23 +300,25 @@ def results_document(project: Project, stored: AnalysisResult) -> dict[str, Any]
         "versions": versions(),
         "datasets": datasets,
         "alignment": preview.get("alignment"),
+        "lesson_clock_start": clock_at(lesson_clock, 0.0, milliseconds=True),
         "time_range_minutes": analysed_range(preview, PipelineConfig.from_dict(stored.config).model_dump()),
         "cleaning_summary": preview.get("cleaning_summary"),
-        "synchrony": payload.get("synchrony"),
-        "coarousal": payload.get("coarousal"),
+        "synchrony": synchrony,
+        "coarousal": coarousal,
     }
 
 
 def table_exports(stored: AnalysisResult) -> dict[str, bytes]:
-    """CSV tables built from the stored results (no recompute)."""
+    """CSV tables built from the stored results (no recompute); every time has the recordings' clock next to it."""
     synchrony = stored.payload.get("synchrony", {})
     coarousal = stored.payload.get("coarousal", {})
+    lesson_clock = _lesson_clock(stored)
     return {
-        "synchrony_episodes.csv": synchrony_episodes_csv(synchrony),
+        "synchrony_episodes.csv": synchrony_episodes_csv(synchrony, lesson_clock),
         "synchrony_pairs.csv": synchrony_pairs_csv(synchrony),
-        "synchrony_windows.csv": synchrony_windows_csv(synchrony),
-        "coarousal_episodes.csv": coarousal_episodes_csv(coarousal),
-        "coarousal_state_timeline.csv": coarousal_states_csv(coarousal),
+        "synchrony_windows.csv": synchrony_windows_csv(synchrony, lesson_clock),
+        "coarousal_episodes.csv": coarousal_episodes_csv(coarousal, lesson_clock),
+        "coarousal_state_timeline.csv": coarousal_states_csv(coarousal, lesson_clock),
         "coarousal_state_percentages.csv": coarousal_state_percentages_csv(coarousal),
     }
 

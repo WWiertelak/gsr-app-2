@@ -81,7 +81,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "reserve": "rezerwowy",
         "cards_heading": "Podgląd i uzasadnienie każdego momentu",
         "lesson": "Lekcja",
-        "chart_note": "Sygnały (z-score) wokół momentu (zacieniony), jak na kroku Wywiady.",
+        "chart_note": "Sygnały (z-score) wokół momentu (zacieniony) na zegarze czujnika, jak na kroku Wywiady.",
         "chart_label": "Sygnały wokół momentu {number}",
         "no_moments": "Brak momentów na liście.",
         "incomplete": "Analiza ma epizody tylko dla {count} z {target} momentów głównych.",
@@ -170,7 +170,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "reserve": "reserve",
         "cards_heading": "Preview and justification of each moment",
         "lesson": "Lesson",
-        "chart_note": "Signals (z-scores) around the moment (shaded), as on the Interviews step.",
+        "chart_note": "Signals (z-scores) around the moment (shaded) on the sensor clock, as on the Interviews step.",
         "chart_label": "Signals around moment {number}",
         "no_moments": "There are no moments on the list.",
         "incomplete": "The Analysis has episodes for only {count} of {target} primary moments.",
@@ -335,6 +335,7 @@ def _chart(vsr: dict[str, Any], interview: dict[str, Any], moment: dict[str, Any
         _t(lang, "chart_label", number=moment["number"]), moment["number"],
         high=settings.get("contagion_high_z") if state == HIGH else None,
         low=settings.get("contagion_low_z") if state == LOW else None,
+        clock=vsr.get("clock_start"),
     )
     return SafeString(svg) if svg else None
 
@@ -380,7 +381,8 @@ def _interview_blocks(interview: dict[str, Any], vsr: dict[str, Any], lang: str)
     blocks += [
         {"type": "h3", "text": _t(lang, "timeline_heading")},
         {"type": "svg", "markup": SafeString(lesson_timeline_svg(
-            moments, lesson["start_seconds"], lesson["end_seconds"], _t(lang, "timeline_label")))},
+            moments, lesson["start_seconds"], lesson["end_seconds"], _t(lang, "timeline_label"),
+            vsr.get("clock_start")))},
         {"type": "h3", "text": _t(lang, "moments_heading")},
         _table(
             [_t(lang, key) for key in ("col_number", "col_status", "decision", "col_step", "col_lesson", "col_clock",

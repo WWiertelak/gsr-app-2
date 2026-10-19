@@ -16,9 +16,9 @@ from django.utils import timezone
 from django.utils.translation import gettext
 
 from ..models import AnalysisResult, Project
-from ..pipeline.common import PipelineError
+from ..pipeline.common import PipelineError, clock_start
 from ..pipeline.preprocessing import _signal_quality_level
-from ..pipeline.vsr import DEFAULT_PRIMARY_COUNT, DEFAULT_RESERVE_COUNT, PRIMARY, _clock_start, compute_vsr
+from ..pipeline.vsr import DEFAULT_PRIMARY_COUNT, DEFAULT_RESERVE_COUNT, PRIMARY, compute_vsr
 from .analysis import AnalysisError
 from .interview import SAVED_ASYNCHRONY_THRESHOLD, InterviewRoles, compute_vsr_signature, load_interview_config
 from .results import FALLBACK_SIGNAL_COLOR, get_result, is_stale, signal_colors, stored_pipeline_result
@@ -104,7 +104,7 @@ def compute_interviews(project: Project) -> AnalysisResult:
         lesson={
             "start_seconds": float(times.min()) * 60.0,
             "end_seconds": float(times.max()) * 60.0,
-            "start_clock": clock_start.isoformat() if (clock_start := _clock_start(result)) else None,
+            "start_clock": start.isoformat() if (start := clock_start(result.alignment)) else None,
         },
         quality=_signal_quality(result, result.aliases),
         analysis_computed_at=analysis.computed_at.isoformat(),
@@ -248,7 +248,7 @@ def report_data(project: Project) -> dict[str, Any] | None:
         return None
     payload = vsr.payload
     colors = signal_colors(project)
-    from .curation import curated_interviews, is_decided  # curation imports this module
+    from .curation import curated_interviews, is_decided, lesson_clock_start  # curation imports this module
 
     curated = curated_interviews(project, vsr)
     primary_target, reserve_target = moment_counts(payload)
@@ -273,6 +273,8 @@ def report_data(project: Project) -> dict[str, Any] | None:
         "asynchrony_threshold": payload.get("asynchrony_threshold", SAVED_ASYNCHRONY_THRESHOLD),
         "roles": payload["roles"],
         "lesson": payload["lesson"],
+        # The recordings' own clock at lesson time 0 (a datetime), or None.
+        "clock_start": lesson_clock_start(payload),
         "quality": payload["quality"],
         "stats": {
             **payload["stats"],

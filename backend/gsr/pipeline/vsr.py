@@ -36,12 +36,12 @@ The ESM half of the document is out of scope: the application analyses GSR.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Sequence
 
 import numpy as np
 
-from .common import PipelineError, _estimate_step_seconds, _resolve_aliases, _zscore
+from .common import PipelineError, _estimate_step_seconds, _resolve_aliases, _zscore, clock_at, clock_start
 from .config import PipelineConfig
 from .preprocessing import PipelineResult
 from .synchrony import _window_correlation
@@ -399,14 +399,7 @@ def select(steps: dict[int, list[Candidate]], primary_count: int, reserve_count:
     return selected
 
 
-def _clock_start(result: PipelineResult) -> datetime | None:
-    try:
-        return datetime.fromisoformat(str(result.alignment["start"]))
-    except (KeyError, TypeError, ValueError):
-        return None
-
-
-def _candidate_payload(candidate: Candidate, rank: int, count: int, clock_start: datetime | None) -> dict[str, Any]:
+def _candidate_payload(candidate: Candidate, rank: int, count: int, lesson_clock: datetime | None) -> dict[str, Any]:
     """A candidate moment as stored: its step, times, correlation and the Analysis episodes it was made from."""
     state_episode = candidate.shared if candidate.step == 1 else candidate.episode
     payload: dict[str, Any] = {
@@ -423,21 +416,18 @@ def _candidate_payload(candidate: Candidate, rank: int, count: int, clock_start:
         "people": state_episode.people if state_episode and state_episode.state else None,
         "candidate_rank": rank,
         "candidate_count": count,
-        "start_clock": None,
-        "end_clock": None,
+        "start_clock": clock_at(lesson_clock, candidate.start_seconds),
+        "end_clock": clock_at(lesson_clock, candidate.end_seconds),
     }
-    if clock_start is not None:
-        payload["start_clock"] = (clock_start + timedelta(seconds=candidate.start_seconds)).strftime("%H:%M:%S")
-        payload["end_clock"] = (clock_start + timedelta(seconds=candidate.end_seconds)).strftime("%H:%M:%S")
     return payload
 
 
-def _moment_payload(proposal: Proposal, clock_start: datetime | None) -> dict[str, Any]:
+def _moment_payload(proposal: Proposal, lesson_clock: datetime | None) -> dict[str, Any]:
     return {
         "number": proposal.number,
         "status": proposal.status,
         "pass_number": proposal.pass_number,
-        **_candidate_payload(proposal.candidate, proposal.rank, proposal.candidate_count, clock_start),
+        **_candidate_payload(proposal.candidate, proposal.rank, proposal.candidate_count, lesson_clock),
     }
 
 
@@ -448,7 +438,7 @@ def _trace(values: np.ndarray, stride: int) -> list[float]:
 def _interview_payload(key: str, kind: str, participants: list[str], frame: Any, relative_minutes: np.ndarray,
                        synchrony: dict[str, Any], coarousal: dict[str, Any], config: PipelineConfig,
                        primary_count: int, reserve_count: int, asynchrony_threshold: float,
-                       clock_start: datetime | None, stride: int) -> dict[str, Any]:
+                       lesson_clock: datetime | None, stride: int) -> dict[str, Any]:
     signal_a, signal_b = interview_signals(frame, kind, participants)
     windows = windowed_correlation(signal_a, signal_b, relative_minutes, config)
     lesson = (float(relative_minutes[0]) * 60.0, float(relative_minutes[-1]) * 60.0)
@@ -463,10 +453,10 @@ def _interview_payload(key: str, kind: str, participants: list[str], frame: Any,
         "candidate_counts": {str(number): len(candidates) for number, candidates in steps.items()},
         # Every moment that answers a step, selected or not, for the lesson timeline (STEPS 1-5, strongest first).
         "candidates": [
-            _candidate_payload(candidate, rank, len(candidates), clock_start)
+            _candidate_payload(candidate, rank, len(candidates), lesson_clock)
             for candidates in steps.values() for rank, candidate in enumerate(candidates, start=1)
         ],
-        "moments": [_moment_payload(proposal, clock_start) for proposal in proposals],
+        "moments": [_moment_payload(proposal, lesson_clock) for proposal in proposals],
         "stats": {
             "primary_count": primary,
             "reserve_count": len(proposals) - primary,
@@ -497,7 +487,7 @@ def compute_vsr(
     """
     frame = result.merged_decimated
     relative_minutes = frame["time"].to_numpy(dtype=float)
-    clock_start = _clock_start(result)
+    lesson_clock = clock_start(result.alignment)
     synchrony = analysis.get("synchrony") or {}
     coarousal = analysis.get("coarousal") or {}
     stride = max(1, int(np.ceil(len(relative_minutes) / TRACE_POINTS)))
@@ -509,7 +499,7 @@ def compute_vsr(
 
     def payload(key: str, kind: str, participants: list[str]) -> dict[str, Any]:
         return _interview_payload(key, kind, participants, frame, relative_minutes, synchrony, coarousal, config,
-                                  primary_count, reserve_count, asynchrony_threshold, clock_start, stride)
+                                  primary_count, reserve_count, asynchrony_threshold, lesson_clock, stride)
 
     interviews: list[dict[str, Any]] = []
     for dyad in dyads:

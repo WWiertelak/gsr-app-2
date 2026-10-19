@@ -22,6 +22,7 @@ from django.db import transaction
 from django.utils.translation import gettext
 
 from ..models import AnalysisResult, InterviewMoment, Project
+from ..pipeline.common import clock_at
 from ..pipeline.vsr import PRIMARY, RESERVE
 from .vsr import moment_counts
 
@@ -180,15 +181,11 @@ def lesson_clock_start(payload: dict[str, Any]) -> datetime | None:
     return None
 
 
-def _clock(clock_start: datetime | None, seconds: float) -> str | None:
-    return None if clock_start is None else (clock_start + timedelta(seconds=seconds)).strftime("%H:%M:%S")
-
-
 def _times(row: InterviewMoment, clock_start: datetime | None) -> dict[str, str | None]:
     if not row.is_manual and not row.time_changed:
         start_clock, end_clock = row.proposal.get("start_clock"), row.proposal.get("end_clock")
     else:
-        start_clock, end_clock = _clock(clock_start, row.start_seconds), _clock(clock_start, row.end_seconds)
+        start_clock, end_clock = clock_at(clock_start, row.start_seconds), clock_at(clock_start, row.end_seconds)
     return {
         "start_clock": start_clock,
         "end_clock": end_clock,

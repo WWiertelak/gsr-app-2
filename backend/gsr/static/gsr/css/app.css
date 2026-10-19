@@ -557,7 +557,9 @@ button.icon:not(:disabled):hover { color: var(--error); background: var(--error-
 .lt-moment { position: absolute; top: 3px; bottom: 3px; display: grid; place-items: center; min-width: 18px; border: 2px solid var(--accent); border-radius: 4px; background: var(--accent); color: #fff; font-size: var(--fs-xs); }
 .lt-moment.reserve { background: var(--surface); color: var(--accent); border-style: dashed; }
 .lt-axis { position: relative; height: 18px; margin-top: var(--s1); color: var(--ink-3); font-size: var(--fs-xs); }
-.lt-axis span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.lt-axis.clock { height: 34px; }
+.lt-axis span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; text-align: center; }
+.lt-axis small { display: block; color: var(--ink-2); }
 .legend { display: inline-block; width: 12px; height: 10px; margin: 0 var(--s1) 0 var(--s2); border: 2px solid var(--accent); border-radius: 3px; vertical-align: -1px; }
 .legend.primary { background: var(--accent); }
 .legend.reserve { border-style: dashed; }

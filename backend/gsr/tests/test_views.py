@@ -836,6 +836,22 @@ def test_analysis_results_interpret_figures_and_place_episodes_in_time(client, p
         assert f"<strong>E{number}</strong>" in fragment
     assert fragment.count('class="minibar"') == len(synchrony["episodes"])
 
+    # Every episode table gives the recordings' own clock first, then the lesson time; the charts draw lesson time
+    # on the same clock (the clock at lesson time 0 in seconds after midnight).
+    start = pd.Timestamp(payload["preview"]["alignment"]["start"])
+    assert fragment.count('<th class="left">Sensor clock</th><th class="left">Lesson time (m:ss)</th>') == 3
+    assert "Time (min)" not in fragment
+    for episode in synchrony["episodes"]:
+        assert (f"{(start + pd.Timedelta(minutes=episode['start_relative'])).strftime('%H:%M:%S')}–"
+                f"{(start + pd.Timedelta(minutes=episode['end_relative'])).strftime('%H:%M:%S')}") in fragment
+    for episode in coarousal["episodes"]:
+        assert (f"{(start + pd.Timedelta(seconds=episode['start_s'])).strftime('%H:%M:%S')}–"
+                f"{(start + pd.Timedelta(seconds=episode['end_s'])).strftime('%H:%M:%S')}") in fragment
+    seconds_of_day = (start - start.normalize()).total_seconds()
+    for chart in ("sync-signals", "coarousal-states"):
+        data = json.loads(re.search(rf'id="{chart}-data" type="application/json">(.*?)</script>', fragment).group(1))
+        assert data["clock_start"] == pytest.approx(seconds_of_day)
+
     # Significant pairs are bold, the rest recede.
     significant = sum(pair["p_value"] < 0.05 for pair in synchrony["pairs"])
     assert fragment.count('<tr class="sig">') == significant
@@ -965,21 +981,39 @@ def test_export_csv_files(client, project) -> None:
     config = PipelineConfig.from_dict(stored.config)
     expected_clean = build_stage_export_frame(run_pipeline(files, config), "clean", config)
     clean = pd.read_csv(io.BytesIO(download("clean_signals.csv")))
-    assert list(clean.columns) == list(expected_clean.columns) and len(clean) == len(expected_clean)
+    # Each participant's own clock (HH:MM:SS.fff) follows its full timestamp.
+    expected_columns = [name for column in expected_clean.columns
+                        for name in (column, *([column.replace("timestamp_", "clock_")]
+                                               if column.startswith("timestamp_") else []))]
+    assert list(clean.columns) == expected_columns and len(clean) == len(expected_clean)
+    assert clean["clock_A"].iloc[0] == pd.Timestamp(clean["timestamp_A"].iloc[0]).strftime("%H:%M:%S.%f")[:-3]
 
     merged = _csv_rows(download("analysis_input_merged.csv"))
-    assert set(merged[0]) == {"relative_time_minutes", "marker", "microsiemens_A", "microsiemens_B", "microsiemens_C"}
+    assert set(merged[0]) == {"clock", "relative_time_minutes", "marker", "microsiemens_A", "microsiemens_B",
+                              "microsiemens_C"}
+    alignment = stored.payload["preview"]["alignment"]
+    assert merged[0]["clock"] == (pd.Timestamp(alignment["start"])
+                                  + pd.Timedelta(minutes=float(merged[0]["relative_time_minutes"]))
+                                  ).strftime("%H:%M:%S.%f")[:-3]
 
     pairs = _csv_rows(download("synchrony_pairs.csv"))
     assert [(row["alias_a"], row["alias_b"]) for row in pairs] == [("A", "B"), ("A", "C"), ("B", "C")]
     episodes = _csv_rows(download("synchrony_episodes.csv"))
     assert len(episodes) == len(stored.payload["synchrony"]["episodes"])
+    first = stored.payload["synchrony"]["episodes"][0]
+    assert episodes[0]["clock_start"] == (pd.Timestamp(alignment["start"])
+                                          + pd.Timedelta(minutes=first["start_relative"])).strftime("%H:%M:%S")
     windows = _csv_rows(download("synchrony_windows.csv"))
     assert len(windows) == len(stored.payload["synchrony"]["windows"]["centers"]) and "A__B" in windows[0]
+    assert windows[0]["center_clock"]
 
-    assert len(_csv_rows(download("coarousal_episodes.csv"))) == len(stored.payload["coarousal"]["episodes"])
+    coarousal_episodes = _csv_rows(download("coarousal_episodes.csv"))
+    assert len(coarousal_episodes) == len(stored.payload["coarousal"]["episodes"])
+    assert coarousal_episodes[0]["clock_start"] == (
+        pd.Timestamp(alignment["start"]) + pd.Timedelta(seconds=stored.payload["coarousal"]["episodes"][0]["start_s"])
+    ).strftime("%H:%M:%S")
     states = _csv_rows(download("coarousal_state_timeline.csv"))
-    assert set(states[0]) == {"minute", "A", "B", "C"}
+    assert set(states[0]) == {"clock", "minute", "A", "B", "C"}
     percentages = _csv_rows(download("coarousal_state_percentages.csv"))
     assert [row["alias"] for row in percentages] == ["A", "B", "C"]
     assert client.get(reverse("gsr:export_file", args=[project.pk, "coarousal_primary_timeline.csv"])).status_code == 404
@@ -1003,6 +1037,15 @@ def test_export_json_records_settings_versions_and_inputs(client, project) -> No
     hashes = {row["alias"]: row["sha256"] for row in document["datasets"]}
     assert hashes == {dataset.alias: dataset.file_sha256 for dataset in project.datasets.all()}
     assert document["synchrony"]["stats"] and document["coarousal"]["stats"]
+    # The clock at lesson time 0, and each episode's own clock next to its lesson time.
+    start = pd.Timestamp(document["alignment"]["start"])
+    assert document["lesson_clock_start"] == start.strftime("%H:%M:%S.%f")[:-3]
+    for episode in document["coarousal"]["episodes"]:
+        assert episode["start_clock"] == (start + pd.Timedelta(seconds=episode["start_s"])).strftime("%H:%M:%S")
+    for segment in document["coarousal"]["primary_timeline"]:
+        assert segment["end_clock"] == (start + pd.Timedelta(minutes=segment["end_min"])).strftime("%H:%M:%S")
+    for episode in document["synchrony"]["episodes"]:
+        assert episode["start_clock"] == (start + pd.Timedelta(minutes=episode["start_relative"])).strftime("%H:%M:%S")
 
 
 @pytest.mark.django_db

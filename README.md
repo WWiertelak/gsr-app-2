@@ -87,8 +87,10 @@ defaults" in the Analysis settings sets the 0.8 thresholds and the step 5 thresh
 moment counts are the existing defaults; the reset does not change them, they are edited on the Interviews
 step. Interview pairs can be added and removed
 with the form buttons; removed pairs retain curated decisions for restoration when
-the same pair is added again. Moments show lesson time and the GSR sensor clock,
-which the researcher uses to locate the moment.
+the same pair is added again. Every table, chart axis, CSV/JSON export and the PDF report give the
+GSR recordings' own clock (the sensor clock, which the researcher uses to locate a moment in the
+lesson's other data) next to the lesson time; lesson time is written m:ss and counts from the
+recordings' common start.
 
 ## Layout
 

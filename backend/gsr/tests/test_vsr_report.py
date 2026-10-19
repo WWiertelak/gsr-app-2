@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import zipfile
+from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -205,6 +206,9 @@ def test_lesson_timeline_numbers_the_moments_and_marks_reserves() -> None:
     svg = lesson_timeline_svg(moments, 0.0, 600.0, 'Oś "lekcji"')
     assert svg.startswith("<svg") and svg.count("<rect") == 3 and ">1</text>" in svg and ">2</text>" in svg
     assert "0:00" in svg and "10:00" in svg and "&quot;lekcji&quot;" in svg
+    # With the recordings' clock every tick also gives the clock time.
+    clocked = lesson_timeline_svg(moments, 0.0, 600.0, "Oś", datetime(1900, 1, 1, 10, 8, 26, 296000))
+    assert ">10:08:26</text>" in clocked and ">10:18:26</text>" in clocked and ">10:00</text>" in clocked
 
 
 def test_moment_chart_draws_both_signals_around_the_moment() -> None:
@@ -217,6 +221,10 @@ def test_moment_chart_draws_both_signals_around_the_moment() -> None:
     assert ">3</text>" in svg  # the moment's number on its shading
     assert 'stroke="#b2182b"' in svg  # the High threshold
     assert moment_chart_svg({**window, "seconds": seconds[:1]}, ["a", "b"], ["#000000", "#000000"], "x", 1) is None
+    # On the recordings' clock, as the Interviews step's chart.
+    clocked = moment_chart_svg(window, ["S1", "S2"], ["#1b9e77", "#d95f02"], "label", 3,
+                               clock=datetime(1900, 1, 1, 10, 0, 0))
+    assert ">10:01:40</text>" in clocked and ">10:02:20</text>" in clocked and ">1:40</text>" not in clocked
 
 
 @pytest.mark.django_db

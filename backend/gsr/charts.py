@@ -12,6 +12,7 @@ from typing import Any
 
 from django.utils.translation import gettext as _
 
+from .pipeline.common import clock_seconds_of_day, clock_start
 from .services.results import FALLBACK_SIGNAL_COLOR
 
 
@@ -31,7 +32,8 @@ def chart_labels() -> dict[str, str]:
         "comove": _("Co-move ↔"),
         "episodes": _("Episodes"),
         "state": _("State"),
-        "timeMin": _("Time (min)"),
+        "clock": _("Sensor clock"),
+        "lesson": _("lesson"),
         "savePng": _("Save PNG"),
         "candidatePrimary": _("primary"),
         "candidateReserve": _("reserve"),
@@ -44,17 +46,27 @@ def _points(entries: list[dict[str, Any]]) -> list[list[Any]]:
     return [[point["x"], point["y"]] for point in entries]
 
 
+def preview_clock(preview: dict[str, Any]) -> float | None:
+    """The recordings' clock at lesson time 0 as seconds after midnight: the charts' clock axis origin.
+
+    The charts draw lesson time on the recordings' own clock and show the lesson time next to it in the tooltip.
+    """
+    return clock_seconds_of_day(clock_start(preview.get("alignment")))
+
+
 def raw_signal(alias: str, color: str, points: list[list[Any]]) -> dict[str, Any]:
     return {"alias": alias, "color": color, "points": points}
 
 
 def overlay(series: list[dict[str, Any]], *, window: dict[str, Any] | None = None, axis: str = "value",
-            unit: str = "microsiemens") -> dict[str, Any]:
-    return {"series": series, "window": window, "axis": axis, "unit": unit}
+            unit: str = "microsiemens", clock: float | None = None) -> dict[str, Any]:
+    """``axis`` "time" takes clock timestamps; "value" takes lesson minutes, drawn on the clock from ``clock``."""
+    return {"series": series, "window": window, "axis": axis, "unit": unit, "clock_start": clock}
 
 
 def cleaning_charts(preview: dict[str, Any], colors: dict[str, str], config: dict[str, Any]) -> dict[str, Any]:
     window = {"from": config.get("time_range_from"), "to": config.get("time_range_to")}
+    clock = preview_clock(preview)
     per_signal = []
     for entry in preview.get("datasets", []):
         color = colors.get(entry["alias"], FALLBACK_SIGNAL_COLOR)
@@ -65,11 +77,13 @@ def cleaning_charts(preview: dict[str, Any], colors: dict[str, str], config: dic
                 "raw": entry.get("synced", []),
                 "clean": _points(entry.get("clean", [])),
                 "window": window,
+                "clock_start": clock,
             }
         )
     clean_overlay = overlay(
         [{"alias": item["alias"], "color": item["color"], "points": item["clean"]} for item in per_signal],
         window=window,
+        clock=clock,
     )
     return {"per_signal": per_signal, "overlay": clean_overlay}
 
@@ -87,7 +101,8 @@ def clean_overlay_from_preview(preview: dict[str, Any], colors: dict[str, str], 
         {"alias": entry["alias"], "color": colors.get(entry["alias"], FALLBACK_SIGNAL_COLOR), "points": _points(entry["clean"])}
         for entry in preview.get("datasets", [])
     ]
-    return overlay(series, window={"from": config.get("time_range_from"), "to": config.get("time_range_to")})
+    return overlay(series, window={"from": config.get("time_range_from"), "to": config.get("time_range_to")},
+                   clock=preview_clock(preview))
 
 
 def _episodes(synchrony: dict[str, Any]) -> list[dict[str, float]]:
@@ -111,7 +126,7 @@ def sync_signals(synchrony: dict[str, Any], preview: dict[str, Any], colors: dic
         for entry in preview.get("datasets", [])
         if entry["alias"] in aliases
     ]
-    return {"series": series, "episodes": _episodes(synchrony)}
+    return {"series": series, "episodes": _episodes(synchrony), "clock_start": preview_clock(preview)}
 
 
 def sync_matrix(synchrony: dict[str, Any]) -> dict[str, Any]:
@@ -133,7 +148,8 @@ def episode_lanes(episodes: list[dict[str, Any]]) -> list[int]:
     return lanes
 
 
-def coarousal_states(coarousal: dict[str, Any]) -> dict[str, Any]:
+def coarousal_states(coarousal: dict[str, Any], clock: float | None = None) -> dict[str, Any]:
+    """The state map and its episode track; ``clock`` is the clock axis origin (``preview_clock``)."""
     timeline = coarousal.get("state_timeline", {})
     episodes = sorted(coarousal.get("episodes", []), key=lambda episode: episode["start_min"])
     lanes = episode_lanes(episodes)
@@ -147,6 +163,7 @@ def coarousal_states(coarousal: dict[str, Any]) -> dict[str, Any]:
             for episode, lane in zip(episodes, lanes)
         ],
         "lanes": max(lanes) + 1 if lanes else 0,
+        "clock_start": clock,
     }
 
 
@@ -165,5 +182,6 @@ def report_charts(payload: dict[str, Any], colors: dict[str, str], config: dict[
             {"key": "sync_matrix", "kind": "heatmap", "data": sync_matrix(synchrony)},
         ]
     if coarousal and coarousal.get("state_timeline", {}).get("per_alias"):
-        charts.append({"key": "coarousal_states", "kind": "coarousalStates", "data": coarousal_states(coarousal)})
+        charts.append({"key": "coarousal_states", "kind": "coarousalStates",
+                       "data": coarousal_states(coarousal, preview_clock(preview))})
     return charts

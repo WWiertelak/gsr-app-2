@@ -70,12 +70,13 @@
             {% if sync_episodes %}
               <div class="table-wrap">
                 <table class="data">
-                  <thead><tr><th>#</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Participants" %}</th><th>{% translate "Mean strength" %}</th><th>{% translate "Peak strength" %}</th></tr></thead>
+                  <thead><tr><th>#</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Participants" %}</th><th>{% translate "Mean strength" %}</th><th>{% translate "Peak strength" %}</th></tr></thead>
                   <tbody>
                     {% for episode in sync_episodes %}
                       <tr>
                         <td><strong>E{{ episode.number }}</strong></td>
-                        <td class="left"><span class="when">{% if episode.bar %}<span class="minibar" aria-hidden="true"><i style="left: {{ episode.bar.left }}%; width: {{ episode.bar.width }}%"></i></span>{% endif %}{{ episode.start_relative|mmss }}–{{ episode.end_relative|mmss }}</span></td>
+                        <td class="left"><span class="when">{% if episode.bar %}<span class="minibar" aria-hidden="true"><i style="left: {{ episode.bar.left }}%; width: {{ episode.bar.width }}%"></i></span>{% endif %}{{ episode.start_relative|minutes_clock:clock_start }}–{{ episode.end_relative|minutes_clock:clock_start }}</span></td>
+                        <td class="left">{{ episode.start_relative|mmss }}–{{ episode.end_relative|mmss }}</td>
                         <td>{{ episode.duration|mmss }}</td>
                         <td class="left"><div class="chips">{% for member in episode.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div></td>
                         <td>{{ episode.mean_strength|floatformat:3 }}</td>
@@ -201,12 +202,13 @@
             {% if coarousal_episodes %}
               <div class="table-wrap" id="coarousal-episodes">
                 <table class="data">
-                  <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Contributors" %}</th><th class="left">{% translate "Strength" %}</th></tr></thead>
+                  <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Contributors" %}</th><th class="left">{% translate "Strength" %}</th></tr></thead>
                   <tbody>
                     {% for episode in coarousal_episodes %}
                       <tr>
                         <td>{{ episode.number }}</td>
                         <td class="left">{% include "gsr/partials/direction.html" with direction=episode.direction %}</td>
+                        <td class="left">{{ episode.start_s|seconds_clock:clock_start }}–{{ episode.end_s|seconds_clock:clock_start }}</td>
                         <td class="left">{{ episode.start_s|seconds_mmss }}–{{ episode.end_s|seconds_mmss }}</td>
                         <td>{{ episode.duration_s|seconds_mmss }}</td>
                         <td class="left"><div class="chips">{% for member in episode.contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% empty %}—{% endfor %}</div></td>
@@ -218,12 +220,13 @@
               </div>
               <div class="table-wrap" id="coarousal-merged" hidden>
                 <table class="data">
-                  <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th></tr></thead>
+                  <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th></tr></thead>
                   <tbody>
                     {% for segment in coarousal.primary_timeline %}
                       <tr>
                         <td>{{ forloop.counter }}</td>
                         <td class="left">{% include "gsr/partials/direction.html" with direction=segment.label %}</td>
+                        <td class="left">{{ segment.start_min|minutes_clock:clock_start }}–{{ segment.end_min|minutes_clock:clock_start }}</td>
                         <td class="left">{{ segment.start_min|mmss }}–{{ segment.end_min|mmss }}</td>
                         <td>{{ segment.duration_s|seconds_mmss }}</td>
                       </tr>

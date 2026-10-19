@@ -31,6 +31,7 @@ from django.views.decorators.http import require_POST
 from . import charts, params, vsr_text
 from .errors import UserError, describe, no_overlap_message
 from .models import AnalysisResult, Dataset, InterviewMoment, Project
+from .pipeline.common import clock_seconds_of_day, clock_start
 from .pipeline.config import PipelineConfig
 from .pipeline.vsr import DEFAULT_ASYNCHRONY_THRESHOLD, PRIMARY, RESERVE
 from .reporting.report import render_report_pdf, report_text, resolve_lang
@@ -687,7 +688,7 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         coarousal = payload.get("coarousal", {})
         config = PipelineConfig.from_dict(result.config)
         span = charts.timeline_span(synchrony)
-        coarousal_chart = charts.coarousal_states(coarousal)
+        coarousal_chart = charts.coarousal_states(coarousal, charts.preview_clock(payload.get("preview", {})))
         sync_episodes = [
             {**episode, "number": index + 1,
              "duration": episode["end_relative"] - episode["start_relative"],
@@ -697,6 +698,8 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         context.update(
             synchrony=synchrony,
             coarousal=coarousal,
+            # The recordings' own clock at lesson time 0: every table shows it next to the lesson time.
+            clock_start=clock_start(payload.get("preview", {}).get("alignment")),
             sync_signals=charts.sync_signals(synchrony, payload.get("preview", {}), colors),
             sync_matrix=charts.sync_matrix(synchrony),
             coarousal_states=coarousal_chart,
@@ -841,6 +844,7 @@ def _moment_chart(payload: dict[str, Any], interview: dict[str, Any], row: Inter
         "series": series,
         "moment": {"start": window["start"] / 60.0, "end": window["end"] / 60.0, "label": str(number or "×")},
         "range": {"min": window["low"] / 60.0, "max": window["high"] / 60.0},
+        "clock_start": clock_seconds_of_day(curation.lesson_clock_start(payload)),
         # The Co-arousal thresholds, drawn when the moment is about a shared state.
         "high": settings.get("contagion_high_z") if shared == "HIGH" else None,
         "low": settings.get("contagion_low_z") if shared == "LOW" else None,
@@ -945,6 +949,7 @@ def _lesson_chart(payload: dict[str, Any], interview: dict[str, Any], colors: li
             for item in candidates
         ],
         "range": {"min": minutes[0], "max": minutes[-1]},
+        "clock_start": clock_seconds_of_day(curation.lesson_clock_start(payload)),
     }
 
 
@@ -972,6 +977,8 @@ def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, An
         "kept_count": sum(1 for item in curated if item.role is not None),
         "stats": interview["stats"],
         "ticks": lesson_ticks(lesson["start_seconds"], lesson["end_seconds"]),
+        # The recordings' own clock at lesson time 0: the timeline shows it under the lesson time.
+        "clock_start": curation.lesson_clock_start(payload),
         # Moments chosen before every candidate was stored have none: choosing again adds them.
         "has_candidates": "candidates" in interview,
         "candidate_lanes": [
@@ -1233,9 +1240,9 @@ def _export_groups(project: Project, chart_count: int, vsr: dict[str, Any] | Non
                     _("per interview: step, lesson and sensor clock times, correlation, justification"), "CSV",
                     [_export_file(project, "vsr_moments.csv")], vsr["stale"])] if vsr is not None else []
     return [
-        row(_("Cleaned signals"), _("per participant, relative time, full resolution"), "CSV",
+        row(_("Cleaned signals"), _("per participant, sensor clock and lesson time, full resolution"), "CSV",
             [_export_file(project, "clean_signals.csv")]),
-        row(_("Analysis-ready merged file"), _("scaled, downsampled, shared time axis"), "CSV",
+        row(_("Analysis-ready merged file"), _("scaled, downsampled, sensor clock and lesson time"), "CSV",
             [_export_file(project, "analysis_input_merged.csv")]),
         row(_("Synchronization"), _("episodes, pairs, windows"), "CSV×3", [
             _export_file(project, "synchrony_episodes.csv", _("episodes")),

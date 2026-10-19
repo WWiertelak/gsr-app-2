@@ -6,6 +6,7 @@ import html
 import io
 import re
 import zlib
+from datetime import datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
@@ -117,6 +118,23 @@ def test_english_report_and_methodology_follow_language(payload) -> None:
                     "Emotional-contagion (co-arousal) analysis", "Analysis methodology", "Reproducibility data"):
         assert heading in texts, heading
     assert "Raport analizy GSR" not in texts
+
+
+def test_episode_tables_give_the_sensor_clock_next_to_the_lesson_time(payload) -> None:
+    start = datetime.fromisoformat(payload["preview"]["alignment"]["start"])
+
+    def clock(seconds: float) -> str:
+        return (start + timedelta(seconds=seconds)).strftime("%H:%M:%S")
+
+    for lang, clock_label, lesson_label in (("en", "Sensor clock", "Lesson time (m:ss)"),
+                                            ("pl", "Zegar czujnika", "Czas lekcji (m:ss)")):
+        texts = _texts(render_report_html({**payload, "lang": lang}))
+        assert texts.count(clock_label) >= 2 and texts.count(lesson_label) >= 2
+        assert "Time (min)" not in texts and "Czas (min)" not in texts
+        for episode in payload["coarousal"]["episodes"]:
+            assert f"{clock(episode['start_s'])}–{clock(episode['end_s'])}" in texts
+        for episode in payload["synchrony"]["episodes"]:
+            assert f"{clock(episode['start_relative'] * 60)}–{clock(episode['end_relative'] * 60)}" in texts
 
 
 def test_report_translates_setting_values(payload) -> None:

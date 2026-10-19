@@ -172,7 +172,7 @@
             {% endif %}
             <div class="lt-lane">
               <span aria-hidden="true"></span>
-              <div class="lt-axis" aria-hidden="true">{% for tick in interview.ticks %}<span style="left: {{ tick.pct }}%">{{ tick.seconds|seconds_mmss }}</span>{% endfor %}</div>
+              <div class="lt-axis{% if interview.clock_start %} clock{% endif %}" aria-hidden="true">{% for tick in interview.ticks %}<span style="left: {{ tick.pct }}%">{{ tick.seconds|seconds_mmss }}{% if interview.clock_start %}<small>{{ tick.seconds|seconds_clock:interview.clock_start }}</small>{% endif %}</span>{% endfor %}</div>
             </div>
           </div>
           {% for candidate in interview.candidate_list %}

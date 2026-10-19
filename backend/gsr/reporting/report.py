@@ -24,6 +24,7 @@ from typing import Any
 
 from django.template.loader import render_to_string
 
+from ..pipeline.common import clock_at, clock_start
 from ..pipeline.preprocessing import analysed_range
 from . import interviews
 from .methodology import METHODOLOGY, METHODS_COMPARISON
@@ -129,7 +130,8 @@ _TR: dict[str, dict[str, str]] = {
         "sync_group_p": "p całej grupy",
         "sync_pair_p": "p (surogat)",
         "sync_episodes_heading": "Epizody synchronizacji podgrup",
-        "sync_ep_time": "Czas (min)",
+        "sync_ep_clock": "Zegar czujnika",
+        "sync_ep_time": "Czas lekcji (m:ss)",
         "sync_ep_duration": "Czas trwania",
         "sync_ep_members": "Uczestnicy",
         "sync_ep_size": "Osób",
@@ -312,7 +314,8 @@ _TR: dict[str, dict[str, str]] = {
         "sync_group_p": "Whole-group p",
         "sync_pair_p": "p (surrogate)",
         "sync_episodes_heading": "Subgroup synchronization episodes",
-        "sync_ep_time": "Time (min)",
+        "sync_ep_clock": "Sensor clock",
+        "sync_ep_time": "Lesson time (m:ss)",
         "sync_ep_duration": "Duration",
         "sync_ep_members": "Participants",
         "sync_ep_size": "People",
@@ -477,6 +480,18 @@ def _fmt_min(value: Any) -> str:
         return "-"
     total_seconds = max(0, round(value * 60))
     return f"{total_seconds // 60}:{total_seconds % 60:02d}"
+
+
+def _lesson_clock(payload: dict[str, Any]) -> Any:
+    """The recordings' own clock at lesson time 0 of the run, or None."""
+    return clock_start((payload.get("preview") or {}).get("alignment"))
+
+
+def _clock_span(start: Any, start_minutes: Any, end_minutes: Any) -> str:
+    """A stretch of lesson time (minutes) on the recordings' clock: "10:24:46–10:25:16"."""
+    if start is None or not isinstance(start_minutes, (int, float)) or not isinstance(end_minutes, (int, float)):
+        return "-"
+    return f"{clock_at(start, start_minutes * 60)}–{clock_at(start, end_minutes * 60)}"
 
 
 # ─── Blocks ──────────────────────────────────────────────────────────────────
@@ -762,6 +777,7 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
 
     blocks.append(_h2(_tr(lang, "sync_episodes_heading")))
     episodes = synchrony.get("episodes") or []
+    lesson_clock = _lesson_clock(payload)
     if episodes:
         rows = []
         for index, episode in enumerate(episodes):
@@ -769,6 +785,7 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
             duration = end - start if isinstance(start, (int, float)) and isinstance(end, (int, float)) else None
             rows.append([
                 _fmt(index + 1),
+                _clock_span(lesson_clock, start, end),
                 f"{_fmt_min(start)}–{_fmt_min(end)}",
                 _fmt_min(duration),
                 _members(episode.get("members")),
@@ -777,10 +794,10 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
                 _fmt(episode.get("peak_strength")),
             ])
         blocks.append(_table(
-            [_tr(lang, key) for key in ("no_seg", "sync_ep_time", "sync_ep_duration", "sync_ep_members",
-                                         "sync_ep_size", "sync_ep_mean", "sync_ep_peak")],
+            [_tr(lang, key) for key in ("no_seg", "sync_ep_clock", "sync_ep_time", "sync_ep_duration",
+                                         "sync_ep_members", "sync_ep_size", "sync_ep_mean", "sync_ep_peak")],
             rows,
-            numeric=(0, 2, 4, 5, 6),
+            numeric=(0, 3, 5, 6, 7),
         ))
     else:
         blocks.append(_p(_tr(lang, "sync_no_episodes"), style="muted"))
@@ -847,11 +864,13 @@ def _section_coarousal(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
 
     blocks.append(_h2(_tr(lang, "contagion_episodes_heading")))
     episodes = coarousal.get("episodes") or []
+    lesson_clock = _lesson_clock(payload)
     if episodes:
         rows = [
             [
                 _fmt(index + 1),
                 _tr(lang, _CONTAGION_DIR_KEYS.get(str(episode.get("direction")), "contagion_ep_dir")),
+                _clock_span(lesson_clock, (episode.get("start_s") or 0) / 60, (episode.get("end_s") or 0) / 60),
                 f"{_fmt_min((episode.get('start_s') or 0) / 60)}–{_fmt_min((episode.get('end_s') or 0) / 60)}",
                 _fmt_min((episode.get("duration_s") or 0) / 60),
                 _members(episode.get("contributors")) or "—",
@@ -861,10 +880,11 @@ def _section_coarousal(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
             for index, episode in enumerate(episodes)
         ]
         blocks.append(_table(
-            [_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_time", "sync_ep_duration",
-                                         "contagion_ep_contrib", "contagion_ep_strength", "contagion_ep_noncontrib")],
+            [_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_clock", "sync_ep_time",
+                                         "sync_ep_duration", "contagion_ep_contrib", "contagion_ep_strength",
+                                         "contagion_ep_noncontrib")],
             rows,
-            numeric=(0, 3),
+            numeric=(0, 4),
         ))
     else:
         blocks.append(_p(_tr(lang, "contagion_no_episodes"), style="muted"))
@@ -875,6 +895,7 @@ def _section_coarousal(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
             [
                 _fmt(index + 1),
                 _tr(lang, _CONTAGION_DIR_KEYS.get(str(segment.get("label")), "contagion_ep_dir")),
+                _clock_span(lesson_clock, segment.get("start_min"), segment.get("end_min")),
                 f"{_fmt_min(segment.get('start_min'))}–{_fmt_min(segment.get('end_min'))}",
                 _fmt_min((segment.get("duration_s") or 0) / 60),
             ]
@@ -882,8 +903,9 @@ def _section_coarousal(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
         ]
         blocks += [
             _h2(_tr(lang, "contagion_primary_heading")),
-            _table([_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_time", "sync_ep_duration")],
-                   rows, numeric=(0, 3)),
+            _table([_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_clock", "sync_ep_time",
+                                                "sync_ep_duration")],
+                   rows, numeric=(0, 4)),
         ]
 
     state_percentages = coarousal.get("state_percentages") or []

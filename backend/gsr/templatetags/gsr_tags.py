@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from django import template
+
+from ..pipeline.common import clock_at
 
 register = template.Library()
 
@@ -21,6 +24,22 @@ def seconds_mmss(seconds: Any) -> str:
     if not isinstance(seconds, (int, float)):
         return "—"
     return mmss(seconds / 60.0)
+
+
+@register.filter
+def seconds_clock(seconds: Any, start: datetime | None) -> str:
+    """Lesson seconds → the recordings' own clock (HH:MM:SS); ``start`` is the clock at lesson time 0."""
+    if not isinstance(seconds, (int, float)):
+        return "—"
+    return clock_at(start, seconds) or "—"
+
+
+@register.filter
+def minutes_clock(minutes: Any, start: datetime | None) -> str:
+    """Lesson minutes → the recordings' own clock (HH:MM:SS), like ``mmss`` gives the lesson time."""
+    if not isinstance(minutes, (int, float)):
+        return "—"
+    return seconds_clock(minutes * 60.0, start)
 
 
 @register.filter
