@@ -521,6 +521,38 @@ def test_a_candidate_from_the_timeline_joins_the_list_accepted_after_the_kept_mo
 
 
 @pytest.mark.django_db
+def test_a_timeline_candidate_added_under_the_earlier_rules_stays_confirmed_when_chosen_again() -> None:
+    project = Project.objects.create(name="Kandydaci")
+    result = _with_candidates(project, [(1, 10, 40), (2, 100, 130)], [(2, 200, 230)])
+    curation.sync_interview_moments(project, result)
+    moment = curation.add_candidate(project, result, "A+B", *_rank(result, 200))
+    # Added before the VSR flow chart was read by correlation strength: no moment type on its proposal.
+    moment.proposal.pop("type")
+    moment.save()
+
+    # The same step and times are still a candidate, not a selected moment: marked until the researcher confirms.
+    curation.sync_interview_moments(project, result)
+    moment.refresh_from_db()
+    assert moment.needs_check and curation.check_reason(moment) == "rules"
+    curation.sync_interview_moments(project, result)
+    moment.refresh_from_db()
+    assert moment.needs_check and curation.check_reason(moment) == "rules"
+
+    curation.set_status(moment, InterviewMoment.STATUS_ACCEPTED)
+    for _ in range(2):
+        curation.sync_interview_moments(project, result)
+        moment.refresh_from_db()
+        assert not moment.needs_check and curation.check_reason(moment) is None
+    assert moment.status == InterviewMoment.STATUS_ACCEPTED and moment.proposal[curation.FROM_TIMELINE] is True
+
+    # It still asks for a check once the Analysis no longer has the candidate.
+    result = _with_candidates(project, [(1, 10, 40), (2, 100, 130)], [])
+    curation.sync_interview_moments(project, result)
+    moment.refresh_from_db()
+    assert moment.needs_check and curation.check_reason(moment) == "dropped"
+
+
+@pytest.mark.django_db
 def test_a_rejected_candidate_is_restored_and_an_overlapping_one_is_refused() -> None:
     project = Project.objects.create(name="Kandydaci")
     result = _with_candidates(project, [(1, 10, 40), (2, 100, 130)], [(5, 110, 140)])

@@ -94,6 +94,10 @@ def check_reason(row: InterviewMoment) -> str | None:
     return "rules" if row.proposal.get(REVIEW_AFTER_UPDATE) or _under_earlier_rules(row) else "dropped"
 
 
+def _timeline_proposal(candidate: dict[str, Any]) -> dict[str, Any]:
+    return {**candidate, "number": None, "status": None, "pass_number": None, FROM_TIMELINE: True}
+
+
 def _new_proposed_row(project: Project, key: str, moment: dict[str, Any]) -> InterviewMoment:
     return InterviewMoment(
         project=project,
@@ -136,7 +140,7 @@ def sync_interview_moments(project: Project, result: AnalysisResult) -> None:
     """
     proposals = {interview["key"]: interview["moments"] for interview in result.payload.get("interviews", [])}
     candidates = {
-        interview["key"]: {_identity(item["step"], item["start_seconds"], item["end_seconds"])
+        interview["key"]: {_identity(item["step"], item["start_seconds"], item["end_seconds"]): item
                            for item in interview.get("candidates", [])}
         for interview in result.payload.get("interviews", [])
     }
@@ -169,10 +173,17 @@ def sync_interview_moments(project: Project, result: AnalysisResult) -> None:
             if row.is_manual or id(row) in matched:
                 survivors.append(row)
             elif is_decided(row):
-                # A candidate the researcher added from the timeline needs no check while the Analysis still has it
-                # (under the same rules).
-                row.needs_check = _under_earlier_rules(row) or not (
-                    row.proposal.get(FROM_TIMELINE) and _row_identity(row) in candidates.get(key, set()))
+                # A candidate the researcher added from the timeline needs no check while the Analysis still has it,
+                # once they confirmed a decision made under the earlier rules.
+                candidate = candidates.get(key, {}).get(_row_identity(row)) if row.proposal.get(FROM_TIMELINE) else None
+                if candidate is None:
+                    row.needs_check = True
+                else:
+                    review = _under_earlier_rules(row) or (bool(row.proposal.get(REVIEW_AFTER_UPDATE))
+                                                           and row.needs_check)
+                    proposal = _timeline_proposal(candidate)
+                    row.proposal = {**proposal, REVIEW_AFTER_UPDATE: True} if review else proposal
+                    row.needs_check = review
                 survivors.append(row)
             else:
                 row.delete()
@@ -459,7 +470,7 @@ def add_candidate(project: Project, result: AnalysisResult, key: str, step: str,
         original_end_seconds=candidate["end_seconds"],
         start_seconds=start,
         end_seconds=end,
-        proposal={**candidate, "number": None, "status": None, "pass_number": None, FROM_TIMELINE: True},
+        proposal=_timeline_proposal(candidate),
         position=len(kept),
     )
     _renumber(kept + [moment] + [row for row in rows if row.status == InterviewMoment.STATUS_REJECTED])
