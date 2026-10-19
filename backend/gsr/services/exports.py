@@ -106,7 +106,9 @@ def merged_csv(project: Project, stored: AnalysisResult) -> bytes:
     return _csv(frame)
 
 
-def synchrony_episodes_csv(synchrony: dict[str, Any], lesson_clock: datetime | None = None) -> bytes:
+def synchrony_episodes_csv(synchrony: dict[str, Any], lesson_clock: datetime | None = None,
+                           key: str = "episodes") -> bytes:
+    """Synchronization episodes (``key`` "episodes"), or divergent ones ("divergent_episodes": strengths are r < 0)."""
     rows = [
         {
             "episode": index + 1,
@@ -120,7 +122,7 @@ def synchrony_episodes_csv(synchrony: dict[str, Any], lesson_clock: datetime | N
             "mean_strength": episode["mean_strength"],
             "peak_strength": episode["peak_strength"],
         }
-        for index, episode in enumerate(synchrony.get("episodes", []))
+        for index, episode in enumerate(synchrony.get(key, []))
     ]
     columns = ["episode", "clock_start", "clock_end", "start_minutes", "end_minutes", "duration_minutes", "members",
                "size", "mean_strength", "peak_strength"]
@@ -288,9 +290,9 @@ def results_document(project: Project, stored: AnalysisResult) -> dict[str, Any]
     lesson_clock = _lesson_clock(stored)
     synchrony = payload.get("synchrony")
     if synchrony:
-        synchrony = {**synchrony,
-                     "episodes": _with_clocks(synchrony.get("episodes", []), lesson_clock, "start_relative",
-                                              "end_relative", True)}
+        synchrony = {**synchrony, **{
+            key: _with_clocks(synchrony[key], lesson_clock, "start_relative", "end_relative", True)
+            for key in ("episodes", "divergent_episodes") if key in synchrony}}
     coarousal = payload.get("coarousal")
     if coarousal:
         coarousal = {**coarousal,
@@ -332,6 +334,7 @@ def table_exports(stored: AnalysisResult) -> dict[str, bytes]:
     lesson_clock = _lesson_clock(stored)
     return {
         "synchrony_episodes.csv": synchrony_episodes_csv(synchrony, lesson_clock),
+        "synchrony_divergent_episodes.csv": synchrony_episodes_csv(synchrony, lesson_clock, "divergent_episodes"),
         "synchrony_pairs.csv": synchrony_pairs_csv(synchrony),
         "synchrony_windows.csv": synchrony_windows_csv(synchrony, lesson_clock),
         "coarousal_episodes.csv": coarousal_episodes_csv(coarousal, lesson_clock),

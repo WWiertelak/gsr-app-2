@@ -445,7 +445,10 @@
     });
   }
 
-  // Without a `span` the bands are drawn unlabelled.
+  // Divergent synchronization episodes: the same band as a synchronization episode, outlined dashed in the Low blue.
+  var DIVERGENT_STYLE = { color: "rgba(33,102,172,0.06)", borderColor: LOW, borderWidth: 1, borderType: "dashed" };
+
+  // Bands for episodes ({start, end, name, style}, in time order); without a `span` they are drawn unlabelled.
   function episodeMarkArea(episodes, span) {
     if (!episodes || !episodes.length) {
       return undefined;
@@ -460,16 +463,15 @@
         ? { show: true, position: "insideTop", distance: 4, color: T.ink2, fontSize: 11, fontWeight: 600 }
         : { show: false },
       data: episodes.map(function (episode, index) {
-        return rows
-          ? [
-              {
-                xAxis: episode.start,
-                name: "E" + (index + 1),
-                label: { offset: [0, rows[index] * LABEL_ROW_HEIGHT] }
-              },
-              { xAxis: episode.end }
-            ]
-          : [{ xAxis: episode.start }, { xAxis: episode.end }];
+        var first = { xAxis: episode.start };
+        if (episode.style) {
+          first.itemStyle = episode.style;
+        }
+        if (rows) {
+          first.name = episode.name;
+          first.label = { offset: [0, rows[index] * LABEL_ROW_HEIGHT] };
+        }
+        return [first, { xAxis: episode.end }];
       })
     };
   }
@@ -495,9 +497,16 @@
     if (!series.length) {
       return null;
     }
-    var episodes = (data.episodes || []).map(function (episode) {
-      return { start: scale.x(episode.start), end: scale.x(episode.end) };
-    });
+    // Synchronization episodes E1… and divergent ones D1…, numbered as in their tables.
+    function marked(list, prefix, style) {
+      return (list || []).map(function (episode, index) {
+        return { start: scale.x(episode.start), end: scale.x(episode.end), name: prefix + (index + 1), style: style };
+      });
+    }
+    var episodes = marked(data.episodes, "E", null).concat(marked(data.divergent, "D", DIVERGENT_STYLE))
+      .sort(function (a, b) {
+        return a.start - b.start;
+      });
     series[0].markArea = episodeMarkArea(episodes, xSpan(series[0].data));
     // On the z-score scale, the co-arousal High / Low thresholds the states are computed with.
     series[0].markLine = thresholdLines(data, labels);

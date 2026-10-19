@@ -1,6 +1,9 @@
 """Joint synchronization: pairwise coupling, rolling-window subgroup episodes and clustering.
 
-Carried over unchanged from GSRv2 ``gsr/pipeline/core.py`` (``compute_synchrony``).
+``compute_synchrony`` is carried over unchanged from GSRv2 ``gsr/pipeline/core.py``.
+``synchrony_types`` adds what GSRv2 did not have, from the same windows and with the same
+episode rules: divergent synchrony (Hassan's e-mail; the VSR Interview Flow Chart's
+criteria read as the strength of the correlation).
 """
 
 from __future__ import annotations
@@ -485,4 +488,36 @@ def compute_synchrony(
         "episodes": episodes,
         "clusters": clusters,
         "stats": stats,
+    }
+
+
+def divergent_episodes(synchrony: dict[str, Any], config: PipelineConfig) -> list[dict[str, Any]]:
+    """Divergent synchrony: subgroups whose every pair's windowed r is at or below ``-synchrony_divergent_threshold``.
+
+    The signals move systematically in opposite directions: the same strength of relation as synchrony, with the
+    opposite sign. The episode rules are the synchronization episodes' own (minimum size and duration, bridged
+    gaps); ``mean_strength`` and ``peak_strength`` are the (negative) mean and lowest r. Signed mode only: in the
+    legacy unsigned mode an anti-phase pair already counts as synchronized.
+    """
+    if not bool(config.synchrony_signed):
+        return []
+    windows = synchrony.get("windows") or {}
+    aliases = list(synchrony.get("aliases") or [])
+    index = {alias: position for position, alias in enumerate(aliases)}
+    # Negated, the divergent windows clear the threshold as synchronized ones do.
+    negated = {(index[pair["alias_a"]], index[pair["alias_b"]]): [-value for value in pair["values"]]
+               for pair in windows.get("pairs", [])}
+    rules = config.model_copy(update={"synchrony_threshold": config.synchrony_divergent_threshold})
+    episodes, _active = _detect_sync_episodes(negated, list(windows.get("centers", [])), aliases, rules)
+    return [{**episode, "mean_strength": -episode["mean_strength"], "peak_strength": -episode["peak_strength"]}
+            for episode in episodes]
+
+
+def synchrony_types(synchrony: dict[str, Any], config: PipelineConfig) -> dict[str, Any]:
+    """``synchrony`` (``compute_synchrony``'s payload) with the types GSRv2 did not have: ``divergent_episodes``."""
+    divergent = divergent_episodes(synchrony, config)
+    return {
+        **synchrony,
+        "divergent_episodes": divergent,
+        "stats": {**synchrony.get("stats", {}), "divergent_episode_count": len(divergent)},
     }

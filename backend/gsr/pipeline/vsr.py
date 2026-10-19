@@ -50,7 +50,7 @@ from .coarousal import compute_coarousal
 from .common import PipelineError, _estimate_step_seconds, _resolve_aliases, _zscore, clock_at, clock_start
 from .config import PipelineConfig
 from .preprocessing import PipelineResult
-from .synchrony import _rolling_synchrony, _window_correlation
+from .synchrony import _rolling_synchrony, _window_correlation, synchrony_types
 
 STEP_NUMBERS = (1, 2, 3, 4, 5)
 
@@ -265,7 +265,8 @@ def aggregate_analysis(teacher: np.ndarray, students: np.ndarray, relative_minut
     windows, episodes = _rolling_synchrony(signals, aliases, relative_minutes, fs, pair_config)
     frame = pd.DataFrame({"time": relative_minutes, **{f"microsiemens_{alias}": signals[alias] for alias in aliases}})
     coarousal = compute_coarousal(_PairInput(aliases, frame), aliases, pair_config)  # type: ignore[arg-type]
-    return {"aliases": aliases, "windows": windows, "episodes": episodes}, coarousal
+    synchrony = synchrony_types({"aliases": aliases, "windows": windows, "episodes": episodes, "stats": {}}, pair_config)
+    return synchrony, coarousal
 
 
 def interview_episodes(pair: Sequence[str], synchrony: dict[str, Any], coarousal: dict[str, Any],

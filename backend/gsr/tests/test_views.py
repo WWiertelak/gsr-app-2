@@ -849,10 +849,19 @@ def test_analysis_results_interpret_figures_and_place_episodes_in_time(client, p
     for episode in coarousal["episodes"]:
         assert (f"{(start + pd.Timedelta(seconds=episode['start_s'])).strftime('%H:%M:%S')}–"
                 f"{(start + pd.Timedelta(seconds=episode['end_s'])).strftime('%H:%M:%S')}") in fragment
+    # Divergent synchronization: its own table (D-numbers) and dashed bands on the same chart.
+    divergent = synchrony["divergent_episodes"]
+    assert re.search(r'aria-controls="divergent-episodes-body" data-disclosure>Divergent synchronization episodes '
+                     rf'<span class="count">{len(divergent)}</span>', fragment)
+    for number, _episode in enumerate(divergent, start=1):
+        assert f"<strong>D{number}</strong>" in fragment
+    assert f"{synchrony['stats']['divergent_episode_count']} divergent episode" in fragment
     seconds_of_day = (start - start.normalize()).total_seconds()
     for chart in ("sync-signals", "coarousal-states"):
         data = json.loads(re.search(rf'id="{chart}-data" type="application/json">(.*?)</script>', fragment).group(1))
         assert data["clock_start"] == pytest.approx(seconds_of_day)
+        if chart == "sync-signals":
+            assert len(data["divergent"]) == len(divergent)
 
     # Significant pairs are bold, the rest recede.
     significant = sum(pair["p_value"] < 0.05 for pair in synchrony["pairs"])
@@ -1007,6 +1016,9 @@ def test_export_csv_files(client, project) -> None:
     first = stored.payload["synchrony"]["episodes"][0]
     assert episodes[0]["clock_start"] == (pd.Timestamp(alignment["start"])
                                           + pd.Timedelta(minutes=first["start_relative"])).strftime("%H:%M:%S")
+    divergent = _csv_rows(download("synchrony_divergent_episodes.csv"))
+    assert len(divergent) == len(stored.payload["synchrony"]["divergent_episodes"])
+    assert all(float(row["mean_strength"]) <= -0.3 for row in divergent)
     windows = _csv_rows(download("synchrony_windows.csv"))
     assert len(windows) == len(stored.payload["synchrony"]["windows"]["centers"]) and "A__B" in windows[0]
     assert windows[0]["center_clock"]
@@ -1122,8 +1134,8 @@ def test_export_zip_bundles_tables_json_and_posted_chart_pngs(client, project) -
     archive = zipfile.ZipFile(io.BytesIO(response.content))
     names = set(archive.namelist())
     assert {
-        "clean_signals.csv", "analysis_input_merged.csv", "synchrony_episodes.csv", "synchrony_pairs.csv",
-        "synchrony_windows.csv", "coarousal_episodes.csv", "coarousal_state_timeline.csv",
+        "clean_signals.csv", "analysis_input_merged.csv", "synchrony_episodes.csv", "synchrony_divergent_episodes.csv",
+        "synchrony_pairs.csv", "synchrony_windows.csv", "coarousal_episodes.csv", "coarousal_state_timeline.csv",
         "coarousal_state_percentages.csv", "run_settings_and_results.json",
         "charts/sync_signals.png",
     } == names

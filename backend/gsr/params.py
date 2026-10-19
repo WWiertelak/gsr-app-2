@@ -149,6 +149,14 @@ SYNCHRONY_ESSENTIAL = (
         _("Synchronization threshold"),
         _("Pairs whose windowed correlation reaches this value count as synchronized in that window."),
     ),
+    Param(
+        "synchrony_divergent_threshold",
+        _("Divergent synchrony threshold (r ≤ −)"),
+        _(
+            "Pairs whose windowed correlation is at or below minus this value move in opposite directions in that "
+            "window: divergent synchrony (Hassan: negative correlations of at least .30)."
+        ),
+    ),
     Param("synchrony_window_seconds", _("Window (s)")),
 )
 SYNCHRONY_ADVANCED = (

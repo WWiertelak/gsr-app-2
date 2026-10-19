@@ -46,7 +46,7 @@
           <li class="tile">
             <span class="label">{% translate "Episode count" %}</span>
             <span class="value">{{ synchrony.stats.episode_count }}{% if sync_episodes %} <small>· {% blocktranslate with duration=sync_episode_minutes|mmss %}{{ duration }} min in total{% endblocktranslate %}</small>{% endif %}</span>
-            <span class="sub">{{ sync_episode_rule }}</span>
+            <span class="sub">{{ sync_episode_rule }}{% if divergent_episodes is not None %}<br>{% blocktranslate count counter=divergent_episodes|length %}{{ counter }} divergent episode{% plural %}{{ counter }} divergent episodes{% endblocktranslate %} ({{ divergent_rule }}){% endif %}</span>
           </li>
           <li class="tile">
             <span class="label">{% translate "Cluster count" %}</span>
@@ -106,6 +106,39 @@
             {% endif %}
           </div>
         </div>
+
+        {% if divergent_episodes is not None %}
+          {% translate "Stretches where a subgroup's signals move in opposite directions: every pair's correlation stays at or below minus the divergent threshold, with the same episode rules as synchronization (D-numbers on the chart)." as divergent_help %}
+          <div class="disclosure">
+            <div class="disclosure-head">
+              <h3><button type="button" class="disclosure-toggle" id="divergent-episodes-toggle" aria-expanded="true" aria-controls="divergent-episodes-body" data-disclosure>{% translate "Divergent synchronization episodes" %} <span class="count">{{ divergent_episodes|length }}</span></button></h3>{% include "gsr/partials/tip.html" with text=divergent_help tip_id="tip-divergent-episodes" %}
+            </div>
+            <div class="disclosure-body" id="divergent-episodes-body">
+              {% if divergent_episodes %}
+                <div class="table-wrap">
+                  <table class="data">
+                    <thead><tr><th>#</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Participants" %}</th><th>{% translate "Mean r" %}</th><th>{% translate "Lowest r" %}</th></tr></thead>
+                    <tbody>
+                      {% for episode in divergent_episodes %}
+                        <tr>
+                          <td><strong>D{{ episode.number }}</strong></td>
+                          <td class="left"><span class="when">{% if episode.bar %}<span class="minibar" aria-hidden="true"><i style="left: {{ episode.bar.left }}%; width: {{ episode.bar.width }}%"></i></span>{% endif %}{{ episode.start_relative|minutes_clock:clock_start }}–{{ episode.end_relative|minutes_clock:clock_start }}</span></td>
+                          <td class="left">{{ episode.start_relative|mmss }}–{{ episode.end_relative|mmss }}</td>
+                          <td>{{ episode.duration|mmss }}</td>
+                          <td class="left"><div class="chips">{% for member in episode.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div></td>
+                          <td>{{ episode.mean_strength|floatformat:3 }}</td>
+                          <td>{{ episode.peak_strength|floatformat:3 }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <p class="muted">{% if synchrony.stats.signed %}{% translate "No divergent synchronization episodes detected." %}{% else %}{% translate "Divergent synchronization needs the signed mode: without it an opposite-direction pair counts as synchronized." %}{% endif %}</p>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
 
         <div class="disclosure">
           <div class="disclosure-head">

@@ -137,6 +137,19 @@ def test_episode_tables_give_the_sensor_clock_next_to_the_lesson_time(payload) -
             assert f"{clock(episode['start_relative'] * 60)}–{clock(episode['end_relative'] * 60)}" in texts
 
 
+def test_report_lists_divergent_synchronization_episodes(payload) -> None:
+    divergent = payload["synchrony"]["divergent_episodes"]
+    texts = _texts(render_report_html({**payload, "lang": "en"}))
+    assert "Divergent synchronization episodes" in texts
+    assert texts[texts.index("Divergent episodes") + 1] == str(len(divergent))
+    if divergent:
+        assert "Lowest r" in texts
+    else:
+        assert "No divergent synchronization episodes detected." in texts
+    polish = _texts(render_report_html({**payload, "lang": "pl"}))
+    assert "Epizody synchronizacji rozbieżnej" in polish
+
+
 def test_report_states_the_normalization_and_the_chart_scale(payload) -> None:
     texts = _texts(render_report_html({**payload, "lang": "en", "chart_images": {"sync_signals": _png()}}))
     # The z-score cleaning option is an artifact filter, not a normalization; the analysis always uses z-scores.

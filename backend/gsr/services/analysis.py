@@ -10,7 +10,7 @@ from ..pipeline.coarousal import compute_coarousal
 from ..pipeline.common import PipelineError
 from ..pipeline.config import PipelineConfig
 from ..pipeline.preprocessing import PipelineResult, run_pipeline, serialize_preview, serialize_zscore_preview
-from ..pipeline.synchrony import compute_synchrony
+from ..pipeline.synchrony import compute_synchrony, synchrony_types
 
 ANALYSES: tuple[str, ...] = ("synchrony", "coarousal")
 
@@ -92,7 +92,7 @@ def analyze_files_with_result(
     for entry in payload["preview"]["datasets"]:
         entry["zscore"] = zscores[entry["alias"]]
     if "synchrony" in analyses:
-        payload["synchrony"] = compute_synchrony(result, aliases, config, cancel_callback)
+        payload["synchrony"] = synchrony_types(compute_synchrony(result, aliases, config, cancel_callback), config)
     if "coarousal" in analyses:
         payload["coarousal"] = compute_coarousal(result, aliases, config, cancel_callback)
     return result, payload

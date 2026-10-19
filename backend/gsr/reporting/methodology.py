@@ -142,6 +142,12 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                     ("p", "Istotność: test surogatowy zachowujący autokorelację (przesunięcie kołowe / randomizacja fazy) "
                           "niszczy tylko synchronizację między osobami. Synchronizacja liczona ze znakiem — antyfaza nie jest "
                           "mylona z synchronizacją."),
+                    ("p", "Synchronizacja rozbieżna: podgrupy, w których r każdej pary w oknie jest równe lub "
+                          "niższe od minus progu rozbieżności (domyślnie −0,30, za prośbą zespołu Hassana), z tymi "
+                          "samymi regułami epizodu. Sygnały zmieniają się wtedy systematycznie w przeciwnych "
+                          "kierunkach: to związek o tej samej sile co synchronizacja, z przeciwnym znakiem. Kryteria "
+                          "schematu VSR („Synchronous = above 0.8”, „Asynchronous = below 0.1”) czytane są jako siła "
+                          "korelacji, czyli jej wartość bezwzględna."),
                     ("note", "Po ludzku", "Synchronizacja pyta, czy osoby zmieniały się podobnie w tym samym czasie "
                                            "albo z niewielkim opóźnieniem. Epizod pokazuje kiedy i w jakiej podgrupie."),
                     ("note", "Opóźnienie", "Lag 5 s oznacza najlepsze dopasowanie po przesunięciu jednego sygnału o "
@@ -314,6 +320,12 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                           "staying synchronized above threshold form episodes; signals are clustered."),
                     ("p", "Significance: an autocorrelation-preserving surrogate test (circular shift / phase randomization) "
                           "destroys only between-person synchrony. Synchrony is signed — anti-phase is not mistaken for synchrony."),
+                    ("p", "Divergent synchrony: subgroups in which every pair's windowed r is at or below minus the "
+                          "divergent threshold (default −0.30, as Hassan's team asked), with the same episode rules. "
+                          "The signals then move systematically in opposite directions: a relation as strong as "
+                          "synchrony, with the opposite sign. The VSR flow chart's criteria (“Synchronous = above "
+                          "0.8”, “Asynchronous = below 0.1”) are read as the strength of the correlation, its "
+                          "absolute value."),
                     ("note", "In plain language", "Synchrony asks whether people changed similarly at the same time or "
                                                    "with a small delay. An episode shows when and which subgroup."),
                     ("note", "Lag", "A 5 s lag means the best fit appeared after shifting one signal by five seconds. "

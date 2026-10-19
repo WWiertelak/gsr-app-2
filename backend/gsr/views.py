@@ -691,12 +691,13 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         config = PipelineConfig.from_dict(result.config)
         span = charts.timeline_span(synchrony)
         coarousal_chart = charts.coarousal_states(coarousal, charts.preview_clock(payload.get("preview", {})))
-        sync_episodes = [
-            {**episode, "number": index + 1,
-             "duration": episode["end_relative"] - episode["start_relative"],
-             "bar": _mini_bar(episode["start_relative"], episode["end_relative"], span)}
-            for index, episode in enumerate(synchrony.get("episodes", []))
-        ]
+        def numbered(episodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            return [{**episode, "number": index + 1, "duration": episode["end_relative"] - episode["start_relative"],
+                     "bar": _mini_bar(episode["start_relative"], episode["end_relative"], span)}
+                    for index, episode in enumerate(episodes)]
+
+        sync_episodes = numbered(synchrony.get("episodes", []))
+        divergent_episodes = numbered(synchrony.get("divergent_episodes", []))
         scale = chart_scale(project)
         context.update(
             synchrony=synchrony,
@@ -713,6 +714,10 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
             sync_episode_rule=_("subgroups of ≥ %(size)s people above %(threshold)s") % {
                 "size": config.synchrony_episode_min_size,
                 "threshold": params.display_number(config.synchrony_threshold)},
+            # Results stored before divergent synchrony was found have none to show (None), not zero.
+            divergent_episodes=divergent_episodes if "divergent_episodes" in synchrony else None,
+            divergent_rule=_("r ≤ −%(threshold)s in every window") % {
+                "threshold": params.display_number(config.synchrony_divergent_threshold)},
             cluster_members=" | ".join(" · ".join(cluster["members"])
                                        for cluster in synchrony.get("clusters", {}).get("clusters", [])),
             pairs=[{**pair, "significant": _significant(pair.get("p_value"))} for pair in synchrony.get("pairs", [])],
@@ -1201,6 +1206,7 @@ EXPORT_FILES = {
     "run_settings_and_results.json": "json",
     **{name: "table" for name in (
         "synchrony_episodes.csv",
+        "synchrony_divergent_episodes.csv",
         "synchrony_pairs.csv",
         "synchrony_windows.csv",
         "coarousal_episodes.csv",
@@ -1268,8 +1274,9 @@ def _export_groups(project: Project, chart_count: int, vsr: dict[str, Any] | Non
             _("z-scores, downsampled, sensor clock and lesson time") if chart_scale(project) != "minmax"
             else _("min-max (0–1), downsampled, sensor clock and lesson time"), "CSV",
             [_export_file(project, "analysis_input_merged.csv")]),
-        row(_("Synchronization"), _("episodes, pairs, windows"), "CSV×3", [
+        row(_("Synchronization"), _("episodes, divergent episodes, pairs, windows"), "CSV×4", [
             _export_file(project, "synchrony_episodes.csv", _("episodes")),
+            _export_file(project, "synchrony_divergent_episodes.csv", _("divergent episodes")),
             _export_file(project, "synchrony_pairs.csv", _("pairs")),
             _export_file(project, "synchrony_windows.csv", _("windows")),
         ]),

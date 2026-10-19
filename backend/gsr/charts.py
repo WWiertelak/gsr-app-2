@@ -108,9 +108,9 @@ def clean_overlay_from_preview(preview: dict[str, Any], colors: dict[str, str], 
                    clock=preview_clock(preview))
 
 
-def _episodes(synchrony: dict[str, Any]) -> list[dict[str, float]]:
+def _episodes(synchrony: dict[str, Any], key: str = "episodes") -> list[dict[str, float]]:
     return [{"start": episode["start_relative"], "end": episode["end_relative"]}
-            for episode in synchrony.get("episodes", [])]
+            for episode in synchrony.get(key, [])]
 
 
 def timeline_span(synchrony: dict[str, Any]) -> list[float] | None:
@@ -147,6 +147,7 @@ def sync_signals(synchrony: dict[str, Any], preview: dict[str, Any], colors: dic
     return {
         "series": series,
         "episodes": _episodes(synchrony),
+        "divergent": _episodes(synchrony, "divergent_episodes"),
         "clock_start": preview_clock(preview),
         "scale": MINMAX if scale == MINMAX else ZSCORE,
         "high": (config or {}).get("contagion_high_z") if zscores else None,

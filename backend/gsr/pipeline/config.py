@@ -54,6 +54,7 @@ _FIELD_RULES: dict[str, tuple[Any, ...]] = {
     "synchrony_episode_min_duration_seconds": (_FLOAT, 0.0, 3600.0),
     "synchrony_episode_max_gap_seconds": (_FLOAT, 0.0, 600.0),
     "synchrony_interview_threshold": (_FLOAT, 0.0, 1.0),
+    "synchrony_divergent_threshold": (_FLOAT, 0.0, 1.0),
     "contagion_high_z": (_FLOAT, 0.0, 10.0),
     "contagion_low_z": (_FLOAT, -10.0, 0.0),
     "contagion_window_seconds": (_FLOAT, 1.0, 600.0),
@@ -79,6 +80,9 @@ VSR_DOCUMENT_SETTINGS: dict[str, Any] = {
     "contagion_comovement_rho": 0.8,
     # STEPS 1-2 take a moment whose r is at least this; Hassan's e-mail: "ideally above .80 for the interviews".
     "synchrony_interview_threshold": 0.8,
+    # Divergent synchrony: windows whose r is at or below minus this (Hassan's e-mail: "negative correlations
+    # above > .30"); the flow chart has no number for its detection.
+    "synchrony_divergent_threshold": 0.3,
 }
 
 
@@ -176,6 +180,8 @@ class PipelineConfig:
     synchrony_episode_max_gap_seconds: float = 15.0
     # VSR interview moments (not in GSRv2): the correlation strength a moment needs to count as synchronous.
     synchrony_interview_threshold: float = VSR_DOCUMENT_SETTINGS["synchrony_interview_threshold"]
+    # Divergent synchrony (not in GSRv2): subgroup episodes of windows whose r is at or below minus this strength.
+    synchrony_divergent_threshold: float = VSR_DOCUMENT_SETTINGS["synchrony_divergent_threshold"]
     # Co-arousal (shared arousal, "contagion" in GSRv2). The ``contagion_*`` names
     # are kept so GSRv2 configs load unchanged. z-scoring is computed WITHIN the
     # analysis window, contributors require positive (in-phase) correlation, and
