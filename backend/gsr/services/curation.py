@@ -23,7 +23,7 @@ from django.utils.translation import gettext
 
 from ..models import AnalysisResult, InterviewMoment, Project
 from ..pipeline.common import clock_at
-from ..pipeline.vsr import PRIMARY, RESERVE
+from ..pipeline.vsr import PRIMARY, RESERVE, step_label
 from .vsr import moment_counts
 
 MAX_REASON_LENGTH = 1000
@@ -59,12 +59,12 @@ def _rounded(seconds: Any) -> float:
     return round(float(seconds), 1)
 
 
-def _identity(step: Any, start: Any, end: Any) -> tuple[int, float, float]:
+def _identity(step: Any, start: Any, end: Any) -> tuple[str, float, float]:
     """What makes two proposals the same moment: the step it answers and its proposed times."""
-    return int(step), _rounded(start), _rounded(end)
+    return step_label(step), _rounded(start), _rounded(end)
 
 
-def _row_identity(row: InterviewMoment) -> tuple[int, float, float] | None:
+def _row_identity(row: InterviewMoment) -> tuple[str, float, float] | None:
     if row.is_manual or row.original_start_seconds is None or row.original_end_seconds is None:
         return None
     return _identity(row.proposal.get("step", 0), row.original_start_seconds, row.original_end_seconds)
@@ -393,17 +393,17 @@ def add_manual(project: Project, result: AnalysisResult, key: str, start: float,
     return moment
 
 
-def candidate_identity(candidate: dict[str, Any]) -> tuple[int, float, float]:
+def candidate_identity(candidate: dict[str, Any]) -> tuple[str, float, float]:
     return _identity(candidate["step"], candidate["start_seconds"], candidate["end_seconds"])
 
 
-def row_identity(row: InterviewMoment) -> tuple[int, float, float] | None:
+def row_identity(row: InterviewMoment) -> tuple[str, float, float] | None:
     """A proposed row's step and proposed times, as ``candidate_identity`` gives them; None for a manual one."""
     return _row_identity(row)
 
 
 @transaction.atomic
-def add_candidate(project: Project, result: AnalysisResult, key: str, step: int, rank: int) -> InterviewMoment:
+def add_candidate(project: Project, result: AnalysisResult, key: str, step: str, rank: int) -> InterviewMoment:
     """Put a candidate from the lesson timeline (``step``, ``rank`` within the step) on the interview's list.
 
     A candidate already on the list as a rejected moment is restored; otherwise it is added after the kept moments,
@@ -413,7 +413,7 @@ def add_candidate(project: Project, result: AnalysisResult, key: str, step: int,
     if interview is None:
         raise ValueError(gettext("Choose an interview of the current proposals."))
     candidate = next((item for item in interview.get("candidates", [])
-                      if item["step"] == step and item["candidate_rank"] == rank), None)
+                      if step_label(item["step"]) == step_label(step) and item["candidate_rank"] == rank), None)
     if candidate is None:
         raise ValueError(gettext("This candidate is no longer in the moments chosen from the Analysis. Reload the page."))
     rows = ordered_rows(project.interview_moments.filter(interview_key=key))

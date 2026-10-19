@@ -80,13 +80,19 @@ moments, also straight from the timeline, and choosing again keeps those decisio
 for other researchers, with the interview moments and their justifications as its own
 section; CSV tables including `vsr_moments.csv`, a run settings + results JSON, chart PNGs, or
 all of it as a ZIP). Re-running or changing an earlier step marks later saved results
-outdated until each is refreshed in order. New projects start with the values the VSR Interview Flow
-Chart suggests (co-movement correlation above 0.8 for the synchronization and co-movement thresholds,
-5 moments per interview plus 3 in reserve, and step 5 "no synchrony" for a correlation below 0.1, set
-on the Interviews step); projects saved earlier keep their thresholds (step 5 below 0) until "Reset
-defaults" in the Analysis settings sets the 0.8 thresholds and the step 5 threshold of 0.1. The 5 + 3
-moment counts are the existing defaults; the reset does not change them, they are edited on the Interviews
-step. Interview pairs can be added and removed
+outdated until each is refreshed in order. The flow chart's correlation criteria ("Synchronous = above
+0.8", "Asynchronous = below 0.1") are read as the strength of the correlation, its absolute value, and
+Hassan's team's e-mail adds the types the chart leaves out. The steps are 1 co-movement and a shared state,
+2 co-movement only (both with a moment r of at least 0.8), 3 shared High, 4 shared Low, 4b divergent
+synchrony (signals moving in opposite directions, moment r at most -0.8) and 5 no synchrony (a decoupling
+stretch, mean r within +/-0.1, closest to zero first); their order lives in one tuple
+(`pipeline/vsr.py` `PROTOCOL`). The Analysis finds divergent synchronization episodes (r <= -0.3 in every
+window) and decoupling stretches as its own types. New projects start with the values the VSR Interview
+Flow Chart and the e-mail suggest (`VSR_DOCUMENT_SETTINGS`: 0.8 for the synchronization and co-movement
+thresholds and the interview moments, 0.3 divergent, 0.1 decoupling; 5 moments per interview plus 3 in
+reserve); projects saved earlier keep GSRv2's synchronization and co-movement thresholds until "Reset
+defaults" in the Analysis settings sets the 0.8 ones. The 5 + 3 moment counts are the existing defaults;
+the reset does not change them, they are edited on the Interviews step. Interview pairs can be added and removed
 with the form buttons; removed pairs retain curated decisions for restoration when
 the same pair is added again. Every table, chart axis, CSV/JSON export and the PDF report give the
 GSR recordings' own clock (the sensor clock, which the researcher uses to locate a moment in the

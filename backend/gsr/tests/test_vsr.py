@@ -24,11 +24,15 @@ from gsr.pipeline.vsr import (
     AGGREGATE,
     AGGREGATE_PAIR,
     COAROUSAL,
-    DEFAULT_ASYNCHRONY_THRESHOLD,
+    COMOVEMENT,
+    COMOVEMENT_STATE,
+    DECOUPLED,
+    DIVERGENT,
     HIGH,
     LOW,
     PRIMARY,
     RESERVE,
+    STEP_NUMBERS,
     SYNCHRONY,
     Candidate,
     Episode,
@@ -69,11 +73,31 @@ def _windows(values_by_span: list[tuple[float, float, float]], end: float = 1800
     return Windows(centers, values)
 
 
-def _steps(synchrony: list[dict], coarousal: list[dict], windows: Windows,
-           asynchrony_threshold: float = DEFAULT_ASYNCHRONY_THRESHOLD) -> dict[int, list[Candidate]]:
-    comovement, shared = interview_episodes(["S1", "S2"], {"episodes": synchrony}, {"episodes": coarousal}, CONFIG,
-                                            LESSON)
-    return candidates_by_step(windows, comovement, shared, CONFIG, LESSON, asynchrony_threshold)
+def _divergent(start_s: float, end_s: float, members: list[str], strength: float = -0.85) -> dict:
+    return {**_sync(start_s, end_s, members, strength)}
+
+
+def _decoupled(start_s: float, end_s: float, members: list[str], r: float = 0.0) -> dict:
+    return {"start_relative": start_s / 60.0, "end_relative": end_s / 60.0, "members": members, "size": 2,
+            "mean_r": r}
+
+
+def _steps(synchrony: list[dict], coarousal: list[dict], windows: Windows, divergent: list[dict] | None = None,
+           decoupled: list[dict] | None = None, config: PipelineConfig = CONFIG) -> dict[str, list[Candidate]]:
+    episodes = interview_episodes(["S1", "S2"], {"episodes": synchrony, "divergent_episodes": divergent or [],
+                                                 "decoupled_episodes": decoupled or []},
+                                  {"episodes": coarousal}, config, LESSON)
+    return candidates_by_step(windows, episodes, config)
+
+
+def _sentences(candidate: Candidate, kind: str = "dyad") -> tuple[str, str]:
+    """The candidate's justification in English and Polish."""
+    moment = _moment_payload(Proposal(1, PRIMARY, 1, 1, 1, candidate), None)
+    with translation.override("en"):
+        english = vsr_text.justification(moment, kind)
+    with translation.override("pl"):
+        polish = vsr_text.justification(moment, kind)
+    return english, polish
 
 
 # ─── Which Analysis episodes belong to an interview ─────────────────────────
@@ -88,15 +112,20 @@ def test_pair_episodes_are_the_analysis_episodes_both_students_are_in() -> None:
         _coarousal("Low", 700, 760, ["S2", "S1"]),
     ]
 
-    comovement, shared = interview_episodes(["S1", "S2"], {"episodes": synchrony}, {"episodes": coarousal}, CONFIG,
-                                            LESSON)
+    divergent = [_divergent(800, 860, ["S1", "S2"]), _divergent(900, 960, ["S1", "S3"])]
+    decoupled = [_decoupled(1000, 1060, ["S2", "S1"]), _decoupled(1100, 1160, ["S1", "S3"])]
 
-    # Numbered as on the Analysis screen: E1, E3 on Synchronization, 3 on Co-arousal.
-    assert [(episode.source, episode.number) for episode in comovement] == [
-        (SYNCHRONY, 1), (SYNCHRONY, 3), (COAROUSAL, 3)]
-    assert [(episode.number, episode.state, episode.in_episode, episode.people) for episode in shared] == [
+    found = interview_episodes(["S1", "S2"], {"episodes": synchrony, "divergent_episodes": divergent,
+                                              "decoupled_episodes": decoupled}, {"episodes": coarousal}, CONFIG, LESSON)
+
+    # Numbered as on the Analysis screen: E1, E3 on Synchronization, 3 on Co-arousal; D1 divergent, U1 decoupling.
+    assert [(episode.source, episode.kind, episode.number) for episode in found.comovement] == [
+        (SYNCHRONY, "synchronization", 1), (SYNCHRONY, "synchronization", 3), (COAROUSAL, "co-movement", 3)]
+    assert [(episode.number, episode.state, episode.in_episode, episode.people) for episode in found.shared] == [
         (1, HIGH, 2, 2), (4, LOW, 2, 2)]
-    assert (comovement[0].start_seconds, comovement[0].end_seconds) == pytest.approx((60.0, 120.0))
+    assert [(episode.kind, episode.number) for episode in found.divergent] == [("divergent", 1)]
+    assert [(episode.kind, episode.number) for episode in found.decoupled] == [("decoupled", 1)]
+    assert (found.comovement[0].start_seconds, found.comovement[0].end_seconds) == pytest.approx((60.0, 120.0))
 
 
 def test_the_teacher_interview_is_analysed_as_the_teacher_and_the_students_average() -> None:
@@ -112,8 +141,8 @@ def test_the_teacher_interview_is_analysed_as_the_teacher_and_the_students_avera
     students[800:900] += 3.0
 
     synchrony, coarousal = aggregate_analysis(_zscore(teacher), _zscore(students), minutes, CONFIG)
-    comovement, shared = interview_episodes(AGGREGATE_PAIR, synchrony, coarousal, CONFIG, (0.0, 1199.0),
-                                            source=AGGREGATE)
+    found = interview_episodes(AGGREGATE_PAIR, synchrony, coarousal, CONFIG, (0.0, 1199.0), source=AGGREGATE)
+    comovement, shared = found.comovement, found.shared
 
     assert synchrony["aliases"] == list(AGGREGATE_PAIR) and len(synchrony["windows"]["pairs"]) == 1
     assert comovement and all(episode.source == AGGREGATE for episode in comovement + shared)
@@ -125,7 +154,7 @@ def test_the_teacher_interview_is_analysed_as_the_teacher_and_the_students_avera
 
     # Named as the teacher with the students' average, not as an Analysis episode.
     windows = _windows([(780, 920, 0.1)])
-    high = candidates_by_step(windows, comovement, shared, CONFIG, (0.0, 1199.0))[3][0]
+    high = candidates_by_step(windows, found, CONFIG)["3"][0]
     with translation.override("en"):
         sentence = vsr_text.justification(_moment_payload(Proposal(1, PRIMARY, 1, 1, 1, high), None), "teacher")
     assert "co-arousal of the teacher and the students' average" in sentence
@@ -133,9 +162,9 @@ def test_the_teacher_interview_is_analysed_as_the_teacher_and_the_students_avera
 
 
 def test_a_single_window_episode_gets_the_window_it_was_measured_over() -> None:
-    comovement, _shared = interview_episodes(["S1", "S2"], {"episodes": [_sync(100, 100, ["S1", "S2"]),
-                                                                          _sync(5, 5, ["S1", "S2"])]},
-                                             {"episodes": []}, CONFIG, LESSON)
+    comovement = interview_episodes(["S1", "S2"], {"episodes": [_sync(100, 100, ["S1", "S2"]),
+                                                                 _sync(5, 5, ["S1", "S2"])]},
+                                    {"episodes": []}, CONFIG, LESSON).comovement
 
     assert (comovement[0].start_seconds, comovement[0].end_seconds) == pytest.approx((85.0, 115.0))
     # Clipped to the analysed period.
@@ -145,6 +174,10 @@ def test_a_single_window_episode_gets_the_window_it_was_measured_over() -> None:
 # ─── The steps of the VSR flow chart ─────────────────────────────────────────
 
 
+def test_the_protocol_is_the_documents_steps_read_by_strength_with_divergent_as_4b() -> None:
+    assert STEP_NUMBERS == ("1", "2", "3", "4", "4b", "5")
+
+
 def test_each_step_takes_its_kind_of_analysis_episode() -> None:
     synchrony = [_sync(100, 160, ["S1", "S2"]), _sync(300, 360, ["S1", "S2"])]
     coarousal = [
@@ -152,28 +185,34 @@ def test_each_step_takes_its_kind_of_analysis_episode() -> None:
         _coarousal("High", 500, 560, ["S1", "S2"]),
         _coarousal("Low", 700, 760, ["S1", "S2"]),
     ]
-    windows = _windows([(100, 160, 0.9), (300, 360, 0.85), (1000, 1100, -0.5)])
+    windows = _windows([(100, 160, 0.9), (300, 360, 0.85), (900, 960, -0.9), (1000, 1100, 0.02)])
 
-    steps = _steps(synchrony, coarousal, windows)
+    steps = _steps(synchrony, coarousal, windows, divergent=[_divergent(900, 960, ["S1", "S2"])],
+                   decoupled=[_decoupled(1000, 1100, ["S1", "S2"], 0.02)])
 
-    step1, = steps[1]
-    assert (step1.start_seconds, step1.end_seconds, step1.shared_state) == (100.0, 160.0, HIGH)
+    step1, = steps["1"]
+    assert (step1.start_seconds, step1.end_seconds, step1.shared_state, step1.kind) == (100.0, 160.0, HIGH,
+                                                                                        COMOVEMENT_STATE)
     assert step1.episode.number == 1 and step1.shared.number == 1
     assert step1.correlation == pytest.approx(0.9)
-    assert [(c.start_seconds, c.shared_state) for c in steps[2]] == [(300.0, None)]
-    assert [(c.episode.number, c.shared_state) for c in steps[3]] == [(2, HIGH)]
-    assert [(c.episode.number, c.shared_state) for c in steps[4]] == [(3, LOW)]
-    step5, = steps[5]
-    assert step5.correlation == pytest.approx(-0.5)
-    assert step5.episode is None
+    assert [(c.start_seconds, c.shared_state, c.kind) for c in steps["2"]] == [(300.0, None, COMOVEMENT)]
+    assert [(c.episode.number, c.shared_state) for c in steps["3"]] == [(2, HIGH)]
+    assert [(c.episode.number, c.shared_state) for c in steps["4"]] == [(3, LOW)]
+    divergent, = steps["4b"]
+    assert (divergent.kind, divergent.episode.kind, divergent.correlation) == (DIVERGENT, "divergent",
+                                                                                pytest.approx(-0.9))
+    step5, = steps["5"]
+    assert (step5.kind, step5.episode.kind) == (DECOUPLED, "decoupled")
+    assert step5.start_seconds == pytest.approx(1000.0)
+    assert step5.correlation == pytest.approx(0.02)
 
 
 def test_a_shared_state_overlapping_co_movement_is_step_1_only() -> None:
     steps = _steps([_sync(100, 160, ["S1", "S2"])], [_coarousal("Low", 150, 300, ["S1", "S2"])],
                    _windows([(100, 160, 0.9)]))
 
-    assert [c.shared_state for c in steps[1]] == [LOW]
-    assert steps[3] == steps[4] == []
+    assert [c.shared_state for c in steps["1"]] == [LOW]
+    assert steps["3"] == steps["4"] == []
 
 
 def test_step_1_names_the_shared_state_that_overlaps_most() -> None:
@@ -181,21 +220,21 @@ def test_step_1_names_the_shared_state_that_overlaps_most() -> None:
 
     steps = _steps([_sync(100, 160, ["S1", "S2"])], coarousal, _windows([(100, 160, 0.9)]))
 
-    assert steps[1][0].shared_state == HIGH
-    assert steps[1][0].shared.number == 2
+    assert steps["1"][0].shared_state == HIGH
+    assert steps["1"][0].shared.number == 2
 
 
 def test_co_movement_episodes_of_the_co_arousal_tab_count_as_co_movement() -> None:
     steps = _steps([], [_coarousal("Co-movement", 400, 520, ["S1", "S2", "S3"])], _windows([(400, 520, 0.85)]))
 
-    candidate, = steps[2]
+    candidate, = steps["2"]
     assert (candidate.episode.source, candidate.episode.number) == (COAROUSAL, 1)
     assert candidate.correlation == pytest.approx(0.85)
 
 
 def test_steps_1_and_2_need_the_interview_threshold() -> None:
-    # "Synchronous = above 0.8": a co-movement episode whose moment r is 0.69 answers neither STEPS 1-2 nor STEP 5,
-    # and does not keep the shared state it overlaps out of STEP 3.
+    # "Synchronous = above 0.8": a co-movement episode whose moment r is 0.69 answers no step, and does not keep the
+    # shared state it overlaps out of STEP 3.
     synchrony = [_sync(100, 160, ["S1", "S2"]), _sync(300, 360, ["S1", "S2"]), _sync(500, 560, ["S1", "S2"])]
     coarousal = [_coarousal("High", 120, 200, ["S1", "S2"])]
     windows = _windows([(100, 160, 0.69), (300, 360, 0.8), (500, 560, 0.79)])
@@ -203,150 +242,130 @@ def test_steps_1_and_2_need_the_interview_threshold() -> None:
     steps = _steps(synchrony, coarousal, windows)
 
     assert CONFIG.synchrony_interview_threshold == 0.8
-    assert steps[1] == [] and [c.start_seconds for c in steps[2]] == [300.0]
-    assert [c.episode.number for c in steps[3]] == [1]
-    assert all(c.episode is None or c.episode.source != SYNCHRONY for c in steps[5])
-    stricter = interview_episodes(["S1", "S2"], {"episodes": synchrony}, {"episodes": coarousal}, CONFIG, LESSON)
-    lowered = candidates_by_step(windows, *stricter, CONFIG.model_copy(update={"synchrony_interview_threshold": 0.6}),
-                                 LESSON)
-    assert [c.start_seconds for c in lowered[1]] == [100.0]
-    assert [c.start_seconds for c in lowered[2]] == pytest.approx([300.0, 500.0])
+    assert steps["1"] == [] and [c.start_seconds for c in steps["2"]] == [300.0]
+    assert [c.episode.number for c in steps["3"]] == [1]
+    assert steps["5"] == []
+    lowered = _steps(synchrony, coarousal, windows,
+                     config=CONFIG.model_copy(update={"synchrony_interview_threshold": 0.6}))
+    assert [c.start_seconds for c in lowered["1"]] == [100.0]
+    assert [c.start_seconds for c in lowered["2"]] == pytest.approx([300.0, 500.0])
 
 
-def test_no_synchrony_needs_a_negative_correlation_for_the_minimum_episode_duration() -> None:
-    windows = _windows([(200, 215, -0.4), (400, 460, -0.6), (600, 640, -0.3), (650, 690, -0.3)])
+def test_divergent_synchrony_is_step_4b_from_minus_the_interview_threshold() -> None:
+    # Hassan: "negative correlations above > .30 and ideally above .80 for the interviews". The Analysis finds the
+    # divergent episodes from -0.3; an interview moment needs -0.8, its own r.
+    divergent = [_divergent(100, 160, ["S1", "S2"]), _divergent(300, 360, ["S1", "S2"]),
+                 _divergent(500, 560, ["S1", "S2"]), _divergent(700, 760, ["S1", "S2"])]
+    windows = _windows([(100, 160, -0.8), (300, 360, -0.79), (500, 560, -0.95), (700, 760, -0.5)])
 
-    steps = _steps([], [], windows)
+    steps = _steps([], [], windows, divergent=divergent)
 
-    # 200-215 is shorter than 30 s; 600-640 and 650-690 are 10 s apart and bridged into one moment.
-    assert [(c.start_seconds, c.end_seconds) for c in steps[5]] == [(400.0, 460.0), (600.0, 690.0)]
-
-
-def test_no_synchrony_stays_outside_the_interviews_episodes() -> None:
-    windows = _windows([(300, 500, -0.5)])
-
-    steps = _steps([], [_coarousal("High", 380, 420, ["S1", "S2"])], windows)
-
-    # The run breaks at the episode instead of bridging across it.
-    assert [(c.start_seconds, c.end_seconds) for c in steps[5]] == [(300.0, 375.0), (425.0, 500.0)]
+    # The most negative first.
+    assert [c.start_seconds for c in steps["4b"]] == pytest.approx([500.0, 100.0])
+    english, polish = _sentences(steps["4b"][0])
+    assert english.startswith("VSR flow chart step 4b: divergent synchrony – divergent synchronization episode D3, ")
+    assert "r = -0.95" in english and "the signals moved in opposite directions" in english
+    assert polish.startswith("Krok 4b schematu VSR: ") and "przeciwnych kierunkach" in polish
 
 
-def test_an_episode_whose_signals_moved_in_opposite_directions_is_no_synchrony() -> None:
-    # An unsigned-synchrony Analysis finds an anti-phase subgroup; it is no co-movement.
+def test_an_opposite_direction_co_movement_episode_is_no_synchrony_moment() -> None:
+    # An unsigned-synchrony Analysis puts an anti-phase pair into a synchronization episode: with r = -0.9 it is not
+    # co-movement, and it is no STEP 5 either (that strength is the opposite of no relation).
     windows = _windows([(100, 160, -0.9), (600, 700, 0.85)])
     synchrony = [_sync(100, 160, ["S1", "S2"])]
     coarousal = [_coarousal("High", 130, 200, ["S1", "S2"]), _coarousal("Co-movement", 600, 700, ["S1", "S2"])]
 
     steps = _steps(synchrony, coarousal, windows)
 
-    assert [(c.episode.source, c.episode.number) for c in steps[1] + steps[2]] == [(COAROUSAL, 2)]
-    step5, = steps[5]
-    assert (step5.episode.source, step5.episode.number) == (SYNCHRONY, 1)
-    assert step5.correlation == pytest.approx(-0.9)
-    # The opposite-direction episode does not hide the shared High state it overlaps.
-    assert [c.episode.number for c in steps[3]] == [1]
+    assert [(c.episode.source, c.episode.number) for c in steps["1"] + steps["2"]] == [(COAROUSAL, 2)]
+    assert steps["4b"] == steps["5"] == []
+    # It does not hide the shared High state it overlaps.
+    assert [c.episode.number for c in steps["3"]] == [1]
 
-    moment = _moment_payload(Proposal(1, PRIMARY, 1, 1, 1, step5), None)
+
+def test_no_synchrony_is_the_analysis_decoupling_closest_to_zero_first() -> None:
+    # "Asynchronous = below 0.1" read as strength: the Analysis' decoupling stretches (|mean r| < 0.1). The clearest
+    # absence of a relation comes first, not the strongest anticorrelation.
+    decoupled = [_decoupled(100, 160, ["S1", "S2"], -0.08), _decoupled(300, 400, ["S1", "S2"], 0.01),
+                 _decoupled(500, 560, ["S1", "S2"], 0.05), _decoupled(700, 760, ["S1", "S3"], 0.0)]
+    windows = _windows([(100, 160, -0.08), (300, 400, 0.01), (500, 560, 0.05)])
+
+    steps = _steps([], [], windows, decoupled=decoupled)
+
+    assert [c.start_seconds for c in steps["5"]] == pytest.approx([300.0, 500.0, 100.0])
+    english, polish = _sentences(steps["5"][0])
+    assert english.startswith("VSR flow chart step 5: no synchrony – decoupling stretch U2, 5:00–6:40")
+    assert "r = 0.01" in english and "the signals were not related" in english
+    assert "opposite" not in english
+    assert "sygnały nie były powiązane" in polish
+
+
+def test_a_moment_stored_before_the_strength_reading_keeps_its_sentence() -> None:
+    # Moments chosen when STEP 5 took a correlation below 0.1 with its sign have whole-number steps and no type.
+    stored = {"step": 5, "start_seconds": 4480.0, "end_seconds": 4510.0, "correlation": -0.82, "episode": None,
+              "shared_state": None}
     with translation.override("en"):
-        english = vsr_text.justification(moment, "dyad")
-    with translation.override("pl"):
-        polish = vsr_text.justification(moment, "dyad")
-    assert "synchronization episode E1" in english and "opposite direction" in english
-    assert "co-movement" not in english
-    assert "przeciwnym kierunku" in polish
-
-
-def test_no_synchrony_is_a_correlation_below_the_documents_0_1() -> None:
-    # "Asynchronous = below 0.1": stretches at 0.05 and -0.3 qualify, one at exactly 0.1 does not; a co-movement
-    # episode whose r is 0.05 is no synchrony either.
-    windows = _windows([(400, 460, 0.05), (600, 660, 0.1), (800, 860, -0.3), (1000, 1060, 0.05)])
-    synchrony = [_sync(1000, 1060, ["S1", "S2"])]
-
-    steps = _steps(synchrony, [], windows)
-
-    assert DEFAULT_ASYNCHRONY_THRESHOLD == 0.1
-    assert steps[2] == []
-    assert sorted((round(c.start_seconds), round(c.end_seconds), c.episode is not None) for c in steps[5]) == [
-        (400.0, 460.0, False), (800.0, 860.0, False), (1000.0, 1060.0, True)]
-
-    texts = {}
-    for candidate in steps[5]:
-        moment = _moment_payload(Proposal(1, PRIMARY, 1, 1, 1, candidate), None)
-        with translation.override("en"):
-            english = vsr_text.justification(moment, "dyad")
-        with translation.override("pl"):
-            polish = vsr_text.justification(moment, "dyad")
-        texts[round(candidate.start_seconds)] = (english, polish)
-    # Below zero the signals moved in the opposite direction; from zero up to the threshold they were not related.
-    assert "the signals moved in the opposite direction" in texts[800][0]
-    assert "przeciwnym kierunku" in texts[800][1]
-    for start in (400, 1000):
-        assert "the signals were not related" in texts[start][0] and "opposite" not in texts[start][0]
-        assert "sygnały nie były powiązane" in texts[start][1]
-    assert "synchronization episode E1" in texts[1000][0]
-
-
-def test_a_saved_project_keeps_no_synchrony_below_zero() -> None:
-    windows = _windows([(400, 460, 0.05), (800, 860, -0.3), (1000, 1060, 0.05)])
-    synchrony = [_sync(1000, 1060, ["S1", "S2"])]
-
-    steps = _steps(synchrony, [], windows, asynchrony_threshold=0.0)
-
-    assert [(c.start_seconds, c.end_seconds) for c in steps[5]] == [(800.0, 860.0)]
-    # Its r of 0.05 is not synchronous either.
-    assert steps[2] == []
+        sentence = vsr_text.justification(stored, "dyad")
+    assert sentence.startswith("VSR flow chart step 5: no synchrony – 74:40–75:10 outside the synchronization")
+    assert "the signals moved in the opposite direction" in sentence
+    with translation.override("en"):
+        assert vsr_text.step_title(5) == "Step 5 · No synchrony" and vsr_text.step_title("4b").startswith("Step 4b")
 
 
 def test_candidates_of_one_step_are_ranked_strongest_first() -> None:
     synchrony = [_sync(100, 140, ["S1", "S2"]), _sync(300, 400, ["S1", "S2"]), _sync(600, 640, ["S1", "S2"])]
-    windows = _windows([(100, 140, 0.85), (300, 400, 0.85), (600, 640, 0.95), (900, 960, -0.2), (1200, 1240, -0.8)])
+    windows = _windows([(100, 140, 0.85), (300, 400, 0.85), (600, 640, 0.95)])
     coarousal = [_coarousal("High", 1400, 1440, ["S1", "S2"]), _coarousal("High", 1500, 1600, ["S1", "S2"])]
 
     steps = _steps(synchrony, coarousal, windows)
 
     # Highest r first, then the longer one.
-    assert [c.start_seconds for c in steps[2]] == [600.0, 300.0, 100.0]
-    # Lowest r first.
-    assert [c.start_seconds for c in steps[5]] == [1200.0, 900.0]
+    assert [c.start_seconds for c in steps["2"]] == [600.0, 300.0, 100.0]
     # Both people are in every shared state of a pair: the longer one first.
-    assert [c.start_seconds for c in steps[3]] == [1500.0, 1400.0]
+    assert [c.start_seconds for c in steps["3"]] == [1500.0, 1400.0]
 
 
 # ─── STEP 6: walking the steps until the moments are chosen ────────────────
 
 
-def _candidate(step: int, start: float, end: float, correlation: float = 0.8) -> Candidate:
-    return Candidate(step, start, end, correlation)
+def _candidate(kind: str, start: float, end: float, correlation: float = 0.8) -> Candidate:
+    return Candidate(kind, start, end, correlation)
+
+
+def _empty_steps() -> dict[str, list[Candidate]]:
+    return {step: [] for step in STEP_NUMBERS}
 
 
 def test_step_6_walks_the_steps_again_until_the_primary_and_reserve_moments_are_chosen() -> None:
     steps = {
-        1: [_candidate(1, 0, 30), _candidate(1, 100, 130)],
-        2: [_candidate(2, 200, 230), _candidate(2, 300, 330), _candidate(2, 400, 430)],
-        3: [],
-        4: [],
-        5: [_candidate(5, 500, 530, -0.5), _candidate(5, 600, 630, -0.4), _candidate(5, 700, 730, -0.3)],
+        **_empty_steps(),
+        "1": [_candidate(COMOVEMENT_STATE, 0, 30), _candidate(COMOVEMENT_STATE, 100, 130)],
+        "2": [_candidate(COMOVEMENT, 200, 230), _candidate(COMOVEMENT, 300, 330), _candidate(COMOVEMENT, 400, 430)],
+        "4b": [_candidate(DIVERGENT, 450, 480, -0.9)],
+        "5": [_candidate(DECOUPLED, 500, 530, 0.0), _candidate(DECOUPLED, 600, 630, 0.02),
+              _candidate(DECOUPLED, 700, 730, 0.05)],
     }
 
     proposals = select(steps, primary_count=5, reserve_count=3)
 
     assert [(p.number, p.candidate.step, p.pass_number) for p in proposals] == [
-        (1, 1, 1), (2, 2, 1), (3, 5, 1), (4, 1, 2), (5, 2, 2), (6, 5, 2), (7, 2, 3), (8, 5, 3)]
+        (1, "1", 1), (2, "2", 1), (3, "4b", 1), (4, "5", 1), (5, "1", 2), (6, "2", 2), (7, "5", 2), (8, "2", 3)]
     assert [p.status for p in proposals] == [PRIMARY] * 5 + [RESERVE] * 3
-    assert proposals[3].rank == 2 and proposals[3].candidate_count == 2
+    assert proposals[4].rank == 2 and proposals[4].candidate_count == 2
 
 
 def test_selected_moments_never_overlap() -> None:
-    steps = {1: [_candidate(1, 100, 200)], 2: [_candidate(2, 150, 250), _candidate(2, 300, 330)], 3: [], 4: [],
-             5: [_candidate(5, 190, 210, -0.6)]}
+    steps = {**_empty_steps(), "1": [_candidate(COMOVEMENT_STATE, 100, 200)],
+             "2": [_candidate(COMOVEMENT, 150, 250), _candidate(COMOVEMENT, 300, 330)],
+             "5": [_candidate(DECOUPLED, 190, 210, 0.0)]}
 
     proposals = select(steps, primary_count=5, reserve_count=0)
 
-    assert [(p.candidate.step, p.candidate.start_seconds) for p in proposals] == [(1, 100), (2, 300)]
+    assert [(p.candidate.step, p.candidate.start_seconds) for p in proposals] == [("1", 100), ("2", 300)]
 
 
 def test_without_candidates_nothing_is_selected() -> None:
-    assert select({number: [] for number in range(1, 6)}, 5, 3) == []
+    assert select(_empty_steps(), 5, 3) == []
 
 
 # ─── Signals and the whole engine ───────────────────────────────────────────
@@ -417,8 +436,8 @@ def test_compute_vsr_builds_one_interview_per_pair_and_one_for_the_teacher(tmp_p
         for moment in interview["moments"]:
             assert moment["status"] in {PRIMARY, RESERVE}
             assert moment["start_seconds"] < moment["end_seconds"]
-            assert moment["step"] in range(1, 6)
-            assert (moment["episode"] is None) == (moment["step"] == 5)
+            assert moment["step"] in STEP_NUMBERS and moment["type"]
+            assert moment["episode"] is not None  # every moment is an Analysis episode
 
 
 def _class_recordings(tmp_path: Path, together: dict[str, tuple[float, float]], seconds: float = 900.0) -> dict:
@@ -453,7 +472,7 @@ def test_the_teacher_moments_come_from_the_aggregated_data_not_from_one_student(
     teacher = compute_vsr(result, analysis, config, dyads=[], teacher_alias="T",
                           student_aliases=["S1", "S2", "S3", "S4", "S5", "S6"])["interviews"][0]
 
-    synchronous = [c for c in teacher["candidates"] if c["step"] in (1, 2)]
+    synchronous = [c for c in teacher["candidates"] if c["step"] in ("1", "2")]
     assert not [c for c in synchronous if c["start_seconds"] < 380 and c["end_seconds"] > 300]
     assert [c for c in synchronous if c["start_seconds"] < 680 and c["end_seconds"] > 600]
     assert all(c["episode"]["source"] == AGGREGATE for c in teacher["candidates"] if c["episode"])

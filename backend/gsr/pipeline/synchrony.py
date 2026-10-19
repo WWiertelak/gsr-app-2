@@ -2,13 +2,13 @@
 
 ``compute_synchrony`` is carried over unchanged from GSRv2 ``gsr/pipeline/core.py``.
 ``synchrony_types`` adds what GSRv2 did not have, from the same windows and with the same
-episode rules: divergent synchrony (Hassan's e-mail; the VSR Interview Flow Chart's
-criteria read as the strength of the correlation).
+episode rules: divergent synchrony and decoupling (Hassan's e-mail; the VSR Interview Flow
+Chart's criteria read as the strength of the correlation).
 """
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -513,11 +513,65 @@ def divergent_episodes(synchrony: dict[str, Any], config: PipelineConfig) -> lis
             for episode in episodes]
 
 
+def _decoupled_stretches(centers: Sequence[float], values: Sequence[float], episodes: Sequence[tuple[float, float]],
+                         min_span: float, threshold: float) -> list[tuple[int, int, float]]:
+    """A pair's decoupling: the stretches between its ``episodes`` whose correlation lies within +/-``threshold``.
+
+    ``centers`` and ``values`` are the pair's windows, ``episodes`` the (start, end) centre spans of its
+    synchronization and divergent episodes, ``min_span`` the shortest stretch (centre to centre, the episode rule),
+    all in the same time unit. A stretch is a run of consecutive windows centred outside the episodes; its
+    correlation is one number for the whole stretch, the mean r of its windows (Hassan's e-mail: "the correlation
+    between GSR data within an episode is between -.10 and +.10"; the flow chart: "Asynchronous = below 0.1", read
+    as strength). Returns (first window, last window, mean r) per decoupled stretch.
+    """
+    centers = np.asarray(centers, dtype=float)
+    values = np.asarray(values, dtype=float)
+    outside = np.ones(len(centers), dtype=bool)
+    for start, end in episodes:
+        outside &= ~((centers >= start - 1e-9) & (centers <= end + 1e-9))
+    stretches = []
+    first = None
+    for index in range(len(centers) + 1):
+        if index < len(centers) and outside[index]:
+            first = index if first is None else first
+            continue
+        if first is not None and centers[index - 1] - centers[first] + 1e-9 >= min_span:
+            mean = float(np.mean(values[first:index]))
+            if abs(mean) < threshold:
+                stretches.append((first, index - 1, mean))
+        first = None
+    return stretches
+
+
+def decoupled_episodes(synchrony: dict[str, Any], config: PipelineConfig) -> list[dict[str, Any]]:
+    """Decoupling of every pair (``_decoupled_stretches``) between the synchronization and divergent episodes the
+    pair is in, in time order; ``mean_r`` is the stretch's mean windowed r."""
+    windows = synchrony.get("windows") or {}
+    centers = list(windows.get("centers", []))
+    min_span = float(config.synchrony_episode_min_duration_seconds) / 60.0
+    found = []
+    for pair in windows.get("pairs", []):
+        members = {pair["alias_a"], pair["alias_b"]}
+        spans = [(episode["start_relative"], episode["end_relative"])
+                 for episode in [*synchrony.get("episodes", []), *synchrony.get("divergent_episodes", [])]
+                 if members.issubset(episode["members"])]
+        for first, last, mean in _decoupled_stretches(centers, pair["values"], spans, min_span,
+                                                      float(config.synchrony_decoupled_threshold)):
+            found.append({"start_relative": centers[first], "end_relative": centers[last],
+                          "members": [pair["alias_a"], pair["alias_b"]], "size": 2, "mean_r": mean})
+    found.sort(key=lambda episode: (episode["start_relative"], episode["end_relative"]))
+    return found
+
+
 def synchrony_types(synchrony: dict[str, Any], config: PipelineConfig) -> dict[str, Any]:
-    """``synchrony`` (``compute_synchrony``'s payload) with the types GSRv2 did not have: ``divergent_episodes``."""
+    """``synchrony`` (``compute_synchrony``'s payload) with the types GSRv2 did not have: ``divergent_episodes`` and
+    ``decoupled_episodes``."""
     divergent = divergent_episodes(synchrony, config)
+    decoupled = decoupled_episodes({**synchrony, "divergent_episodes": divergent}, config)
     return {
         **synchrony,
         "divergent_episodes": divergent,
-        "stats": {**synchrony.get("stats", {}), "divergent_episode_count": len(divergent)},
+        "decoupled_episodes": decoupled,
+        "stats": {**synchrony.get("stats", {}), "divergent_episode_count": len(divergent),
+                  "decoupled_episode_count": len(decoupled)},
     }

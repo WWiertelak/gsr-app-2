@@ -146,9 +146,10 @@ def test_english_report_uses_english_sentences_and_headings(proposed) -> None:
         assert heading in texts, heading
     assert "VSR flow chart step" in page and "Students' average" in page
     assert "Momenty do wywiadów" not in page and "schematu VSR" not in page
-    # The source table states the asynchrony threshold the moments were chosen with (a new project's 0.1).
-    source = texts[texts.index("Step 5: correlation below") + 1]
-    assert source == "0.1"
+    # The source table states the correlation thresholds the moments were chosen with: Analysis settings.
+    assert texts[texts.index("Interview moment correlation (|r| at least)") + 1] == "0.8"
+    assert texts[texts.index("Decoupling threshold (|r| <)") + 1] == "0.1"
+    assert texts[texts.index("Divergent synchrony threshold (r ≤ −)") + 1] == "0.3"
 
 
 @pytest.mark.django_db

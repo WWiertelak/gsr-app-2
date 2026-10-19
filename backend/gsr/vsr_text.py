@@ -15,37 +15,40 @@ from django.utils.text import capfirst
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
-from .pipeline.vsr import AGGREGATE, HIGH, STEP_NUMBERS, SYNCHRONY
+from .pipeline.vsr import AGGREGATE, COMOVEMENT_STATE, HIGH, STEP_NUMBERS, SYNCHRONY, step_label
 from .templatetags.gsr_tags import seconds_mmss
 
 
-def step_name(number: int, state: str | None = None) -> str:
+def step_name(step: Any, state: str | None = None) -> str:
     """The step's name in lower case; STEP 1 names the shared state when it is known."""
-    if number == 1:
+    step = step_label(step)
+    if step == "1":
         if state == HIGH:
             return _("co-movement and shared High arousal")
         if state is not None:
             return _("co-movement and shared Low arousal")
         return _("co-movement and a shared arousal state")
     return {
-        2: _("co-movement only"),
-        3: _("shared High arousal"),
-        4: _("shared Low arousal"),
-        5: _("no synchrony"),
-    }[number]
+        "2": _("co-movement only"),
+        "3": _("shared High arousal"),
+        "4": _("shared Low arousal"),
+        "4b": _("divergent synchrony"),
+        "5": _("no synchrony"),
+    }[step]
 
 
-def step_title(number: int) -> str:
+def step_title(step: Any) -> str:
     """The step's number and name for a heading or a badge: "Step 2 · Co-movement only"."""
-    return _("Step %(number)s · %(name)s") % {"number": number, "name": capfirst(step_name(number))}
+    return _("Step %(number)s · %(name)s") % {"number": step_label(step), "name": capfirst(step_name(step))}
 
 
 def steps() -> list[dict[str, Any]]:
-    return [{"number": number, "name": capfirst(step_name(number))} for number in STEP_NUMBERS]
+    return [{"number": step, "name": capfirst(step_name(step))} for step in STEP_NUMBERS]
 
 
 def correlation(value: float | None) -> str:
-    return "—" if value is None else number_format(value, 2)
+    """r to two decimals, rounded as the steps compare it (``number_format`` alone would cut -0.9499 to -0.94)."""
+    return "—" if value is None else number_format(round(value, 2), 2)
 
 
 def _times(start: float, end: float) -> str:
@@ -53,16 +56,25 @@ def _times(start: float, end: float) -> str:
 
 
 def _episode(episode: dict[str, Any], times: str) -> str:
+    kind = episode.get("kind") or ""
+    values = {"number": episode["number"], "times": times}
     if episode["source"] == AGGREGATE:
+        if kind == "divergent":
+            return _("divergent synchrony of the teacher and the students' average, %(times)s") % values
+        if kind == "decoupled":
+            return _("decoupling of the teacher and the students' average, %(times)s") % values
         if episode.get("state") is None:
-            return _("co-movement of the teacher and the students' average, %(times)s") % {"times": times}
-        return _("co-arousal of the teacher and the students' average, %(times)s") % {"times": times}
+            return _("co-movement of the teacher and the students' average, %(times)s") % values
+        return _("co-arousal of the teacher and the students' average, %(times)s") % values
     if episode["source"] == SYNCHRONY:
-        return _("synchronization episode E%(number)s, %(times)s") % {"number": episode["number"], "times": times}
+        if kind == "divergent":
+            return _("divergent synchronization episode D%(number)s, %(times)s") % values
+        if kind == "decoupled":
+            return _("decoupling stretch U%(number)s, %(times)s") % values
+        return _("synchronization episode E%(number)s, %(times)s") % values
     if episode.get("state") is None:
-        return _("co-movement episode %(number)s of the co-arousal, %(times)s") % {
-            "number": episode["number"], "times": times}
-    return _("co-arousal episode %(number)s, %(times)s") % {"number": episode["number"], "times": times}
+        return _("co-movement episode %(number)s of the co-arousal, %(times)s") % values
+    return _("co-arousal episode %(number)s, %(times)s") % values
 
 
 def shared_state(proposal: dict[str, Any], kind: str) -> str | None:
@@ -73,7 +85,8 @@ def shared_state(proposal: dict[str, Any], kind: str) -> str | None:
         return None
     if kind != "teacher":
         return _("both people in the High state") if state == HIGH else _("both people in the Low state")
-    state_episode = proposal.get("shared_episode") if proposal.get("step") == 1 else proposal.get("episode")
+    step_one = proposal.get("type") == COMOVEMENT_STATE or step_label(proposal.get("step")) == "1"
+    state_episode = proposal.get("shared_episode") if step_one else proposal.get("episode")
     if (state_episode or {}).get("source") == AGGREGATE:
         return (_("the teacher and the students' average in the High state") if state == HIGH
                 else _("the teacher and the students' average in the Low state"))
@@ -86,14 +99,19 @@ def shared_state(proposal: dict[str, Any], kind: str) -> str | None:
 
 
 def _details(proposal: dict[str, Any], kind: str) -> list[str]:
-    step = proposal["step"]
+    step = step_label(proposal["step"])
     times = _times(proposal["start_seconds"], proposal["end_seconds"])
     r = f"r = {correlation(proposal['correlation'])}"
-    if step in (1, 2):
+    if step in ("1", "2"):
         return [_episode(proposal["episode"], times), r,
-                shared_state(proposal, kind) if step == 1 else _("no shared arousal state")]
-    if step in (3, 4):
+                shared_state(proposal, kind) if step == "1" else _("no shared arousal state")]
+    if step in ("3", "4"):
         return [_episode(proposal["episode"], times), shared_state(proposal, kind), r, _("no co-movement")]
+    if step == "4b":
+        return [_episode(proposal["episode"], times), r, _("the signals moved in opposite directions")]
+    if proposal.get("type"):
+        return [_episode(proposal["episode"], times), r, _("the signals were not related")]
+    # STEP 5 of moments chosen when it took a correlation below 0.1 with its sign.
     relation = (_("the signals moved in the opposite direction") if proposal["correlation"] < 0
                 else _("the signals were not related"))
     if proposal.get("episode"):
@@ -107,12 +125,12 @@ def justification(proposal: dict[str, Any], kind: str) -> str:
     ``kind`` is the interview's kind ("dyad" or "teacher").
     """
     step = proposal.get("step")
-    if step not in STEP_NUMBERS:
+    if step is None or step_label(step) not in STEP_NUMBERS:
         return ""
-    head = _("VSR flow chart step %(step)s: %(name)s") % {"step": step,
+    head = _("VSR flow chart step %(step)s: %(name)s") % {"step": step_label(step),
                                                           "name": step_name(step, proposal.get("shared_state"))}
     try:
         details = [detail for detail in _details(proposal, kind) if detail]
-    except (KeyError, TypeError):  # a moment stored before the moments came from the Analysis
+    except (AttributeError, KeyError, TypeError):  # a moment stored before the moments came from the Analysis
         details = []
     return f"{head} – {', '.join(details)}." if details else f"{head}."

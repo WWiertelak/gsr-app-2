@@ -157,6 +157,14 @@ SYNCHRONY_ESSENTIAL = (
             "window: divergent synchrony (Hassan: negative correlations of at least .30)."
         ),
     ),
+    Param(
+        "synchrony_decoupled_threshold",
+        _("Decoupling threshold (|r| <)"),
+        _(
+            "A stretch between a pair's synchronization and divergent episodes whose mean correlation lies within "
+            "plus/minus this value is decoupled: no synchrony (the VSR flow chart: “Asynchronous = below 0.1”)."
+        ),
+    ),
     Param("synchrony_window_seconds", _("Window (s)")),
 )
 SYNCHRONY_ADVANCED = (
@@ -252,7 +260,8 @@ INTERVIEW_ESSENTIAL = (
         _("Interview moment correlation (|r| at least)"),
         _(
             "The strength of correlation a moment needs to count as synchronous on the Interviews step: STEPS 1–2 "
-            "take a co-movement episode whose r is at least this (the VSR flow chart: “Synchronous = above 0.8”)."
+            "take a co-movement episode whose r is at least this, STEP 4b a divergent one whose r is at most minus "
+            "this (the VSR flow chart: “Synchronous = above 0.8”)."
         ),
     ),
 )

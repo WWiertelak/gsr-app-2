@@ -17,8 +17,10 @@ def test_the_document_values_are_the_application_defaults_and_the_pipeline_keeps
     # Page 1 of the document: "Synchronous = above 0.8" for both co-movement thresholds behind steps 1-2 and for the
     # strength an interview moment needs.
     # Hassan's e-mail adds the divergent synchrony threshold (negative correlations of at least .30).
+    # "Asynchronous = below 0.1" read as strength is the decoupling threshold.
     assert VSR_DOCUMENT_SETTINGS == {"synchrony_threshold": 0.8, "contagion_comovement_rho": 0.8,
-                                     "synchrony_interview_threshold": 0.8, "synchrony_divergent_threshold": 0.3}
+                                     "synchrony_interview_threshold": 0.8, "synchrony_divergent_threshold": 0.3,
+                                     "synchrony_decoupled_threshold": 0.1}
     assert params.DEFAULTS["synchrony_threshold"] == 0.8 and params.DEFAULTS["contagion_comovement_rho"] == 0.8
     assert PipelineConfig().synchrony_threshold == 0.6 and PipelineConfig().contagion_comovement_rho == 0.3
     # A setting GSRv2 did not have takes the document value everywhere, saved projects included.
@@ -33,10 +35,9 @@ def test_new_projects_start_with_the_document_values(client) -> None:
     config = resolve_config(project)
     assert config.synchrony_threshold == 0.8 and config.contagion_comovement_rho == 0.8
     interview = load_interview_config(project)
-    # "A total of 5 moments discussed per interview (ideally)", "Aim to identify more (e.g. 8)";
-    # "Asynchronous = below 0.1".
+    # "A total of 5 moments discussed per interview (ideally)", "Aim to identify more (e.g. 8)".
     assert (interview.primary_count, interview.reserve_count) == (5, 3)
-    assert interview.asynchrony_threshold == 0.1
+    assert project.interview_config == {}
 
 
 @pytest.mark.django_db
@@ -46,7 +47,8 @@ def test_a_saved_project_keeps_its_values_until_reset_defaults(client) -> None:
                                                  interview_config={"primary_moment_count": 4})
     project.refresh_from_db()
     assert resolve_config(project).synchrony_threshold == 0.6  # GSRv2's default, as before
-    assert load_interview_config(project).asynchrony_threshold == 0.0  # STEP 5 below zero, as before
+    # A setting GSRv2 did not have has only the document value.
+    assert resolve_config(project).synchrony_decoupled_threshold == 0.1
 
     with translation.override("en"):
         page = client.get(reverse("gsr:analysis", args=[project.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
@@ -56,4 +58,4 @@ def test_a_saved_project_keeps_its_values_until_reset_defaults(client) -> None:
     assert response.status_code == 302 and response["Location"].endswith("?tab=coarousal")
     project.refresh_from_db()
     assert project.pipeline_config == {"median_kernel": 9, **VSR_DOCUMENT_SETTINGS}
-    assert project.interview_config == {"primary_moment_count": 4, "asynchrony_threshold": 0.1}
+    assert project.interview_config == {"primary_moment_count": 4}

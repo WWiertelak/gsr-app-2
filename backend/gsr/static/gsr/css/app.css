@@ -522,7 +522,7 @@ button.icon:not(:disabled):hover { color: var(--error); background: var(--error-
 .run-source { color: var(--ink-2); font-size: var(--fs-sm); }
 .run-source.grow { flex: 1 1 auto; }
 .step-legend { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); margin: 0 0 var(--s4); padding: 0; list-style: none; color: var(--ink-2); font-size: var(--fs-sm); }
-.step-legend b, .step-counts b { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 2px; border-radius: 50%; background: var(--sunken); color: var(--ink); font-size: var(--fs-xs); }
+.step-legend b, .step-counts b { display: inline-grid; place-items: center; box-sizing: border-box; min-width: 18px; height: 18px; margin-right: 2px; padding: 0 4px; border-radius: 9px; background: var(--sunken); color: var(--ink); font-size: var(--fs-xs); }
 .interview-signals { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); }
 .step-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--s2); margin: 0 0 var(--s3); padding: 0; list-style: none; }
 .step-counts li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px var(--s2); min-width: 0; padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--r-sm); font-size: var(--fs-xs); }
@@ -533,7 +533,7 @@ button.icon:not(:disabled):hover { color: var(--error); background: var(--error-
 .lesson-timeline { display: grid; gap: 3px; margin: var(--s2) 0 var(--s3); }
 .lt-lane { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); align-items: center; gap: var(--s2); }
 .lt-lane-label { overflow: hidden; color: var(--ink-2); font-size: var(--fs-xs); white-space: nowrap; text-overflow: ellipsis; }
-.lt-lane-label b { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 2px; border-radius: 50%; background: var(--sunken); color: var(--ink); }
+.lt-lane-label b { display: inline-grid; place-items: center; box-sizing: border-box; min-width: 16px; height: 16px; margin-right: 2px; padding: 0 3px; border-radius: 8px; background: var(--sunken); color: var(--ink); }
 .lt-track { position: relative; height: 30px; border-radius: var(--r-sm); background: var(--sunken); }
 .lt-track.candidates { height: 20px; background: var(--canvas); }
 .lt-none { position: absolute; left: var(--s2); top: 2px; color: var(--ink-3); font-size: var(--fs-xs); }

@@ -19,6 +19,7 @@ from ..models import AnalysisResult, Project
 from ..pipeline.common import _zscore, clock_at, clock_start
 from ..pipeline.config import PipelineConfig
 from ..pipeline.preprocessing import analysed_range, build_stage_export_frame
+from ..pipeline.vsr import step_label
 from .display import MINMAX, chart_scale
 from .results import stored_pipeline_result
 
@@ -186,7 +187,7 @@ def coarousal_state_percentages_csv(coarousal: dict[str, Any]) -> bytes:
 
 VSR_MOMENT_COLUMNS = (
     "interview", "interview_type", "participants", "number", "status", "decision", "source", "step", "step_name",
-    "pass", "lesson_start_s", "lesson_end_s", "time_changed", "proposed_start_s", "proposed_end_s", "clock_start",
+    "moment_type", "pass", "lesson_start_s", "lesson_end_s", "time_changed", "proposed_start_s", "proposed_end_s", "clock_start",
     "clock_end", "analysis_episode", "correlation", "shared_state", "in_shared_state",
     "candidate_rank", "candidate_count", "justification", "reason", "note", "stale",
 )
@@ -199,7 +200,8 @@ def _episode_label(episode: dict[str, Any] | None) -> str | None:
     if episode["source"] == "aggregate":
         return "teacher and students' average"
     if episode["source"] == "synchrony":
-        return f"synchronization E{episode['number']}"
+        prefix = {"divergent": "divergent D", "decoupled": "decoupling U"}.get(episode.get("kind") or "", "E")
+        return f"synchronization {prefix}{episode['number']}"
     return f"co-arousal {episode['number']}"
 
 
@@ -230,8 +232,9 @@ def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
                 "status": moment["status"],
                 "decision": moment["decision"],
                 "source": moment["source"],
-                "step": moment["step"],
+                "step": step_label(moment["step"]) if moment["step"] else None,
                 "step_name": vsr_text.step_name(moment["step"], moment["shared_state"]) if moment["step"] else None,
+                "moment_type": moment["type"],
                 "pass": moment["pass_number"],
                 "lesson_start_s": moment["start_seconds"],
                 "lesson_end_s": moment["end_seconds"],

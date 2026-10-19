@@ -2,21 +2,24 @@
 
 The Interviews step does not analyse the signals again with settings of its own: it
 takes the episodes the Analysis step found, with the Analysis settings they were found
-with, and sorts them into the document's STEPS 1-5 for every interview:
+with, and sorts them into the document's steps for every interview. The document's
+correlation criteria ("Synchronous = above 0.8", "Asynchronous = below 0.1") are read as
+the strength of the correlation, its absolute value; Hassan's e-mail adds the divergent
+type. The steps (``PROTOCOL``, the one place their order lives):
 
   1. co-movement and a shared arousal state - a synchronization episode (Synchronization
      tab) or a co-movement episode (Co-arousal tab) of the interview's people whose r is
-     at least the interview threshold (the document: "Synchronous = above 0.8"), that
-     overlaps a shared High or Low episode (Co-arousal tab) of the same people;
+     at least the interview threshold (0.8), that overlaps a shared High or Low episode
+     (Co-arousal tab) of the same people;
   2. co-movement only - such a co-movement episode that overlaps no shared state;
-  3. shared High arousal - a shared High episode that overlaps no co-movement;
-  4. shared Low arousal - a shared Low episode that overlaps no co-movement;
-  5. no synchrony - a co-movement episode whose r is below the asynchrony threshold (the
-     document: "Asynchronous = below 0.1"; below zero the signals moved in the opposite
-     direction, from zero up they were not related), or a stretch outside all of those
-     episodes where the interview's windowed correlation stays below that threshold, at
-     least as long as the Analysis' minimum episode duration (gaps up to its maximum
-     episode gap are bridged).
+  3. shared High arousal - a shared High episode that overlaps no such co-movement;
+  4. shared Low arousal - a shared Low episode that overlaps no such co-movement;
+  4b. divergent synchrony - a divergent synchronization episode (Synchronization tab: the
+     signals move in opposite directions) whose r is at or below minus the interview
+     threshold ("ideally above .80 for the interviews");
+  5. no synchrony - a decoupling stretch (Synchronization tab: between the pair's
+     synchronization and divergent episodes, its mean r within +/-0.1, "Asynchronous =
+     below 0.1").
 
 An episode belongs to a student pair when both students are in it (members of a
 synchronization subgroup, contributors of a co-arousal episode). The teacher interview is
@@ -29,10 +32,11 @@ any one student. The correlation r of a moment is the interview's own, from the
 Synchronization tab's windows (window, step and method from the Analysis settings): the
 pair's two signals, or the teacher against the students' average.
 
-STEP 6 then walks STEPS 1-5 again until the primary moments are selected, and once more
+STEP 6 then walks the steps again until the primary moments are selected, and once more
 for the reserve. Of several moments answering one step the strongest comes first: the
-highest r in STEPS 1-2, the lowest r in STEP 5; then the longer one, then the earlier one.
-Selected moments may not overlap.
+highest r in STEPS 1-2, the lowest r in STEP 4b, the r closest to zero in STEP 5 (the
+clearest absence of a relation); then the longer one, then the earlier one. Selected
+moments may not overlap.
 
 The ESM half of the document is out of scope: the application analyses GSR.
 """
@@ -52,8 +56,6 @@ from .config import PipelineConfig
 from .preprocessing import PipelineResult
 from .synchrony import _rolling_synchrony, _window_correlation, synchrony_types
 
-STEP_NUMBERS = (1, 2, 3, 4, 5)
-
 PRIMARY = "primary"
 RESERVE = "reserve"
 
@@ -68,11 +70,38 @@ AGGREGATE = "aggregate"
 # The two participants of the teacher interview's own analysis.
 AGGREGATE_PAIR = ("teacher", "students")
 
+# The moment types.
+COMOVEMENT_STATE = "comovement_state"
+COMOVEMENT = "comovement"
+SHARED_HIGH = "shared_high"
+SHARED_LOW = "shared_low"
+DIVERGENT = "divergent"
+DECOUPLED = "decoupled"
+
+# Every moment type with the step of the VSR flow chart it answers, in the order STEP 6 walks them: the document's
+# STEPS 1-5 read by correlation strength, divergent synchrony (Hassan's e-mail) as STEP 4b after the synchronous types.
+# This is the one place the order lives: moving or renumbering a type is one line.
+PROTOCOL = (
+    ("1", COMOVEMENT_STATE),
+    ("2", COMOVEMENT),
+    ("3", SHARED_HIGH),
+    ("4", SHARED_LOW),
+    ("4b", DIVERGENT),
+    ("5", DECOUPLED),
+)
+STEP_NUMBERS = tuple(dict.fromkeys(step for step, _kind in PROTOCOL))
+STEP_OF = {kind: step for step, kind in PROTOCOL}
+_KIND_ORDER = {kind: index for index, (_step, kind) in enumerate(PROTOCOL)}
+
+
+def step_label(step: Any) -> str:
+    """A step as ``STEP_NUMBERS`` names it; moments stored before STEP 4b existed have whole-number steps."""
+    return str(step)
+
+
 # The document: "A total of 5 moments discussed per interview (ideally)" and "Aim to identify more (e.g. 8)".
 DEFAULT_PRIMARY_COUNT = 5
 DEFAULT_RESERVE_COUNT = 3
-# Page 1 of the document: "Asynchronous = below 0.1"; STEP 5 takes moments whose r is below it.
-DEFAULT_ASYNCHRONY_THRESHOLD = 0.1
 
 # Samples per interview signal kept for the moment previews (the Analysis charts send 3000 per series).
 TRACE_POINTS = 4000
@@ -87,6 +116,8 @@ ANALYSIS_SETTINGS = (
     "synchrony_episode_min_duration_seconds",
     "synchrony_episode_max_gap_seconds",
     "synchrony_interview_threshold",
+    "synchrony_divergent_threshold",
+    "synchrony_decoupled_threshold",
     "contagion_high_z",
     "contagion_low_z",
     "contagion_min_participants",
@@ -99,14 +130,19 @@ class Episode:
     """One Analysis episode as an interview sees it."""
 
     source: str  # SYNCHRONY or COAROUSAL, or AGGREGATE for the teacher interview's own episodes
-    number: int  # its number on the Analysis screen: E<number> on Synchronization, <number> on Co-arousal
+    # Its number on the Analysis screen: E<number> (D, U for divergent and decoupling) on Synchronization, <number>
+    # on Co-arousal.
+    number: int
     start_seconds: float
     end_seconds: float
-    state: str | None  # HIGH or LOW for a shared-state episode, None for co-movement
+    state: str | None  # HIGH or LOW for a shared-state episode, None otherwise
     # The interview's people in the episode: 2 of 2 for a pair (the teacher and the students' average too); moments
     # chosen before the teacher interview used the aggregated signals counted the students in it with the teacher.
     in_episode: int
     people: int
+    # "synchronization", "co-movement", "state", "divergent" or "decoupled"; moments chosen before the kinds were
+    # stored have none.
+    kind: str = ""
 
     def overlap(self, start: float, end: float) -> float:
         return max(0.0, min(self.end_seconds, end) - max(self.start_seconds, start))
@@ -114,6 +150,7 @@ class Episode:
     def as_dict(self) -> dict[str, Any]:
         return {
             "source": self.source,
+            "kind": self.kind,
             "number": self.number,
             "start_seconds": round(self.start_seconds, 1),
             "end_seconds": round(self.end_seconds, 1),
@@ -125,17 +162,20 @@ class Episode:
 
 @dataclass(frozen=True)
 class Candidate:
-    """A moment that answers one step, with what it was made from."""
+    """A moment of one type (``PROTOCOL``), with what it was made from."""
 
-    step: int
+    kind: str
     start_seconds: float
     end_seconds: float
     correlation: float
-    # The co-movement episode (STEPS 1-2 and an opposite-direction one in STEP 5) or the shared-state
-    # episode (STEPS 3-4); None for a STEP 5 stretch outside the episodes.
+    # The Analysis episode the moment is: co-movement (STEPS 1-2), shared state (3-4), divergent (4b), decoupling (5).
     episode: Episode | None = None
     # STEP 1: the shared-state episode the co-movement episode overlaps most.
     shared: Episode | None = None
+
+    @property
+    def step(self) -> str:
+        return STEP_OF[self.kind]
 
     @property
     def duration_seconds(self) -> float:
@@ -143,18 +183,22 @@ class Candidate:
 
     @property
     def shared_state(self) -> str | None:
-        state_episode = self.shared if self.step == 1 else self.episode
+        state_episode = self.shared if self.kind == COMOVEMENT_STATE else self.episode
         return state_episode.state if state_episode is not None else None
 
-    def sort_key(self) -> tuple[float, float, float]:
-        """Strongest first, then the longer, then the earlier; r counts to the two decimals it is shown with."""
-        if self.step in (1, 2):
-            strength = -round(self.correlation, 2)
-        elif self.step in (3, 4):
+    def sort_key(self) -> tuple[float, float, float, float]:
+        """In a step, the types in ``PROTOCOL`` order, then the strongest of a type first (r counts to the two
+        decimals it is shown with), then the longer, then the earlier."""
+        r = round(self.correlation, 2)
+        if self.kind in (COMOVEMENT_STATE, COMOVEMENT):
+            strength = -r
+        elif self.kind in (SHARED_HIGH, SHARED_LOW):
             strength = -float(self.episode.in_episode) if self.episode else 0.0
-        else:
-            strength = round(self.correlation, 2)
-        return strength, -self.duration_seconds, self.start_seconds
+        elif self.kind == DIVERGENT:
+            strength = r
+        else:  # DECOUPLED: the clearest absence of a relation first
+            strength = abs(r)
+        return _KIND_ORDER[self.kind], strength, -self.duration_seconds, self.start_seconds
 
     def overlaps(self, other: "Candidate") -> bool:
         return self.start_seconds < other.end_seconds and other.start_seconds < self.end_seconds
@@ -252,9 +296,9 @@ def aggregate_analysis(teacher: np.ndarray, students: np.ndarray, relative_minut
     """The Analysis of the teacher and the students' average as a pair of participants (``AGGREGATE_PAIR``).
 
     The Analysis step's own functions and settings, with the pair as the only subgroup (two people make an
-    episode): the synchronization windows and episodes, and the co-arousal High, Low and co-movement episodes,
-    shaped like the Analysis payload so ``interview_episodes`` reads them as it reads a student pair's. The
-    co-arousal surrogate test is skipped: the moments do not use it.
+    episode): the synchronization windows with their synchronization, divergent and decoupling episodes, and the
+    co-arousal High, Low and co-movement episodes, shaped like the Analysis payload so ``interview_episodes``
+    reads them as it reads a student pair's. The co-arousal surrogate test is skipped: the moments do not use it.
     """
     pair_config = config.model_copy(update={"synchrony_episode_min_size": 2, "contagion_min_participants": 2,
                                             "contagion_surrogate_count": 0})
@@ -269,34 +313,49 @@ def aggregate_analysis(teacher: np.ndarray, students: np.ndarray, relative_minut
     return synchrony, coarousal
 
 
+@dataclass(frozen=True)
+class InterviewEpisodes:
+    """The Analysis episodes of one interview's pair, by kind."""
+
+    comovement: list[Episode]
+    shared: list[Episode]
+    divergent: list[Episode]
+    decoupled: list[Episode]
+
+
 def interview_episodes(pair: Sequence[str], synchrony: dict[str, Any], coarousal: dict[str, Any],
                        config: PipelineConfig, lesson: tuple[float, float],
-                       source: str | None = None) -> tuple[list[Episode], list[Episode]]:
-    """The pair's co-movement episodes and shared-state episodes: the Analysis episodes both of them are in.
+                       source: str | None = None) -> InterviewEpisodes:
+    """The pair's episodes: the Analysis episodes both of them are in.
 
     ``synchrony`` and ``coarousal`` are the Analysis payloads, or the teacher interview's own (``aggregate_analysis``,
     with ``source`` AGGREGATE); ``lesson`` is the analysed period in lesson seconds.
     """
     half_window = config.synchrony_window_seconds / 2.0
     members = set(pair)
+    found = InterviewEpisodes([], [], [], [])
 
-    def episode(default_source: str, index: int, start: float, end: float, state: str | None) -> Episode:
-        return Episode(source or default_source, index + 1, *_span(start, end, half_window, lesson), state, 2, 2)
+    def episode(default_source: str, kind: str, index: int, start: float, end: float,
+                state: str | None = None) -> Episode:
+        return Episode(source or default_source, index + 1, *_span(start, end, half_window, lesson), state, 2, 2, kind)
 
-    comovement: list[Episode] = []
-    shared: list[Episode] = []
-    for index, item in enumerate(synchrony.get("episodes", [])):
-        if members.issubset(item["members"]):
-            comovement.append(episode(SYNCHRONY, index, item["start_relative"] * 60.0, item["end_relative"] * 60.0,
-                                      None))
+    for key, kind, target in (("episodes", "synchronization", found.comovement),
+                              ("divergent_episodes", "divergent", found.divergent),
+                              ("decoupled_episodes", "decoupled", found.decoupled)):
+        for index, item in enumerate(synchrony.get(key, [])):
+            if members.issubset(item["members"]):
+                target.append(episode(SYNCHRONY, kind, index, item["start_relative"] * 60.0,
+                                      item["end_relative"] * 60.0))
     for index, item in enumerate(coarousal.get("episodes", [])):
         if not members.issubset(item.get("contributors", [])):
             continue
-        direction = item["direction"]
-        state = None if direction == "Co-movement" else HIGH if direction == "High" else LOW
-        (shared if state else comovement).append(episode(COAROUSAL, index, float(item["start_s"]),
-                                                         float(item["end_s"]), state))
-    return comovement, shared
+        start, end = float(item["start_s"]), float(item["end_s"])
+        if item["direction"] == "Co-movement":
+            found.comovement.append(episode(COAROUSAL, "co-movement", index, start, end))
+        elif item["direction"] in ("High", "Low"):
+            found.shared.append(episode(COAROUSAL, "state", index, start, end,
+                                        HIGH if item["direction"] == "High" else LOW))
+    return found
 
 
 def _overlapping(episode: Episode, others: list[Episode]) -> Episode | None:
@@ -310,95 +369,52 @@ def _overlapping(episode: Episode, others: list[Episode]) -> Episode | None:
     return best
 
 
-def _no_synchrony(windows: Windows, episodes: list[Episode], config: PipelineConfig,
-                  lesson: tuple[float, float], asynchrony_threshold: float) -> list[Candidate]:
-    """STEP 5: runs of windows outside the interview's episodes whose r stays below ``asynchrony_threshold``.
+def candidates_by_step(windows: Windows, episodes: InterviewEpisodes,
+                       config: PipelineConfig) -> dict[str, list[Candidate]]:
+    """Every Analysis episode of the interview as the step it answers (``PROTOCOL``), strongest first within a step.
 
-    The runs follow the Analysis' episode rules: gaps up to the maximum episode gap are
-    bridged (never across an episode), and a run shorter than the minimum episode
-    duration is dropped.
+    A co-movement episode is synchronous (STEPS 1-2) when its r reaches the interview threshold (the document:
+    "Synchronous = above 0.8"), a divergent one (STEP 4b) when its r reaches minus it; in between neither
+    (the document's criteria leave that band neither synchronous nor asynchronous). A decoupling stretch is STEP 5
+    as the Analysis found it (its mean r within the decoupling threshold).
     """
-    centers, values = windows.centers, windows.values
-    if not len(centers):
-        return []
-    step = float(np.median(np.diff(centers))) if len(centers) > 1 else 0.0
-    allowed_gap = step + config.synchrony_episode_max_gap_seconds + 1e-9
-    min_duration = config.synchrony_episode_min_duration_seconds
-    half_window = config.synchrony_window_seconds / 2.0
+    steps: dict[str, list[Candidate]] = {step: [] for step in STEP_NUMBERS}
+    threshold = config.synchrony_interview_threshold
 
-    def inside_episode(center: float) -> bool:
-        return any(episode.start_seconds - 1e-9 <= center <= episode.end_seconds + 1e-9 for episode in episodes)
+    def add(kind: str, episode: Episode, correlation: float, shared: Episode | None = None) -> None:
+        if kind in STEP_OF:
+            steps[STEP_OF[kind]].append(Candidate(kind, episode.start_seconds, episode.end_seconds, correlation,
+                                                  episode=episode, shared=shared))
 
-    runs: list[list[float]] = []
-    current: list[float] = []
-    for center, value in zip(centers, values):
-        if inside_episode(center):
-            if current:
-                runs.append(current)
-            current = []
-            continue
-        if value >= asynchrony_threshold:
-            continue
-        if current and center - current[-1] > allowed_gap:
-            runs.append(current)
-            current = []
-        current.append(float(center))
-    if current:
-        runs.append(current)
+    def r(episode: Episode) -> float:
+        return windows.mean(episode.start_seconds, episode.end_seconds)
 
-    candidates = []
-    for run in runs:
-        if run[-1] - run[0] + 1e-9 < min_duration:
-            continue
-        start, end = _span(run[0], run[-1], half_window, lesson)
-        correlation = windows.mean(run[0], run[-1])
-        if correlation < asynchrony_threshold:
-            candidates.append(Candidate(5, start, end, correlation))
-    return candidates
-
-
-def candidates_by_step(windows: Windows, comovement: list[Episode], shared: list[Episode],
-                       config: PipelineConfig, lesson: tuple[float, float],
-                       asynchrony_threshold: float = DEFAULT_ASYNCHRONY_THRESHOLD) -> dict[int, list[Candidate]]:
-    """Every Analysis episode of the interview as the step it answers, strongest first within a step.
-
-    A co-movement episode answers STEPS 1-2 only when its r reaches the interview threshold (the document:
-    "Synchronous = above 0.8"); with r below ``asynchrony_threshold`` it answers STEP 5, and in between none
-    (the document's criteria leave that band neither synchronous nor asynchronous).
-    """
-    steps: dict[int, list[Candidate]] = {number: [] for number in STEP_NUMBERS}
-    same_direction: list[Episode] = []
-    opposite: list[Candidate] = []
-    for episode in comovement:
-        correlation = windows.mean(episode.start_seconds, episode.end_seconds)
-        if correlation <= 0.0 or correlation < asynchrony_threshold:
-            opposite.append(Candidate(5, episode.start_seconds, episode.end_seconds, correlation, episode=episode))
-            continue
-        if round(correlation, 2) < config.synchrony_interview_threshold:
-            continue
-        same_direction.append(episode)
-        state = _overlapping(episode, shared)
-        steps[1 if state else 2].append(
-            Candidate(1 if state else 2, episode.start_seconds, episode.end_seconds, correlation,
-                      episode=episode, shared=state)
-        )
-    for episode in shared:
-        if _overlapping(episode, same_direction) is None:
-            steps[3 if episode.state == HIGH else 4].append(
-                Candidate(3 if episode.state == HIGH else 4, episode.start_seconds, episode.end_seconds,
-                          windows.mean(episode.start_seconds, episode.end_seconds), episode=episode)
-            )
-    steps[5] = opposite + _no_synchrony(windows, comovement + shared, config, lesson, asynchrony_threshold)
+    synchronous: list[Episode] = []
+    for episode in episodes.comovement:
+        correlation = r(episode)
+        if round(correlation, 2) >= threshold:
+            synchronous.append(episode)
+            state = _overlapping(episode, episodes.shared)
+            add(COMOVEMENT_STATE if state else COMOVEMENT, episode, correlation, state)
+    for episode in episodes.shared:
+        if _overlapping(episode, synchronous) is None:
+            add(SHARED_HIGH if episode.state == HIGH else SHARED_LOW, episode, r(episode))
+    for episode in episodes.divergent:
+        correlation = r(episode)
+        if round(correlation, 2) <= -threshold:
+            add(DIVERGENT, episode, correlation)
+    for episode in episodes.decoupled:
+        add(DECOUPLED, episode, r(episode))
     for candidates in steps.values():
         candidates.sort(key=Candidate.sort_key)
     return steps
 
 
-def select(steps: dict[int, list[Candidate]], primary_count: int, reserve_count: int) -> list[Proposal]:
-    """Walk STEPS 1-5 repeatedly (STEP 6) until the primary moments and the reserve are selected."""
+def select(steps: dict[str, list[Candidate]], primary_count: int, reserve_count: int) -> list[Proposal]:
+    """Walk the steps repeatedly (STEP 6) until the primary moments and the reserve are selected."""
     target = primary_count + reserve_count
     selected: list[Proposal] = []
-    used: set[tuple[int, int]] = set()
+    used: set[tuple[str, int]] = set()
     pass_number = 0
     while len(selected) < target:
         pass_number += 1
@@ -408,7 +424,7 @@ def select(steps: dict[int, list[Candidate]], primary_count: int, reserve_count:
                 break
             taken = [proposal.candidate for proposal in selected]
             choice = next(
-                ((rank, candidate) for rank, candidate in enumerate(steps[number], start=1)
+                ((rank, candidate) for rank, candidate in enumerate(steps.get(number, []), start=1)
                  if (number, rank) not in used and not any(candidate.overlaps(other) for other in taken)),
                 None,
             )
@@ -432,9 +448,10 @@ def select(steps: dict[int, list[Candidate]], primary_count: int, reserve_count:
 
 def _candidate_payload(candidate: Candidate, rank: int, count: int, lesson_clock: datetime | None) -> dict[str, Any]:
     """A candidate moment as stored: its step, times, correlation and the Analysis episodes it was made from."""
-    state_episode = candidate.shared if candidate.step == 1 else candidate.episode
+    state_episode = candidate.shared if candidate.kind == COMOVEMENT_STATE else candidate.episode
     payload: dict[str, Any] = {
         "step": candidate.step,
+        "type": candidate.kind,
         "start_seconds": round(candidate.start_seconds, 1),
         "end_seconds": round(candidate.end_seconds, 1),
         "duration_seconds": round(candidate.duration_seconds, 1),
@@ -468,26 +485,25 @@ def _trace(values: np.ndarray, stride: int) -> list[float]:
 
 def _interview_payload(key: str, kind: str, participants: list[str], frame: Any, relative_minutes: np.ndarray,
                        synchrony: dict[str, Any], coarousal: dict[str, Any], config: PipelineConfig,
-                       primary_count: int, reserve_count: int, asynchrony_threshold: float,
+                       primary_count: int, reserve_count: int,
                        lesson_clock: datetime | None, stride: int) -> dict[str, Any]:
     signal_a, signal_b = interview_signals(frame, kind, participants)
     windows = windowed_correlation(signal_a, signal_b, relative_minutes, config)
     lesson = (float(relative_minutes[0]) * 60.0, float(relative_minutes[-1]) * 60.0)
     if kind == "teacher":
         own_synchrony, own_coarousal = aggregate_analysis(signal_a, signal_b, relative_minutes, config)
-        comovement, shared = interview_episodes(AGGREGATE_PAIR, own_synchrony, own_coarousal, config, lesson,
-                                                source=AGGREGATE)
+        episodes = interview_episodes(AGGREGATE_PAIR, own_synchrony, own_coarousal, config, lesson, source=AGGREGATE)
     else:
-        comovement, shared = interview_episodes(participants, synchrony, coarousal, config, lesson)
-    steps = candidates_by_step(windows, comovement, shared, config, lesson, asynchrony_threshold)
+        episodes = interview_episodes(participants, synchrony, coarousal, config, lesson)
+    steps = candidates_by_step(windows, episodes, config)
     proposals = select(steps, primary_count, reserve_count)
     primary = sum(1 for proposal in proposals if proposal.status == PRIMARY)
     return {
         "key": key,
         "kind": kind,
         "participants": participants,
-        "candidate_counts": {str(number): len(candidates) for number, candidates in steps.items()},
-        # Every moment that answers a step, selected or not, for the lesson timeline (STEPS 1-5, strongest first).
+        "candidate_counts": {step: len(candidates) for step, candidates in steps.items()},
+        # Every moment that answers a step, selected or not, for the lesson timeline (in step order, strongest first).
         "candidates": [
             _candidate_payload(candidate, rank, len(candidates), lesson_clock)
             for candidates in steps.values() for rank, candidate in enumerate(candidates, start=1)
@@ -514,7 +530,6 @@ def compute_vsr(
     student_aliases: Sequence[str] | None = None,
     primary_count: int = DEFAULT_PRIMARY_COUNT,
     reserve_count: int = DEFAULT_RESERVE_COUNT,
-    asynchrony_threshold: float = DEFAULT_ASYNCHRONY_THRESHOLD,
 ) -> dict[str, Any]:
     """Interview moments for every student pair and the teacher, from a stored Analysis run.
 
@@ -535,7 +550,7 @@ def compute_vsr(
 
     def payload(key: str, kind: str, participants: list[str]) -> dict[str, Any]:
         return _interview_payload(key, kind, participants, frame, relative_minutes, synchrony, coarousal, config,
-                                  primary_count, reserve_count, asynchrony_threshold, lesson_clock, stride)
+                                  primary_count, reserve_count, lesson_clock, stride)
 
     interviews: list[dict[str, Any]] = []
     for dyad in dyads:
@@ -552,7 +567,6 @@ def compute_vsr(
     return {
         "analysis_settings": {name: settings[name] for name in ANALYSIS_SETTINGS},
         "counts": {"primary": primary_count, "reserve": reserve_count},
-        "asynchrony_threshold": asynchrony_threshold,
         "trace_seconds": [round(float(value) * 60.0, 2) for value in relative_minutes[::stride]],
         "interviews": interviews,
         "stats": {

@@ -77,14 +77,12 @@
             </div>
             <span class="muted small">{% translate "The VSR flow chart asks for 5 moments and a few in reserve (8 in all)." %}</span>
           </fieldset>
-          <div class="f">
-            <label for="asynchrony-threshold">{% translate "Step 5: correlation below" %}</label>
-            <input type="number" id="asynchrony-threshold" name="asynchrony_threshold" value="{{ roles.asynchrony_threshold|stringformat:'s' }}" min="{{ roles.asynchrony_limits.0 }}" max="{{ roles.asynchrony_limits.1 }}" step="any" required>
-            <span class="muted small">{% translate "No synchrony: the VSR flow chart counts r below 0.1 as asynchronous." %}</span>
-          </div>
+          {% if thresholds %}
+            <p class="muted small">{% blocktranslate with strong=thresholds.interview|display_number decoupled=thresholds.decoupled|display_number %}The VSR flow chart's correlation criteria are read as strength: synchronous and divergent moments need |r| of at least {{ strong }}, no synchrony |r| below {{ decoupled }}. They are Analysis settings.{% endblocktranslate %} <a href="{% url 'gsr:analysis' project.pk %}">{% translate "Analysis settings" %}</a></p>
+          {% endif %}
         </div>
       </div>
-      <p class="roles-help muted small">{% translate "“Choose moments” saves the participants and takes the moments from the Analysis: its episodes are sorted into steps 1–5 of the VSR flow chart, the strongest first." %}</p>
+      <p class="roles-help muted small">{% translate "“Choose moments” saves the participants and takes the moments from the Analysis: its episodes are sorted into the steps of the VSR flow chart, the strongest first." %}</p>
     </form>
   </section>
 

@@ -33,7 +33,7 @@ from .errors import UserError, describe, no_overlap_message
 from .models import AnalysisResult, Dataset, InterviewMoment, Project
 from .pipeline.common import clock_seconds_of_day, clock_start
 from .pipeline.config import PipelineConfig
-from .pipeline.vsr import DEFAULT_ASYNCHRONY_THRESHOLD, PRIMARY, RESERVE
+from .pipeline.vsr import PRIMARY, RESERVE, STEP_NUMBERS, step_label
 from .reporting.report import render_report_pdf, report_text, resolve_lang
 from .reporting.vsr_charts import AVERAGE_COLOR, lesson_ticks
 from .services import curation, exports
@@ -41,8 +41,6 @@ from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
 from .services.display import chart_scale, set_chart_scale
 from .services.interview import (
-    ASYNCHRONY_KEY,
-    ASYNCHRONY_LIMITS,
     COUNT_LIMITS,
     InterviewConfig,
     InterviewRoles,
@@ -784,8 +782,7 @@ def analysis_chart_scale(request: HttpRequest, pk: Any) -> HttpResponse:
 def analysis_reset(request: HttpRequest, pk: Any) -> HttpResponse:
     project = _project(pk)
     project.pipeline_config = params.reset_analysis(project.pipeline_config)
-    project.interview_config = {**(project.interview_config or {}), ASYNCHRONY_KEY: DEFAULT_ASYNCHRONY_THRESHOLD}
-    project.save(update_fields=["pipeline_config", "interview_config", "updated_at"])
+    project.save(update_fields=["pipeline_config", "updated_at"])
     return _analysis_after_settings(request, project)
 
 
@@ -822,9 +819,7 @@ def _role_form(project: Project, roles: dict[str, Any]) -> dict[str, Any]:
         "pairs": [{"number": index + 1, "left": left, "right": right} for index, (left, right) in enumerate(pairs)],
         "primary_moment_count": roles.get("primary_moment_count"),
         "reserve_moment_count": roles.get("reserve_moment_count"),
-        "asynchrony_threshold": roles.get(ASYNCHRONY_KEY),
         "limits": COUNT_LIMITS,
-        "asynchrony_limits": ASYNCHRONY_LIMITS,
     }
 
 
@@ -836,7 +831,7 @@ def _posted_roles(request: HttpRequest) -> dict[str, Any]:
         "teacher_alias": (request.POST.get("teacher_alias") or "").strip() or None,
         "student_pairs": pairs,
     }
-    for name in (*COUNT_LIMITS, ASYNCHRONY_KEY):
+    for name in COUNT_LIMITS:
         if name in request.POST:
             roles[name] = request.POST[name]
     return roles
@@ -906,8 +901,9 @@ def _moment_view(item: curation.CuratedMoment, interview: dict[str, Any], payloa
         "chart": _moment_chart(payload, interview, row, colors, item.number),
         "chart_height": MOMENT_CHART_HEIGHT,
     }
-    if not row.is_manual and row.proposal.get("step") in range(1, 6):
-        view.update(step=row.proposal["step"], step_title=vsr_text.step_title(row.proposal["step"]),
+    step = row.proposal.get("step")
+    if not row.is_manual and step is not None and step_label(step) in STEP_NUMBERS:
+        view.update(step=step_label(step), step_title=vsr_text.step_title(step),
                     sentence=vsr_text.justification(row.proposal, interview["kind"]))
     return view
 
@@ -936,7 +932,7 @@ def _candidate_views(interview: dict[str, Any], lesson: dict[str, Any],
             state, number, moment_id = CANDIDATE_OTHER, None, None
         else:
             state, number, moment_id = item.role or CANDIDATE_REJECTED, item.number, str(item.row.pk)
-        step, rank = candidate["step"], candidate["candidate_rank"]
+        step, rank = step_label(candidate["step"]), candidate["candidate_rank"]
         views.append({
             "id": f"{tab}-c{step}-{rank}",
             "step": step,
@@ -1039,6 +1035,10 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
         "analysis_ready": analysis is not None and not analysis_stale,
         "stale_from": _stale_before(project, "interviews"),
         "analysis_settings": params.analysis_summary(_applied_values(analysis) or {}) if analysis else [],
+        # The correlation strengths the steps use, from the Analysis run the moments come from.
+        "thresholds": {"interview": applied["synchrony_interview_threshold"],
+                       "decoupled": applied["synchrony_decoupled_threshold"]}
+        if (applied := _applied_values(analysis)) else None,
         "error": error,
         "step_names": vsr_text.steps(),
         # The card form the last action came from, reopened with its values and its error.
@@ -1186,10 +1186,13 @@ def interview_candidate_add(request: HttpRequest, pk: Any) -> HttpResponse:
     project = _project(pk)
     result = _vsr_result_or_404(project)
     key = request.POST.get("interview", "")
+    step = request.POST.get("step", "")
     try:
-        step, rank = int(request.POST.get("step", "")), int(request.POST.get("rank", ""))
+        rank = int(request.POST.get("rank", ""))
     except ValueError:
         raise Http404("Unknown candidate.") from None
+    if step not in STEP_NUMBERS:
+        raise Http404("Unknown candidate.")
     form = {"id": f"candidate-{key}", "action": "candidate"}
     try:
         moment = curation.add_candidate(project, result, key, step, rank)
