@@ -4,7 +4,10 @@ Every moment on an interview's list is an ``InterviewMoment`` row. Proposing the
 moments again (``sync_interview_moments``) keeps every decision: a proposal the
 engine returns again keeps its row, with the decision, the changed time, the note
 and the place on the list; a decided moment the engine no longer proposes stays
-and is marked for checking; only proposals nobody touched are replaced.
+and is marked for checking; only proposals nobody touched are replaced. A decided
+moment proposed under the earlier rules (before the VSR flow chart was read by
+correlation strength) is marked for checking too, even when the engine proposes it
+again, until the researcher confirms or changes the decision.
 
 The list order decides the roles: the first moments that are not rejected are
 the primary ones (5 by default, as the VSR Interview Flow Chart asks) and the
@@ -33,6 +36,9 @@ TIME_TOLERANCE = 0.5
 
 # Set on the proposal of a candidate the researcher added from the lesson timeline (not selected by the steps).
 FROM_TIMELINE = "added_from_timeline"
+# Set on the proposal of a decided moment the engine proposes again after the rules changed: it stays marked for
+# checking until the researcher acts on it.
+REVIEW_AFTER_UPDATE = "review_after_rules_update"
 
 _LESSON_TIME = re.compile(r"^(?:(\d+):)?(\d+):(\d{1,2}(?:[.,]\d+)?)$")
 
@@ -72,6 +78,20 @@ def _row_identity(row: InterviewMoment) -> tuple[str, float, float] | None:
 
 def is_decided(row: InterviewMoment) -> bool:
     return row.status != InterviewMoment.STATUS_PENDING or bool(row.note.strip()) or row.time_changed
+
+
+def _under_earlier_rules(row: InterviewMoment) -> bool:
+    """A proposed moment chosen before the VSR flow chart was read by correlation strength (its proposal has no
+    moment type)."""
+    return not row.is_manual and not row.proposal.get("type")
+
+
+def check_reason(row: InterviewMoment) -> str | None:
+    """Why a moment is marked for checking: "rules" (chosen under the earlier rules), "dropped" (no longer proposed),
+    or None when it is not marked."""
+    if not row.needs_check:
+        return None
+    return "rules" if row.proposal.get(REVIEW_AFTER_UPDATE) or _under_earlier_rules(row) else "dropped"
 
 
 def _new_proposed_row(project: Project, key: str, moment: dict[str, Any]) -> InterviewMoment:
@@ -137,17 +157,22 @@ def sync_interview_moments(project: Project, result: AnalysisResult) -> None:
                 continue
             matched.add(id(row))
             engine_index[id(row)] = index
-            row.proposal = moment
-            row.needs_check = False
+            # The same step and times under the earlier rules is still a decision the researcher made on another
+            # reading of the flow chart: it stays marked until they confirm it.
+            review = is_decided(row) and (_under_earlier_rules(row) or (bool(row.proposal.get(REVIEW_AFTER_UPDATE))
+                                                                      and row.needs_check))
+            row.proposal = {**moment, REVIEW_AFTER_UPDATE: True} if review else moment
+            row.needs_check = review
 
         survivors: list[InterviewMoment] = []
         for row in rows:
             if row.is_manual or id(row) in matched:
                 survivors.append(row)
             elif is_decided(row):
-                # A candidate the researcher added from the timeline needs no check while the Analysis still has it.
-                row.needs_check = not (row.proposal.get(FROM_TIMELINE)
-                                       and _row_identity(row) in candidates.get(key, set()))
+                # A candidate the researcher added from the timeline needs no check while the Analysis still has it
+                # (under the same rules).
+                row.needs_check = _under_earlier_rules(row) or not (
+                    row.proposal.get(FROM_TIMELINE) and _row_identity(row) in candidates.get(key, set()))
                 survivors.append(row)
             else:
                 row.delete()

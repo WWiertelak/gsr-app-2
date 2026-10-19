@@ -75,6 +75,11 @@ _TEXT: dict[str, dict[str, str]] = {
         "rejected": "Odrzucone przez badacza i pominięte w raporcie: {count}.",
         "added_by": "Dodany przez badacza:",
         "retimed": "Zaproponowano {start}–{end}; czas zmieniony przez badacza:",
+        "needs_check_rules": "Decyzję podjęto, gdy momenty wybrano według wcześniejszych reguł; aplikacja czyta teraz "
+                             "schemat VSR według siły korelacji. Decyzja badacza została zachowana. Sprawdź ją.",
+        "stale_rules": "Te momenty wybrano według wcześniejszych reguł. Aplikacja czyta teraz kryteria korelacji "
+                       "schematu VSR według siły (krok 4b synchronia rozbieżna; krok 5 pobudzenie przeciwstawne i "
+                       "rozprzężenie). Decyzje badacza zostaną zachowane i oznaczone do sprawdzenia.",
         "needs_check": "Ostatni wybór momentów już nie zawiera tego momentu; decyzja badacza została zachowana. "
                        "Sprawdź go.",
         "note_label": "Notatka:",
@@ -169,6 +174,12 @@ _TEXT: dict[str, dict[str, str]] = {
         "rejected": "Rejected by the researcher and left out of the report: {count}.",
         "added_by": "Added by the researcher:",
         "retimed": "Proposed as {start}–{end}; time changed by the researcher:",
+        "needs_check_rules": "The decision was made when the moments were chosen under the earlier rules; the app now "
+                             "reads the VSR flow chart by correlation strength. The researcher's decision was kept. "
+                             "Check it.",
+        "stale_rules": "These moments were chosen under the earlier rules. The app now reads the VSR flow chart's "
+                       "correlation criteria by strength (step 4b divergent synchrony; step 5 opposite arousal and "
+                       "decoupling). The researcher's decisions will be kept and marked for checking.",
         "needs_check": "The last choice of moments no longer includes this moment; the researcher's decision was "
                        "kept. Check it.",
         "note_label": "Note:",
@@ -362,7 +373,8 @@ def _moment_cards(interview: dict[str, Any], vsr: dict[str, Any], lang: str) -> 
             "status": _status(lang, moment),
             "step": _t(lang, "manual_heading") if manual else vsr_text.step_title(moment["step"]),
             "decision": _decision(lang, moment),
-            "check": _t(lang, "needs_check") if moment["needs_check"] else "",
+            "check": "" if not moment["needs_check"] else _t(
+                lang, "needs_check_rules" if moment["check_reason"] == "rules" else "needs_check"),
             "times": [
                 (_t(lang, "lesson"), _lesson(moment)),
                 (_t(lang, "col_clock"), _clock(moment)),
@@ -418,7 +430,8 @@ def build_section(vsr: dict[str, Any] | None, lang: str) -> dict[str, Any] | Non
     with translation.override(lang):
         blocks: list[dict[str, Any]] = []
         if vsr["stale"]:
-            blocks.append({"type": "note", "label": _t(lang, "warning"), "text": _t(lang, "stale"), "style": "warning"})
+            blocks.append({"type": "note", "label": _t(lang, "warning"), "style": "warning",
+                           "text": _t(lang, "stale_rules" if vsr.get("predates_rules") else "stale")})
         blocks += [
             _p(_t(lang, "lead"), style="lead"),
             *([_p(_t(lang, "curated_note"))] if vsr["curated"] else []),

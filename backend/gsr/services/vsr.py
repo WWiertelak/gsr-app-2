@@ -21,7 +21,15 @@ from ..pipeline.preprocessing import _signal_quality_level
 from ..pipeline.vsr import DEFAULT_PRIMARY_COUNT, DEFAULT_RESERVE_COUNT, PRIMARY, compute_vsr
 from .analysis import AnalysisError
 from .interview import InterviewRoles, compute_vsr_signature, load_interview_config
-from .results import FALLBACK_SIGNAL_COLOR, get_result, is_stale, signal_colors, stored_pipeline_result
+from .results import (
+    FALLBACK_SIGNAL_COLOR,
+    RESULTS_VERSION,
+    get_result,
+    is_stale,
+    predates_rules,
+    signal_colors,
+    stored_pipeline_result,
+)
 
 # The signals a moment preview shows on each side of the moment: at least this, or half the moment if it is longer.
 PREVIEW_CONTEXT_SECONDS = 30.0
@@ -108,6 +116,7 @@ def compute_interviews(project: Project) -> AnalysisResult:
         },
         quality=_signal_quality(result, result.aliases),
         analysis_computed_at=analysis.computed_at.isoformat(),
+        results_version=RESULTS_VERSION,
     )
     stored, _ = AnalysisResult.objects.update_or_create(
         project=project,
@@ -171,7 +180,7 @@ def _report_moment(number: int, role: str, decision: str, source: dict[str, Any]
     base = {field: None for field in PROPOSAL_FIELDS}
     base.update(
         number=number, status=role, decision=decision, source="proposed", time_changed=False, reason="", note="",
-        needs_check=False, original_start_seconds=None, original_end_seconds=None, proposal={},
+        needs_check=False, check_reason=None, original_start_seconds=None, original_end_seconds=None, proposal={},
     )
     return {**base, **source}
 
@@ -187,6 +196,8 @@ def _proposal_moments(interview: dict[str, Any]) -> list[dict[str, Any]]:
 def _curated_moments(items: list[Any]) -> list[dict[str, Any]]:
     """The researcher's list without its rejected moments: roles and numbers from the list order, the researcher's
     times, reasons and notes, and each proposed moment's measurements."""
+    from .curation import check_reason  # curation imports this module
+
     moments = []
     for item in items:
         row = item.row
@@ -208,6 +219,7 @@ def _curated_moments(items: list[Any]) -> list[dict[str, Any]]:
             "reason": row.reason,
             "note": row.note,
             "needs_check": row.needs_check,
+            "check_reason": check_reason(row),
         }
         moments.append(_report_moment(item.number, item.role, decision, source))
     return moments
@@ -283,5 +295,7 @@ def report_data(project: Project) -> dict[str, Any] | None:
         "curated": any(item["curated"] for item in interviews),
         # The moments come from the analysis: an outdated analysis makes them outdated too.
         "stale": is_stale(project, vsr) or is_stale(project, analysis),
+        # Chosen (or the Analysis run) before the VSR flow chart was read by correlation strength.
+        "predates_rules": predates_rules(vsr) or predates_rules(analysis),
         "interviews": interviews,
     }

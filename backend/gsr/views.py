@@ -57,6 +57,7 @@ from .services.results import (
     get_result,
     included_datasets,
     is_stale,
+    predates_rules,
     recording_overview,
     signal_colors,
 )
@@ -678,6 +679,7 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         "result": result,
         "stale": is_stale(project, result),
         "stale_from": _stale_before(project, "analysis"),
+        "predates_rules": predates_rules(result),
         "error": error,
         "analysis_blocked": analysis_blocked,
         "colors": colors,
@@ -894,6 +896,7 @@ def _moment_view(item: curation.CuratedMoment, interview: dict[str, Any], payloa
         "accepted": row.status == InterviewMoment.STATUS_ACCEPTED,
         "manual": row.is_manual,
         "time_changed": row.time_changed,
+        "check_reason": curation.check_reason(row),
         # A proposed reserve moment that moved up, or a primary one that moved down, says what the engine proposed.
         "proposed_role": item.proposed_role if item.role and item.proposed_role not in (None, item.role) else None,
         "start_seconds": row.start_seconds,
@@ -1038,6 +1041,8 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
         "analysis": analysis,
         "analysis_stale": analysis_stale,
         "analysis_ready": analysis is not None and not analysis_stale,
+        # Chosen (or the Analysis run) before the VSR flow chart was read by correlation strength.
+        "predates_rules": predates_rules(result) or predates_rules(analysis),
         "stale_from": _stale_before(project, "interviews"),
         "analysis_settings": params.analysis_summary(_applied_values(analysis) or {}) if analysis else [],
         # The correlation strengths the steps use, from the Analysis run the moments come from.
@@ -1150,6 +1155,9 @@ def interview_moment(request: HttpRequest, pk: Any, moment_pk: Any) -> HttpRespo
     try:
         if action in MOMENT_STATUS_ACTIONS:
             curation.set_status(moment, MOMENT_STATUS_ACTIONS[action])
+        elif action == "keep":
+            # The researcher confirms a decision marked for checking.
+            curation.set_status(moment, moment.status)
         elif action in MOMENT_MOVES:
             curation.move(moment, MOMENT_MOVES[action])
         elif action == "time":
@@ -1251,6 +1259,9 @@ def _stale_causes(project: Project, result: AnalysisResult) -> list[str]:
         causes = []
     before = dict(zip(result.dataset_ids, (row["alias"] for row in result.payload.get("datasets", []))))
     now = {str(dataset.id): dataset.alias for dataset in included_datasets(project)}
+    if predates_rules(result):
+        causes.insert(0, _("the app now reads the VSR flow chart by correlation strength and finds divergent synchrony, "
+                           "decoupling and opposite arousal"))
     added = [alias for key, alias in now.items() if key not in before]
     removed = [alias for key, alias in before.items() if key not in now]
     if added:
@@ -1444,6 +1455,7 @@ def report_payload(project: Project, result: AnalysisResult, chart_images: dict[
         "generated_at": timezone.localtime().strftime("%Y-%m-%d %H:%M"),
         "computed_at": timezone.localtime(result.computed_at).strftime("%Y-%m-%d %H:%M"),
         "stale": export_is_stale(project),
+        "predates_rules": predates_rules(result),
         "dataset_aliases": [row["alias"] for row in payload.get("datasets", [])],
         "datasets": payload.get("datasets", []),
         "config": PipelineConfig.from_dict(result.config).model_dump(),

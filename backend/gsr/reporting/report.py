@@ -66,6 +66,9 @@ _TR: dict[str, dict[str, str]] = {
         "interpretation_note": "Uwaga interpretacyjna",
         "summary_interpretation_note": "GSR opisuje poziom i dynamikę pobudzenia fizjologicznego. Nie rozpoznaje konkretnej emocji, nie określa jej znaku i sam nie dowodzi związku przyczynowego między osobami.",
         "stale_warning": "UWAGA: ustawienia lub sygnały projektu zmieniły się po tym obliczeniu. Raport opisuje ostatnie obliczenie.",
+        "stale_warning_rules": "UWAGA: to obliczenie wykonano według wcześniejszych reguł. Aplikacja czyta teraz kryteria "
+                               "korelacji schematu VSR według siły i wykrywa też synchronię rozbieżną, rozprzężenie i "
+                               "pobudzenie przeciwstawne. Raport opisuje ostatnie obliczenie.",
         # import
         "import_heading": "Import",
         "alias": "Alias",
@@ -283,6 +286,9 @@ _TR: dict[str, dict[str, str]] = {
         "interpretation_note": "Interpretation note",
         "summary_interpretation_note": "GSR describes physiological arousal level and dynamics. It does not identify a specific emotion or valence and cannot by itself establish causation between people.",
         "stale_warning": "NOTE: the project settings or signals changed after this run. The report describes the last run.",
+        "stale_warning_rules": "NOTE: this run used the earlier rules. The app now reads the VSR flow chart's correlation "
+                               "criteria by strength and also finds divergent synchrony, decoupling and opposite "
+                               "arousal. The report describes the last run.",
         # import
         "import_heading": "Import",
         "alias": "Alias",
@@ -655,7 +661,8 @@ def _title_page(payload: dict[str, Any], lang: str) -> dict[str, Any]:
             [_tr(lang, "computed_at"), payload.get("computed_at") or "-"],
             [_tr(lang, "signals"), ", ".join(payload.get("dataset_aliases") or []) or "-"],
         ]),
-        "stale_warning": _tr(lang, "stale_warning") if payload.get("stale") else "",
+        "stale_warning": "" if not payload.get("stale") else _tr(
+            lang, "stale_warning_rules" if payload.get("predates_rules") else "stale_warning"),
         "description_heading": _tr(lang, "description"),
         "description": str(payload.get("project_description") or "").strip() or _tr(lang, "no_description"),
     }

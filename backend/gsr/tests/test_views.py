@@ -660,7 +660,7 @@ def test_analysis_run_stores_both_results_in_two_tabs(client, project) -> None:
     assert 'hx-swap-oob="true"' in fragment and "run-status fresh" in fragment
 
     stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
-    assert set(stored.payload) == {"preview", "synchrony", "coarousal", "datasets"}
+    assert set(stored.payload) == {"preview", "synchrony", "coarousal", "datasets", "results_version"}
     assert stored.config["scaling_enabled"] is True
 
     page = client.get(reverse("gsr:analysis", args=[project.pk]) + "?tab=coarousal").content.decode()

@@ -101,7 +101,7 @@
       </div>
     {% else %}
       {% if stale %}
-        <div class="alert warning stale-note">{% if stale_from %}{% include "gsr/partials/stale_from.html" %}{% elif analysis_ready %}{% translate "The participants, the number of moments or the Analysis changed since these moments were chosen. Choose them again." %}{% else %}{% translate "The Analysis changed since these moments were chosen. Run the Analysis, then choose the moments again." %}{% endif %}</div>
+        <div class="alert warning stale-note">{% if predates_rules %}{% translate "These moments were chosen under the earlier rules. The app now reads the VSR flow chart's correlation criteria by strength (step 4b divergent synchrony; step 5 opposite arousal and decoupling): run the Analysis, then choose the moments again. Your decisions are kept and marked for checking." %}{% if stale_from %} {% include "gsr/partials/stale_from.html" %}{% endif %}{% elif stale_from %}{% include "gsr/partials/stale_from.html" %}{% elif analysis_ready %}{% translate "The participants, the number of moments or the Analysis changed since these moments were chosen. Choose them again." %}{% else %}{% translate "The Analysis changed since these moments were chosen. Run the Analysis, then choose the moments again." %}{% endif %}</div>
       {% endif %}
       {% if interviews %}
         <div class="tabs interview-tabs" role="tablist" aria-labelledby="vsr-results-title">

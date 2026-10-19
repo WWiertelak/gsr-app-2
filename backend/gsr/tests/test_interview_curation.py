@@ -221,15 +221,25 @@ def test_proposing_again_keeps_every_decision_and_the_order(proposed) -> None:
     assert not project.interview_moments.filter(needs_check=True).exists()
 
 
+# The moment type of each step in the fake proposals (STEP 5: decoupling).
+TYPES = {1: "comovement_state", 2: "comovement", 3: "shared_high", 4: "shared_low", 5: "decoupled"}
+
+
+def _proposal_fields(step: int, earlier_rules: bool) -> dict:
+    """A proposal's step as stored: whole numbers and no moment type under the earlier rules."""
+    return {"step": step} if earlier_rules else {"step": str(step), "type": TYPES[step]}
+
+
 def _fake_result(project: Project, moments: list[tuple[int, float, float]], key: str = "A+B",
-                 start_clock: str = "2024-05-06T09:00:00") -> AnalysisResult:
+                 start_clock: str = "2024-05-06T09:00:00", earlier_rules: bool = False) -> AnalysisResult:
     payload = {
         "counts": {"primary": 2, "reserve": 2},
         "lesson": {"start_seconds": 0.0, "end_seconds": 600.0, "start_clock": start_clock},
         "roles": {"video_start_time": "09:00:30"},
         "interviews": [{
             "key": key,
-            "moments": [{"number": index + 1, "status": PRIMARY if index < 2 else RESERVE, "step": step,
+            "moments": [{"number": index + 1, "status": PRIMARY if index < 2 else RESERVE,
+                         **_proposal_fields(step, earlier_rules),
                          "start_seconds": start, "end_seconds": end, "start_clock": None, "end_clock": None}
                         for index, (step, start, end) in enumerate(moments)],
         }],
@@ -428,7 +438,8 @@ def _with_candidates(project: Project, moments: list[tuple[int, float, float]],
     candidates = []
     for step, start, end in sorted(moments + others, key=lambda item: item[0]):
         ranks[step] = ranks.get(step, 0) + 1
-        candidates.append({"step": step, "start_seconds": start, "end_seconds": end, "correlation": 0.85,
+        candidates.append({**_proposal_fields(step, False), "start_seconds": start, "end_seconds": end,
+                           "correlation": 0.85,
                            "episode": None, "shared_episode": None, "shared_state": None, "in_state": None,
                            "people": None, "candidate_rank": ranks[step], "candidate_count": 0,
                            "start_clock": None, "end_clock": None})
@@ -436,6 +447,42 @@ def _with_candidates(project: Project, moments: list[tuple[int, float, float]],
                      stats={"complete": True, "primary_count": 2, "primary_target": 2})
     result.save()
     return result
+
+
+@pytest.mark.django_db
+def test_decisions_on_moments_chosen_under_the_earlier_rules_are_kept_and_marked_until_confirmed() -> None:
+    # Moments chosen before the VSR flow chart was read by correlation strength (whole-number steps, no type).
+    project = Project.objects.create(name="Reguły")
+    old = _fake_result(project, [(1, 10, 40), (2, 100, 130), (5, 200, 230), (3, 300, 330)], earlier_rules=True)
+    curation.sync_interview_moments(project, old)
+    rows = {row.start_seconds: row for row in project.interview_moments.all()}
+    curation.set_status(rows[10], InterviewMoment.STATUS_ACCEPTED)
+    curation.set_status(rows[200], InterviewMoment.STATUS_REJECTED)
+    curation.set_note(rows[300], "Ask about it.")
+
+    # Under the new rules the engine proposes 10-40 again (same step and times), 300-330 again, and new moments.
+    new = _fake_result(project, [(1, 10, 40), (3, 300, 330), (5, 400, 430)])
+    curation.sync_interview_moments(project, new)
+    by_start = {item.row.start_seconds: item.row for item in _list(project, new, "A+B")}
+
+    # Every decision is kept; a proposed-again decided moment is marked too, with the rules as the reason.
+    assert by_start[10].status == InterviewMoment.STATUS_ACCEPTED and by_start[10].needs_check
+    assert curation.check_reason(by_start[10]) == "rules"
+    assert by_start[200].status == InterviewMoment.STATUS_REJECTED and by_start[200].needs_check
+    assert curation.check_reason(by_start[200]) == "rules"
+    assert by_start[300].note == "Ask about it." and by_start[300].needs_check
+    assert 100 not in by_start  # undecided: replaced as before
+    assert not by_start[400].needs_check
+
+    # Choosing again keeps the mark until the researcher acts; then it stays cleared.
+    curation.sync_interview_moments(project, new)
+    by_start[10].refresh_from_db()
+    assert by_start[10].needs_check
+    curation.set_status(by_start[10], by_start[10].status)
+    curation.sync_interview_moments(project, new)
+    by_start[10].refresh_from_db()
+    assert not by_start[10].needs_check and curation.check_reason(by_start[10]) is None
+    assert by_start[10].status == InterviewMoment.STATUS_ACCEPTED
 
 
 def _rank(result: AnalysisResult, start: float) -> tuple[int, int]:
@@ -452,7 +499,7 @@ def test_a_candidate_from_the_timeline_joins_the_list_accepted_after_the_kept_mo
     moment = curation.add_candidate(project, result, "A+B", *_rank(result, 200))
     assert moment.source == InterviewMoment.SOURCE_PROPOSED and moment.status == InterviewMoment.STATUS_ACCEPTED
     assert (moment.start_seconds, moment.end_seconds) == (200, 230) and not moment.time_changed
-    assert moment.proposal["step"] == 2 and moment.proposal[curation.FROM_TIMELINE] is True
+    assert moment.proposal["step"] == "2" and moment.proposal[curation.FROM_TIMELINE] is True
     assert [item.row.start_seconds for item in _list(project, result, "A+B")] == [10, 100, 200]
 
     with pytest.raises(ValueError, match="already on the interview's list"):

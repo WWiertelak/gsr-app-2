@@ -482,3 +482,36 @@ def test_moments_chosen_before_the_candidates_were_kept_ask_to_choose_again(clie
         html = client.get(reverse("gsr:interviews", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
     assert "Choose again to see all the moments the Analysis found." in html
     assert 'class="lt-candidate' not in html and 'class="lt-moment' in html
+
+
+@pytest.mark.django_db
+def test_results_from_the_earlier_rules_say_why_they_are_outdated_and_decisions_can_be_confirmed(client, lesson) -> None:
+    from gsr.models import InterviewMoment
+    from gsr.services.results import RESULTS_VERSION
+
+    compute_analysis(lesson)
+    client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles())
+    analysis, vsr = get_result(lesson, AnalysisResult.KIND_ANALYSIS), get_result(lesson, AnalysisResult.KIND_VSR)
+    assert analysis.payload["results_version"] == vsr.payload["results_version"] == RESULTS_VERSION
+    # As stored before this version: no version, and a signature computed without the new settings.
+    for result in (analysis, vsr):
+        del result.payload["results_version"]
+        result.signature = "computed-under-the-earlier-rules"
+        result.save()
+    moment = lesson.interview_moments.first()
+    moment.status, moment.needs_check = InterviewMoment.STATUS_ACCEPTED, True
+    moment.proposal = {key: value for key, value in moment.proposal.items() if key != "type"}
+    moment.save()
+
+    with translation.override("en"):
+        pages = {screen: client.get(reverse(f"gsr:{screen}", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en")
+                 .content.decode() for screen in ("analysis", "interviews", "export")}
+    assert "This run used the earlier rules." in pages["analysis"]
+    assert "These moments were chosen under the earlier rules." in pages["interviews"]
+    assert "You decided on this moment when the moments were chosen under the earlier rules" in pages["interviews"]
+    assert 'name="action" value="keep"' in pages["interviews"] and "Keep it accepted" in pages["interviews"]
+    assert "the app now reads the VSR flow chart by correlation strength" in pages["export"]
+
+    client.post(reverse("gsr:interview_moment", args=[lesson.pk, moment.pk]), {"action": "keep"}, **HTMX)
+    moment.refresh_from_db()
+    assert not moment.needs_check and moment.status == InterviewMoment.STATUS_ACCEPTED
