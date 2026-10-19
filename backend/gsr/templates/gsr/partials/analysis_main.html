@@ -270,7 +270,7 @@
           {% include "gsr/partials/chart.html" with label=_("Participant state map over time") kind="coarousalStates" data=coarousal_states chart_id="coarousal-states" name="coarousal_states" height=coarousal_height %}
         {% endif %}
 
-        <div class="grid-2 section-gap">
+        <div class="stack section-gap">
           <div>
             {% translate "Episodes where ≥ the required number of participants hold a shared state (High/Low), opposite episodes (someone High while someone else is Low, the same rules), plus co-movement episodes (mean pairwise Spearman in the window ≥ threshold)." as coarousal_episodes_help %}
             {% translate "Each second gets one label by precedence: High/Low (joint extreme) > Co-movement > Opposite. Adjacent same-label seconds are merged." as merge_help %}
