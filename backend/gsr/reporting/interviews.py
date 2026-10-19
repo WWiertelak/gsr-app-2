@@ -112,14 +112,14 @@ _TEXT: dict[str, dict[str, str]] = {
                             "stanu Wysokiego lub Niskiego bez takiego ko-ruchu; 4b epizod synchronizacji rozbieżnej "
                             "(sygnały zmieniają się w przeciwnych kierunkach), którego r jest równe lub niższe od minus "
                             "progu momentu wywiadu (za prośbą zespołu Hassana, „ideally above .80 for the "
-                            "interviews”); 5 brak synchronii: najpierw przeciwne pobudzenie (zakładka Ko-pobudzenie: jedna "
+                            "interviews”); 5 brak synchronii: najpierw pobudzenie przeciwstawne (zakładka Ko-pobudzenie: jedna "
                             "osoba w stanie Wysokim, druga w Niskim), potem odcinek rozprzężenia, czyli odcinek między "
                             "epizodami synchronizacji i rozbieżności pary, którego średnie r mieści się w ±0,1.",
         "method_choice": "Korelacja r momentu to średnia z okien zakładki Synchronizacja (to samo okno, krok i "
                          "metoda) dla sygnałów pary albo nauczyciela i średniej uczniów (każdy uczeń w z-score, "
                          "potem średnia ponownie w z-score). Gdy kilka epizodów spełnia ten sam krok, pierwszy jest "
-                         "najsilniejszy: najwyższe r w krokach 1–2, najniższe r w kroku 4b; w kroku 5 przeciwne "
-                         "pobudzenie przed rozprzężeniem, a z odcinków rozprzężenia r najbliższe zera "
+                         "najsilniejszy: najwyższe r w krokach 1–2, najniższe r w kroku 4b; w kroku 5 pobudzenie "
+                         "przeciwstawne przed rozprzężeniem, a z odcinków rozprzężenia r najbliższe zera "
                          "(najwyraźniejszy brak związku); potem dłuższy. Kroki przechodzi się od początku (krok 6), "
                          "aż wybrano momenty główne, potem rezerwowe. Momenty nie mogą się nakładać.",
     },
