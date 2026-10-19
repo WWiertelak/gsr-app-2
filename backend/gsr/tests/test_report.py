@@ -137,6 +137,20 @@ def test_episode_tables_give_the_sensor_clock_next_to_the_lesson_time(payload) -
             assert f"{clock(episode['start_relative'] * 60)}–{clock(episode['end_relative'] * 60)}" in texts
 
 
+def test_report_states_the_normalization_and_the_chart_scale(payload) -> None:
+    texts = _texts(render_report_html({**payload, "lang": "en", "chart_images": {"sync_signals": _png()}}))
+    # The z-score cleaning option is an artifact filter, not a normalization; the analysis always uses z-scores.
+    assert texts[texts.index("Z-score artifact filter") + 1] == "yes (> 5 SD)"
+    assert texts[texts.index("Signal normalization for the analysis") + 1] == "z-score within the analysed window (fixed)"
+    assert texts[texts.index("Signals chart scale") + 1] == "z-score"
+    assert any(text.startswith("Signals as z-scores within the analysed window") for text in texts)
+    texts = _texts(render_report_html({**payload, "lang": "pl", "chart_scale": "minmax",
+                                       "chart_images": {"sync_signals": _png()}}))
+    assert texts[texts.index("Skala wykresu sygnałów") + 1] == "min-max (0–1)"
+    assert any(text.startswith("Skala 0–1 (min-max) służy tylko do podglądu") for text in texts)
+    assert texts[texts.index("Filtr artefaktów z-score") + 1] == "tak (> 5 SD)"
+
+
 def test_report_translates_setting_values(payload) -> None:
     payload = {**payload, "config": {**payload["config"], "synchrony_surrogate_enabled": True,
                                      "clean_filter_iqr": False}}

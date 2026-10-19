@@ -13,6 +13,7 @@ from typing import Any
 from django.utils.translation import gettext as _
 
 from .pipeline.common import clock_seconds_of_day, clock_start
+from .services.display import MINMAX, ZSCORE
 from .services.results import FALLBACK_SIGNAL_COLOR
 
 
@@ -23,6 +24,8 @@ def chart_labels() -> dict[str, str]:
         "microsiemens": "µS",
         "scaled": _("scaled"),
         "zscore": "z",
+        "zscoreScale": _("z-score"),
+        "minmaxScale": _("min-max (0–1)"),
         "raw": _("raw"),
         "clean": _("clean"),
         "clipped": _("clipped (off scale)"),
@@ -119,14 +122,36 @@ def timeline_span(synchrony: dict[str, Any]) -> list[float] | None:
     return [low, high if high > low else low + 1]
 
 
-def sync_signals(synchrony: dict[str, Any], preview: dict[str, Any], colors: dict[str, str]) -> dict[str, Any]:
+def _zscore_points(entry: dict[str, Any]) -> list[list[Any]]:
+    """A participant's analysis input as z-scores; a run stored before they were kept z-scores its 0–1 sample."""
+    if "zscore" in entry:
+        return _points(entry["zscore"])
+    values = [point["y"] for point in entry["scaled"]]
+    mean = sum(values) / len(values) if values else 0.0
+    sd = math.sqrt(sum((value - mean) ** 2 for value in values) / len(values)) if values else 0.0
+    return [[point["x"], (point["y"] - mean) / sd if sd > 1e-12 else 0.0] for point in entry["scaled"]]
+
+
+def sync_signals(synchrony: dict[str, Any], preview: dict[str, Any], colors: dict[str, str], scale: str = ZSCORE,
+                 config: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The signals with the synchronization episodes marked, on the project's chart scale (services/display.py):
+    z-scores with the run's High / Low thresholds (``config``) drawn, or the 0–1 min-max preview."""
     aliases = set(synchrony.get("aliases", []))
     series = [
-        {"alias": entry["alias"], "color": colors.get(entry["alias"], FALLBACK_SIGNAL_COLOR), "points": _points(entry["scaled"])}
+        {"alias": entry["alias"], "color": colors.get(entry["alias"], FALLBACK_SIGNAL_COLOR),
+         "points": _points(entry["scaled"]) if scale == MINMAX else _zscore_points(entry)}
         for entry in preview.get("datasets", [])
         if entry["alias"] in aliases
     ]
-    return {"series": series, "episodes": _episodes(synchrony), "clock_start": preview_clock(preview)}
+    zscores = scale != MINMAX
+    return {
+        "series": series,
+        "episodes": _episodes(synchrony),
+        "clock_start": preview_clock(preview),
+        "scale": MINMAX if scale == MINMAX else ZSCORE,
+        "high": (config or {}).get("contagion_high_z") if zscores else None,
+        "low": (config or {}).get("contagion_low_z") if zscores else None,
+    }
 
 
 def sync_matrix(synchrony: dict[str, Any]) -> dict[str, Any]:
@@ -167,8 +192,9 @@ def coarousal_states(coarousal: dict[str, Any], clock: float | None = None) -> d
     }
 
 
-def report_charts(payload: dict[str, Any], colors: dict[str, str], config: dict[str, Any]) -> list[dict[str, Any]]:
-    """The charts the PDF report embeds, keyed as in ``services.exports.CHART_KEYS``."""
+def report_charts(payload: dict[str, Any], colors: dict[str, str], config: dict[str, Any],
+                  scale: str = ZSCORE) -> list[dict[str, Any]]:
+    """The charts the PDF report embeds, keyed as in ``services.exports.CHART_KEYS``; ``scale`` is the chart scale."""
     preview = payload.get("preview", {})
     synchrony = payload.get("synchrony", {})
     coarousal = payload.get("coarousal", {})
@@ -178,7 +204,8 @@ def report_charts(payload: dict[str, Any], colors: dict[str, str], config: dict[
     ]
     if synchrony:
         charts += [
-            {"key": "sync_signals", "kind": "episodeSignals", "data": sync_signals(synchrony, preview, colors)},
+            {"key": "sync_signals", "kind": "episodeSignals",
+             "data": sync_signals(synchrony, preview, colors, scale, config)},
             {"key": "sync_matrix", "kind": "heatmap", "data": sync_matrix(synchrony)},
         ]
     if coarousal and coarousal.get("state_timeline", {}).get("per_alias"):

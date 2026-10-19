@@ -143,9 +143,11 @@
     return scale.on ? clockText(x, true) + " · " + (labels.lesson || "lesson") + " " + mmss(scale.lesson(x)) : mmss(x);
   }
 
-  // The x axis of a lesson-time chart: the recordings' clock, or lesson minutes without one.
+  // The x axis of a lesson-time chart: the recordings' clock, or lesson minutes without one; it spans the data.
   function lessonAxis(scale, labels, extra) {
     return valueAxis(Object.assign({
+      min: "dataMin",
+      max: "dataMax",
       name: scale.on ? labels.clock || "" : labels.minutes || "min",
       nameLocation: "middle",
       nameGap: 26,
@@ -497,6 +499,8 @@
       return { start: scale.x(episode.start), end: scale.x(episode.end) };
     });
     series[0].markArea = episodeMarkArea(episodes, xSpan(series[0].data));
+    // On the z-score scale, the co-arousal High / Low thresholds the states are computed with.
+    series[0].markLine = thresholdLines(data, labels);
     return {
       animation: false,
       toolbox: toolbox(labels, opts),
@@ -504,9 +508,30 @@
       legend: { type: "scroll", top: 6, left: 10, right: 60 },
       grid: { left: 52, right: 22, top: 60, bottom: 48 },
       xAxis: lessonAxis(scale, labels, { nameGap: 28, scale: true }),
-      yAxis: valueAxis({ name: labels.scaled }),
+      yAxis: valueAxis({
+        name: data.scale === "minmax" ? labels.minmaxScale : data.scale === "zscore" ? labels.zscoreScale : labels.scaled,
+        scale: data.scale === "zscore"
+      }),
       series: series
     };
+  }
+
+  // Dashed High / Low threshold lines (data.high, data.low: z values), or undefined when there are none.
+  function thresholdLines(data, labels) {
+    var lines = [];
+    if (typeof data.high === "number") {
+      lines.push({ yAxis: data.high, lineStyle: { color: HIGH }, label: { formatter: labels.high || "", color: HIGH } });
+    }
+    if (typeof data.low === "number") {
+      lines.push({ yAxis: data.low, lineStyle: { color: LOW }, label: { formatter: labels.low || "", color: LOW } });
+    }
+    return lines.length ? {
+      silent: true,
+      symbol: "none",
+      lineStyle: { type: "dashed", width: 1 },
+      label: { position: "insideEndTop", fontSize: 10 },
+      data: lines
+    } : undefined;
   }
 
   // A VSR interview moment: the interview's two z-scored signals zoomed to the moment, the moment shaded like an
@@ -535,22 +560,7 @@
       label: { show: true, position: "insideTop", distance: 4, color: T.ink2, fontSize: 11, fontWeight: 600 },
       data: [[{ xAxis: scale.x(moment.start), name: moment.label || "" }, { xAxis: scale.x(moment.end) }]]
     };
-    var lines = [];
-    if (typeof data.high === "number") {
-      lines.push({ yAxis: data.high, lineStyle: { color: HIGH }, label: { formatter: labels.high || "", color: HIGH } });
-    }
-    if (typeof data.low === "number") {
-      lines.push({ yAxis: data.low, lineStyle: { color: LOW }, label: { formatter: labels.low || "", color: LOW } });
-    }
-    if (lines.length) {
-      series[0].markLine = {
-        silent: true,
-        symbol: "none",
-        lineStyle: { type: "dashed", width: 1 },
-        label: { position: "insideEndTop", fontSize: 10 },
-        data: lines
-      };
-    }
+    series[0].markLine = thresholdLines(data, labels);
     // Whole ticks (5 s … 30 min) across the shown range, so the clock labels read evenly.
     var range = { min: scale.x((data.range || {}).min), max: scale.x((data.range || {}).max) };
     var span = (range.max - range.min) || 1;

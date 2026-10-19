@@ -16,9 +16,10 @@ from django.utils import timezone, translation
 
 from .. import vsr_text
 from ..models import AnalysisResult, Project
-from ..pipeline.common import clock_at, clock_start
+from ..pipeline.common import _zscore, clock_at, clock_start
 from ..pipeline.config import PipelineConfig
 from ..pipeline.preprocessing import analysed_range, build_stage_export_frame
+from .display import MINMAX, chart_scale
 from .results import stored_pipeline_result
 
 # Charts the Export screen captures from the same ECharts options as the screens,
@@ -86,9 +87,19 @@ def clean_signals_csv(project: Project, stored: AnalysisResult) -> bytes:
 
 
 def merged_csv(project: Project, stored: AnalysisResult) -> bytes:
-    """The analysis input: scaled, merged and downsampled signals on a shared time axis (lesson minutes and clock)."""
+    """The analysis input: merged and downsampled signals on a shared time axis (clock and lesson minutes).
+
+    The values are on the project's chart scale, named by it: ``<alias>_z`` (z-scores within the analysed window,
+    the default) or ``<alias>_minmax`` (0–1).
+    """
     result, _ = stored_pipeline_result(project, stored)
+    minmax = chart_scale(project) == MINMAX
     frame = result.merged_decimated.rename(columns={"time": "relative_time_minutes"})
+    for alias in result.aliases:
+        column = f"microsiemens_{alias}"
+        values = frame[column] if minmax else _zscore(frame[column].to_numpy(dtype=float))
+        frame.insert(frame.columns.get_loc(column), f"{alias}_{'minmax' if minmax else 'z'}", values)
+        frame = frame.drop(columns=column)
     lesson_clock = clock_start(result.alignment)
     frame.insert(0, "clock", [clock_at(lesson_clock, minutes * 60.0, milliseconds=True)
                               for minutes in frame["relative_time_minutes"]])
@@ -301,6 +312,10 @@ def results_document(project: Project, stored: AnalysisResult) -> dict[str, Any]
         "datasets": datasets,
         "alignment": preview.get("alignment"),
         "lesson_clock_start": clock_at(lesson_clock, 0.0, milliseconds=True),
+        # Every result is computed on z-scores within the analysed window or on correlations; the chart scale is how
+        # the signals chart, the PDF report and analysis_input_merged.csv show them.
+        "analysis_normalization": "z-score within the analysed window",
+        "display": {"chart_scale": chart_scale(project)},
         "time_range_minutes": analysed_range(preview, PipelineConfig.from_dict(stored.config).model_dump()),
         "cleaning_summary": preview.get("cleaning_summary"),
         "synchrony": synchrony,

@@ -9,7 +9,7 @@ from ..models import Dataset, Project
 from ..pipeline.coarousal import compute_coarousal
 from ..pipeline.common import PipelineError
 from ..pipeline.config import PipelineConfig
-from ..pipeline.preprocessing import PipelineResult, run_pipeline, serialize_preview
+from ..pipeline.preprocessing import PipelineResult, run_pipeline, serialize_preview, serialize_zscore_preview
 from ..pipeline.synchrony import compute_synchrony
 
 ANALYSES: tuple[str, ...] = ("synchrony", "coarousal")
@@ -87,6 +87,10 @@ def analyze_files_with_result(
 
     aliases = list(dataset_files)
     payload: dict[str, Any] = {"preview": serialize_preview(result, max_points)}
+    # The z-scored analysis input next to the 0–1 one, for the chart scale the project shows (services/display.py).
+    zscores = serialize_zscore_preview(result, max_points)
+    for entry in payload["preview"]["datasets"]:
+        entry["zscore"] = zscores[entry["alias"]]
     if "synchrony" in analyses:
         payload["synchrony"] = compute_synchrony(result, aliases, config, cancel_callback)
     if "coarousal" in analyses:

@@ -10,6 +10,7 @@ import re
 import zipfile
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -23,6 +24,7 @@ from gsr.pipeline.config import VSR_DOCUMENT_SETTINGS, PipelineConfig
 from gsr.pipeline.preprocessing import build_stage_export_frame, run_pipeline, serialize_preview
 from gsr.services.analysis import analyze_files
 from gsr.services.datasets import add_dataset
+from gsr.services.results import is_stale
 
 from .sample_data import Participant, RecordingFormat, write_group
 
@@ -638,7 +640,7 @@ def test_outdated_cleaning_preview_is_dimmed_with_a_stale_notice(client, project
     assert f'<li class="changed">Signals: 2/3{marker}' in run_bar
     assert "<li>Window: full range</li>" in run_bar and "<li>Filters: " in run_bar
     assert f'<li class="changed">Median: 7{marker}' in run_bar
-    assert f'<li class="changed">Z-score deviation · Threshold (SD): 4{marker}' in run_bar
+    assert f'<li class="changed">Z-score artifact filter · Threshold (SD): 4{marker}' in run_bar
     assert run_bar.count('class="changed"') == 3
 
 
@@ -989,8 +991,10 @@ def test_export_csv_files(client, project) -> None:
     assert clean["clock_A"].iloc[0] == pd.Timestamp(clean["timestamp_A"].iloc[0]).strftime("%H:%M:%S.%f")[:-3]
 
     merged = _csv_rows(download("analysis_input_merged.csv"))
-    assert set(merged[0]) == {"clock", "relative_time_minutes", "marker", "microsiemens_A", "microsiemens_B",
-                              "microsiemens_C"}
+    # The analysis input on the default chart scale, z-scores, named by it.
+    assert set(merged[0]) == {"clock", "relative_time_minutes", "marker", "A_z", "B_z", "C_z"}
+    z_values = np.array([float(row["A_z"]) for row in merged])
+    assert abs(z_values.mean()) < 1e-6 and z_values.std() == pytest.approx(1.0)
     alignment = stored.payload["preview"]["alignment"]
     assert merged[0]["clock"] == (pd.Timestamp(alignment["start"])
                                   + pd.Timedelta(minutes=float(merged[0]["relative_time_minutes"]))
@@ -1024,6 +1028,47 @@ def test_export_csv_files(client, project) -> None:
     assert cleaning_csv.status_code == 404  # no cleaning preview computed yet
     client.post(reverse("gsr:cleaning_refresh", args=[project.pk]), **HTMX)
     assert client.get(reverse("gsr:cleaning_csv", args=[project.pk])).status_code == 200
+
+
+@pytest.mark.django_db
+def test_chart_scale_switches_the_signals_chart_and_merged_csv_without_a_rerun(client, project) -> None:
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    fragment = _run_analysis(client, project).content.decode()
+    stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
+
+    def signals(page: str) -> dict:
+        return json.loads(re.search(r'id="sync-signals-data" type="application/json">(.*?)</script>', page).group(1))
+
+    # z-scores by default, with the run's High / Low thresholds drawn.
+    data = signals(fragment)
+    assert data["scale"] == "zscore" and (data["high"], data["low"]) == (1.0, -1.0)
+    assert 'value="zscore" aria-pressed="true"' in fragment and 'value="minmax" aria-pressed="false"' in fragment
+    assert min(point[1] for series in data["series"] for point in series["points"]) < 0
+
+    url = reverse("gsr:analysis_chart_scale", args=[project.pk])
+    fragment = client.post(url, {"chart_scale": "minmax"}, **HTMX).content.decode()
+    project.refresh_from_db()
+    assert project.display_settings == {"chart_scale": "minmax"}
+    data = signals(fragment)
+    assert data["scale"] == "minmax" and data["high"] is None and data["low"] is None
+    values = [point[1] for series in data["series"] for point in series["points"]]
+    assert min(values) >= 0.0 and max(values) <= 1.0
+    assert "The 0–1 scale (min-max) is only for viewing" in fragment
+    # Nothing is recomputed and nothing goes stale: the scale is not a setting of the run.
+    assert AnalysisResult.objects.get(pk=stored.pk).computed_at == stored.computed_at
+    assert "Settings or signals changed since this run" not in fragment and not is_stale(project, stored)
+
+    merged = _csv_rows(client.get(reverse("gsr:export_file", args=[project.pk, "analysis_input_merged.csv"])).content)
+    assert {"A_minmax", "B_minmax", "C_minmax"} <= set(merged[0]) and "A_z" not in merged[0]
+    document = json.loads(client.get(reverse("gsr:export_file",
+                                             args=[project.pk, "run_settings_and_results.json"])).content)
+    assert document["display"] == {"chart_scale": "minmax"}
+    assert document["analysis_normalization"] == "z-score within the analysed window"
+
+    error = client.post(url, {"chart_scale": "log"}, **HTMX).content.decode()
+    project.refresh_from_db()
+    assert "Choose the z-score or the min-max (0–1) chart scale." in error
+    assert project.display_settings == {"chart_scale": "minmax"}
 
 
 @pytest.mark.django_db
@@ -1249,7 +1294,7 @@ def test_changed_settings_name_each_change_with_old_and_new_values() -> None:
         changes = params.changed_settings(before, after)
     assert changes == [
         "Time window · To (min): — → 9.5",
-        "Z-score deviation · Threshold (SD): 5 → 4",
+        "Z-score artifact filter · Threshold (SD): 5 → 4",
         "Interquartile range (IQR): off → on",
         "Surrogate method: circular shift → phase randomization",
     ]

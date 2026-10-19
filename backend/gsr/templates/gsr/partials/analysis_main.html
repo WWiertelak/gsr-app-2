@@ -57,8 +57,23 @@
 
         {% if sync_signals.series %}
           {% translate "We look for fragments where signals begin to synchronize and group them into clusters." as sync_help %}
-          <div class="section-head section-gap"><h3>{% translate "Signals with marked episodes" %}</h3>{% include "gsr/partials/tip.html" with text=sync_help tip_id="tip-sync-signals" %}</div>
+          <div class="section-head section-gap"><h3>{% translate "Signals with marked episodes" %}</h3>{% include "gsr/partials/tip.html" with text=sync_help tip_id="tip-sync-signals" %}
+            <form class="chart-scale" method="post" action="{% url 'gsr:analysis_chart_scale' project.pk %}"
+                  hx-post="{% url 'gsr:analysis_chart_scale' project.pk %}" hx-target="#main" hx-swap="innerHTML" hx-disabled-elt="find button">
+              {% csrf_token %}
+              <span class="muted small" id="chart-scale-label">{% translate "Chart scale" %}</span>
+              <div class="segmented" role="group" aria-labelledby="chart-scale-label">
+                <button type="submit" name="chart_scale" value="zscore" aria-pressed="{% if chart_scale == 'zscore' %}true{% else %}false{% endif %}">{% translate "z-score" %}</button>
+                <button type="submit" name="chart_scale" value="minmax" aria-pressed="{% if chart_scale == 'minmax' %}true{% else %}false{% endif %}">{% translate "min-max (0–1)" %}</button>
+              </div>
+            </form>
+          </div>
           {% include "gsr/partials/chart.html" with label=_("Signals with marked episodes") kind="episodeSignals" data=sync_signals chart_id="sync-signals" name="sync_signals" height=320 %}
+          {% if chart_scale == "minmax" %}
+            <p class="muted small">{% blocktranslate with high=applied.contagion_high_z|display_number low=applied.contagion_low_z|display_number %}The 0–1 scale (min-max) is only for viewing: every result is computed on z-scores or correlations, and the High and Low states use the thresholds z = {{ high }} and z = {{ low }}.{% endblocktranslate %}</p>
+          {% else %}
+            <p class="muted small">{% blocktranslate with high=applied.contagion_high_z|display_number low=applied.contagion_low_z|display_number %}z-scores within the analysed period, the scale the High and Low states are computed on; dashed lines: z = {{ high }} and z = {{ low }}.{% endblocktranslate %}</p>
+          {% endif %}
         {% endif %}
 
         {% translate "Stretches where a subgroup of participants (at least 2) stays synchronized above the threshold." as episodes_help %}

@@ -90,7 +90,10 @@ with the form buttons; removed pairs retain curated decisions for restoration wh
 the same pair is added again. Every table, chart axis, CSV/JSON export and the PDF report give the
 GSR recordings' own clock (the sensor clock, which the researcher uses to locate a moment in the
 lesson's other data) next to the lesson time; lesson time is written m:ss and counts from the
-recordings' common start.
+recordings' common start. Every result is computed on z-scores within the analysed period (or on
+correlations, which no rescaling changes); the "Signals with marked episodes" chart, the PDF and
+`analysis_input_merged.csv` show the signals as z-scores (default, with the High/Low thresholds) or as
+0-1 min-max, switched next to the chart without rerunning anything.
 
 ## Layout
 

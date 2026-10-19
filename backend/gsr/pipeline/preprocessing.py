@@ -17,7 +17,7 @@ import pandas as pd
 from scipy.signal import butter, filtfilt, medfilt
 from sklearn.preprocessing import MinMaxScaler
 
-from .common import PipelineError, _resolve_aliases
+from .common import PipelineError, _resolve_aliases, _zscore
 from .config import MAX_DATASETS, PipelineConfig
 from .parser import ParseError, load_esense_csv
 
@@ -659,6 +659,23 @@ def serialize_preview(result: PipelineResult, max_points: int | None = None) -> 
                 "downsampled_points": int(totals.downsampled_points),
             },
         },
+    }
+
+
+def serialize_zscore_preview(result: PipelineResult, max_points: int | None = None) -> dict[str, list[dict[str, Any]]]:
+    """The analysis input of each participant as z-scores within the analysed window, sampled like the preview.
+
+    It is the scale the co-arousal states and their High/Low thresholds are computed on; min-max is a linear
+    rescaling, so the z-scores of the stored 0–1 input are the signal's own. Not part of GSRv2's preview.
+    """
+    frame = result.merged_decimated
+    return {
+        alias: _sample_points(
+            pd.DataFrame({"relative_time": frame["time"],
+                          "z": _zscore(frame[f"microsiemens_{alias}"].to_numpy(dtype=float))}),
+            "relative_time", "z", max_points,
+        )
+        for alias in result.aliases
     }
 
 

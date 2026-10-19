@@ -39,6 +39,7 @@ from .reporting.vsr_charts import AVERAGE_COLOR, lesson_ticks
 from .services import curation, exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
+from .services.display import chart_scale, set_chart_scale
 from .services.interview import (
     ASYNCHRONY_KEY,
     ASYNCHRONY_LIMITS,
@@ -695,12 +696,15 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
              "bar": _mini_bar(episode["start_relative"], episode["end_relative"], span)}
             for index, episode in enumerate(synchrony.get("episodes", []))
         ]
+        scale = chart_scale(project)
         context.update(
             synchrony=synchrony,
             coarousal=coarousal,
             # The recordings' own clock at lesson time 0: every table shows it next to the lesson time.
             clock_start=clock_start(payload.get("preview", {}).get("alignment")),
-            sync_signals=charts.sync_signals(synchrony, payload.get("preview", {}), colors),
+            chart_scale=scale,
+            applied=config.model_dump(),
+            sync_signals=charts.sync_signals(synchrony, payload.get("preview", {}), colors, scale, config.model_dump()),
             sync_matrix=charts.sync_matrix(synchrony),
             coarousal_states=coarousal_chart,
             sync_episodes=sync_episodes,
@@ -751,6 +755,23 @@ def analysis(request: HttpRequest, pk: Any) -> HttpResponse:
     return _page(
         request, project, "analysis", "gsr/partials/analysis_main.html", _analysis_context(project, tab, error)
     )
+
+
+@require_POST
+def analysis_chart_scale(request: HttpRequest, pk: Any) -> HttpResponse:
+    """Show the signals chart, the PDF report and the merged CSV on z-scores or min-max (0–1); nothing is rerun."""
+    project = _project(pk)
+    error = None
+    try:
+        set_chart_scale(project, request.POST.get("chart_scale", ""))
+    except ValueError as exc:
+        error = UserError(str(exc))
+    if not _is_htmx(request):
+        if error:
+            messages.error(request, error.message)
+        return redirect(f"{reverse('gsr:analysis', args=[project.pk])}?tab={ANALYSIS_TABS[0]}")
+    return _page(request, project, "analysis", "gsr/partials/analysis_main.html",
+                 _analysis_context(project, ANALYSIS_TABS[0], error))
 
 
 @require_POST
@@ -1242,7 +1263,9 @@ def _export_groups(project: Project, chart_count: int, vsr: dict[str, Any] | Non
     return [
         row(_("Cleaned signals"), _("per participant, sensor clock and lesson time, full resolution"), "CSV",
             [_export_file(project, "clean_signals.csv")]),
-        row(_("Analysis-ready merged file"), _("scaled, downsampled, sensor clock and lesson time"), "CSV",
+        row(_("Analysis-ready merged file"),
+            _("z-scores, downsampled, sensor clock and lesson time") if chart_scale(project) != "minmax"
+            else _("min-max (0–1), downsampled, sensor clock and lesson time"), "CSV",
             [_export_file(project, "analysis_input_merged.csv")]),
         row(_("Synchronization"), _("episodes, pairs, windows"), "CSV×3", [
             _export_file(project, "synchrony_episodes.csv", _("episodes")),
@@ -1311,7 +1334,7 @@ def _export_context(project: Project, error: UserError | None = None) -> dict[st
     context: dict[str, Any] = {"result": result, "stale": stale, "error": error}
     if result is not None:
         values = PipelineConfig.from_dict(result.config).model_dump()
-        report_charts = charts.report_charts(result.payload, signal_colors(project), values)
+        report_charts = charts.report_charts(result.payload, signal_colors(project), values, chart_scale(project))
         languages = _report_languages(project, result)
         vsr = vsr_report_data(project)
         context.update(
@@ -1406,6 +1429,7 @@ def report_payload(project: Project, result: AnalysisResult, chart_images: dict[
         "dataset_aliases": [row["alias"] for row in payload.get("datasets", [])],
         "datasets": payload.get("datasets", []),
         "config": PipelineConfig.from_dict(result.config).model_dump(),
+        "chart_scale": chart_scale(project),
         "preview": payload.get("preview", {}),
         "synchrony": payload.get("synchrony"),
         "coarousal": payload.get("coarousal"),

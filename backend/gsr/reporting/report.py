@@ -75,7 +75,18 @@ _TR: dict[str, dict[str, str]] = {
         "cleaning_params": "Parametry czyszczenia",
         "median_kernel": "Filtr med. (okno)",
         "physio_range": "Zakres fizjol.",
-        "zscore": "Z-score",
+        "zscore": "Filtr artefaktów z-score",
+        "zscore_on": "tak (> {threshold} SD)",
+        "analysis_normalization": "Normalizacja sygnałów do analizy",
+        "analysis_normalization_value": "z-score w obrębie analizowanego okna (stała)",
+        "chart_scale": "Skala wykresu sygnałów",
+        "chart_scale_zscore": "z-score",
+        "chart_scale_minmax": "min-max (0–1)",
+        "chart_scale_minmax_note": "Skala 0–1 (min-max) służy tylko do podglądu: wszystkie wyniki liczone są na "
+                                   "z-score lub na korelacjach, a stany Wysoki i Niski mają progi z = {high} i "
+                                   "z = {low}.",
+        "chart_scale_zscore_note": "Sygnały w z-score w obrębie analizowanego okna, na tej skali liczone są stany "
+                                   "Wysoki i Niski; linie przerywane: z = {high} i z = {low}.",
         "jumps": "Nagłe skoki",
         "iqr": "IQR",
         "butterworth": "Butterworth",
@@ -259,7 +270,18 @@ _TR: dict[str, dict[str, str]] = {
         "cleaning_params": "Cleaning parameters",
         "median_kernel": "Median filter (window)",
         "physio_range": "Physiological range",
-        "zscore": "Z-score",
+        "zscore": "Z-score artifact filter",
+        "zscore_on": "yes (> {threshold} SD)",
+        "analysis_normalization": "Signal normalization for the analysis",
+        "analysis_normalization_value": "z-score within the analysed window (fixed)",
+        "chart_scale": "Signals chart scale",
+        "chart_scale_zscore": "z-score",
+        "chart_scale_minmax": "min-max (0–1)",
+        "chart_scale_minmax_note": "The 0–1 scale (min-max) is only for viewing: every result is computed on z-scores "
+                                   "or correlations, and the High and Low states use the thresholds z = {high} and "
+                                   "z = {low}.",
+        "chart_scale_zscore_note": "Signals as z-scores within the analysed window, the scale the High and Low states "
+                                   "are computed on; dashed lines: z = {high} and z = {low}.",
         "jumps": "Abrupt jumps",
         "iqr": "IQR",
         "butterworth": "Butterworth",
@@ -628,7 +650,10 @@ def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, 
     charts = {chart["key"]: chart for chart in _charts(payload, "summary", lang)}
     blocks: list[dict[str, Any]] = [{"type": "kpis", "items": kpis}]
     if "sync_signals" in charts:
-        blocks.append(charts["sync_signals"])
+        config = payload.get("config") or {}
+        note = "chart_scale_minmax_note" if payload.get("chart_scale") == "minmax" else "chart_scale_zscore_note"
+        blocks.append({**charts["sync_signals"], "note": _tr(lang, note).format(
+            high=_fmt(config.get("contagion_high_z")), low=_fmt(config.get("contagion_low_z")))})
     blocks.append({
         "type": "aside",
         "chart": charts.get("sync_matrix"),
@@ -682,10 +707,12 @@ def _section_cleaning(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     preview_range = analysed_range(preview, cfg)
     alignment = preview.get("alignment") or {}
 
+    zscore_filter = (_tr(lang, "zscore_on").format(threshold=_fmt(cfg.get("clean_filter_zscore_threshold")))
+                     if cfg.get("clean_filter_zscore") else _tr(lang, "no"))
     mapping = [
         (_tr(lang, "median_kernel"), cfg.get("median_kernel")),
         (_tr(lang, "physio_range"), cfg.get("clean_filter_physiological_range")),
-        (_tr(lang, "zscore"), cfg.get("clean_filter_zscore")),
+        (_tr(lang, "zscore"), zscore_filter),
         (_tr(lang, "jumps"), cfg.get("clean_filter_jump")),
         (_tr(lang, "iqr"), cfg.get("clean_filter_iqr")),
         (_tr(lang, "butterworth"), cfg.get("clean_filter_butterworth")),
@@ -697,6 +724,8 @@ def _section_cleaning(payload: dict[str, Any], lang: str) -> dict[str, Any]:
         (_tr(lang, "alignment_mode"), alignment.get("mode")),
         (_tr(lang, "alignment_range"), f"{_fmt(alignment.get('start'))}–{_fmt(alignment.get('end'))}"),
         (_tr(lang, "alignment_duration"), alignment.get("duration_seconds")),
+        (_tr(lang, "analysis_normalization"), _tr(lang, "analysis_normalization_value")),
+        (_tr(lang, "chart_scale"), _tr(lang, f"chart_scale_{payload.get('chart_scale') or 'zscore'}")),
     ]
     blocks: list[dict[str, Any]] = [
         _h2(_tr(lang, "cleaning_params")),

@@ -48,6 +48,9 @@ class Project(models.Model):
     # projects saved before it existed keep STEP 5 at r < 0. Outside pipeline_config so role changes do not
     # invalidate analysis results.
     interview_config = models.JSONField(default=default_interview_config, blank=True)
+    # How the screens, the PDF report and the exports show the signals (the chart scale); never part of a result's
+    # signature, so changing it leaves every computed result up to date (services/display.py).
+    display_settings = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

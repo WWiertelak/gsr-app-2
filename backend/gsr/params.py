@@ -78,12 +78,13 @@ CLEANING_FILTERS = (
     ),
     Group(
         "zscore",
-        _("Z-score deviation"),
-        _("Rejects points that are statistical outliers against the full signal."),
+        _("Z-score artifact filter"),
+        _("Rejects points that are statistical outliers against the full signal. A filter, not a normalization: the "
+          "analysis normalizes every signal to z-scores within the analysed period on its own."),
         (Param("clean_filter_zscore_threshold", _("Threshold (SD)")),),
         toggle=Param(
             "clean_filter_zscore",
-            _("Z-score deviation"),
+            _("Z-score artifact filter"),
             _("The farther from the mean (in SD units), the more likely a point is an artifact."),
             kind="bool",
         ),

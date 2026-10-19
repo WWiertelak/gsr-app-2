@@ -97,7 +97,8 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                           "(SCR). Usunięte punkty są interpolowane liniowo. Filtry działają niezależnie:"),
                     ("params", [
                         ("Zakres fizjologiczny", "wartości poza [min, max] traktowane jako rozłączenie/nasycenie czujnika."),
-                        ("Z-score", "punkty odległe od średniej o > K·SD jako artefakty (próg konserwatywny)."),
+                        ("Filtr artefaktów z-score", "punkty odległe od średniej o > K·SD jako artefakty (próg "
+                                                     "konserwatywny); to filtr, nie normalizacja sygnału."),
                         ("Skok próbka-do-próbki", "nagłe skoki amplitudy (ruch/dotknięcie elektrody)."),
                         ("Reguła IQR", "odrzuca wartości poza [Q1 − 1.5·IQR, Q3 + 1.5·IQR]."),
                         ("Butterworth", "dolnoprzepustowy (domyślnie 0.05 Hz), dwukierunkowo (filtfilt, bez przesunięcia fazy)."),
@@ -114,13 +115,23 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                 ],
             },
             {
-                "title": "4. Skalowanie i decymacja",
+                "title": "4. Normalizacja i decymacja",
                 "blocks": [
-                    ("p", "Sygnały są normalizowane (Min-Max do 0–1), potem decymowane na wspólną siatkę (domyślnie 1 Hz)."),
-                    ("formula", "x_norm = (x − min(x)) / (max(x) − min(x))"),
-                    ("note", "Po ludzku", "Po skalowaniu 0 to najniższy, a 1 najwyższy poziom danej osoby w analizowanym "
-                                           "zakresie. Porównujemy kształt zmian, a nie bezwzględny poziom między osobami."),
-                    ("note", "Nie oznacza", "0,8 u jednej osoby nie musi oznaczać większego pobudzenia niż 0,6 u innej."),
+                    ("p", "Analiza działa na z-score: każdy sygnał jest standaryzowany w obrębie analizowanego okna "
+                          "(stany Wysoki i Niski, sygnały wywiadów VSR) albo porównywany korelacją, której żadne "
+                          "liniowe przeskalowanie nie zmienia (synchronizacja, ko-ruch). Sygnały decymowane są na "
+                          "wspólną siatkę (domyślnie 1 Hz)."),
+                    ("formula", "z = (x − średnia(x)) / SD(x)"),
+                    ("p", "Przed decymacją sygnały przechodzą wewnętrzne skalowanie min-max do 0–1. Jest to liniowe "
+                          "przekształcenie każdego sygnału osobno, więc nie zmienia żadnej korelacji, żadnego z-score "
+                          "ani żadnego wyniku. Skala 0–1 jest dostępna tylko do podglądu: na wykresie sygnałów z "
+                          "zaznaczonymi epizodami i w pliku analysis_input_merged.csv można wybrać z-score "
+                          "(domyślnie) albo min-max (0–1)."),
+                    ("note", "Po ludzku", "z = 0 to przeciętny poziom danej osoby w analizowanym zakresie, z = 1 to "
+                                           "jedno odchylenie standardowe powyżej. Porównujemy kształt zmian, a nie "
+                                           "bezwzględny poziom między osobami."),
+                    ("note", "Nie oznacza", "z = 1 u jednej osoby nie musi oznaczać większego pobudzenia w µS niż "
+                                            "z = 0,5 u innej."),
                 ],
             },
             {
@@ -259,7 +270,8 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                           "points are linearly interpolated. Filters are independent:"),
                     ("params", [
                         ("Physiological range", "values outside [min, max] treated as sensor disconnect/rail."),
-                        ("Z-score", "points > K·SD from the mean flagged as artifacts (conservative threshold)."),
+                        ("Z-score artifact filter", "points > K·SD from the mean flagged as artifacts "
+                                                    "(conservative threshold); a filter, not a normalization."),
                         ("Sample-to-sample jump", "sudden amplitude jumps (motion/electrode tap)."),
                         ("IQR rule", "rejects values outside [Q1 − 1.5·IQR, Q3 + 1.5·IQR]."),
                         ("Butterworth", "low-pass (default 0.05 Hz), forward-backward (filtfilt, zero phase shift)."),
@@ -277,13 +289,22 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                 ],
             },
             {
-                "title": "4. Scaling & decimation",
+                "title": "4. Normalization & decimation",
                 "blocks": [
-                    ("p", "Signals are normalized (Min-Max to 0–1), then decimated onto a common grid (default 1 Hz)."),
-                    ("formula", "x_norm = (x − min(x)) / (max(x) − min(x))"),
-                    ("note", "In plain language", "After scaling, 0 is a person's lowest and 1 their highest level in "
-                                                   "the analyzed range. We compare change shape, not absolute level."),
-                    ("note", "Does not mean", "0.8 for one person need not be greater absolute arousal than 0.6 for another."),
+                    ("p", "The analysis works on z-scores: each signal is standardized within the analysed window "
+                          "(the High and Low states, the VSR interview signals) or compared by a correlation, which "
+                          "no linear rescaling changes (synchrony, co-movement). Signals are decimated onto a common "
+                          "grid (default 1 Hz)."),
+                    ("formula", "z = (x − mean(x)) / SD(x)"),
+                    ("p", "Before decimation the signals go through an internal min-max scaling to 0–1. It is a "
+                          "linear transform of each signal on its own, so it changes no correlation, no z-score and "
+                          "no result. The 0–1 scale is available for viewing only: the signals chart with marked "
+                          "episodes and analysis_input_merged.csv show z-scores (the default) or min-max (0–1)."),
+                    ("note", "In plain language", "z = 0 is a person's average level in the analysed range, z = 1 one "
+                                                   "standard deviation above it. We compare change shape, not absolute "
+                                                   "level."),
+                    ("note", "Does not mean", "z = 1 for one person need not be greater arousal in µS than z = 0.5 for "
+                                              "another."),
                 ],
             },
             {
