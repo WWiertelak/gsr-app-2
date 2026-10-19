@@ -147,7 +147,15 @@ def test_report_lists_divergent_synchronization_episodes(payload) -> None:
     else:
         assert "No divergent synchronization episodes detected." in texts
     polish = _texts(render_report_html({**payload, "lang": "pl"}))
-    assert "Epizody synchronizacji rozbieżnej" in polish
+    assert "Epizody synchronizacji rozbieżnej" in polish and "Rozprzężenie (brak synchronii)" in polish
+
+
+def test_report_lists_decoupling(payload) -> None:
+    decoupled = payload["synchrony"]["decoupled_episodes"]
+    texts = _texts(render_report_html({**payload, "lang": "en"}))
+    assert "Decoupling (no synchrony)" in texts
+    assert texts[texts.index("Decoupling stretches") + 1] == str(len(decoupled))
+    assert ("Pair" in texts) if decoupled else ("No decoupling detected." in texts)
 
 
 def test_report_states_the_normalization_and_the_chart_scale(payload) -> None:

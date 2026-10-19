@@ -149,6 +149,7 @@ def sync_signals(synchrony: dict[str, Any], preview: dict[str, Any], colors: dic
         "series": series,
         "episodes": _episodes(synchrony),
         "divergent": _episodes(synchrony, "divergent_episodes"),
+        "decoupled": _episodes(synchrony, "decoupled_episodes"),
         "clock_start": preview_clock(preview),
         "scale": MINMAX if scale == MINMAX else ZSCORE,
         "high": (config or {}).get("contagion_high_z") if zscores else None,

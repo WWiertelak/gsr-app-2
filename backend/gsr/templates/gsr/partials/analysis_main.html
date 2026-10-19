@@ -46,7 +46,7 @@
           <li class="tile">
             <span class="label">{% translate "Episode count" %}</span>
             <span class="value">{{ synchrony.stats.episode_count }}{% if sync_episodes %} <small>· {% blocktranslate with duration=sync_episode_minutes|mmss %}{{ duration }} min in total{% endblocktranslate %}</small>{% endif %}</span>
-            <span class="sub">{{ sync_episode_rule }}{% if divergent_episodes is not None %}<br>{% blocktranslate count counter=divergent_episodes|length %}{{ counter }} divergent episode{% plural %}{{ counter }} divergent episodes{% endblocktranslate %} ({{ divergent_rule }}){% endif %}</span>
+            <span class="sub">{{ sync_episode_rule }}{% if divergent_episodes is not None %}<br>{% blocktranslate count counter=divergent_episodes|length %}{{ counter }} divergent episode{% plural %}{{ counter }} divergent episodes{% endblocktranslate %} ({{ divergent_rule }}){% endif %}{% if decoupled_episodes is not None %}<br>{% blocktranslate count counter=decoupled_episodes|length %}{{ counter }} decoupling stretch{% plural %}{{ counter }} decoupling stretches{% endblocktranslate %} ({{ decoupled_rule }}){% endif %}</span>
           </li>
           <li class="tile">
             <span class="label">{% translate "Cluster count" %}</span>
@@ -135,6 +135,38 @@
                 </div>
               {% else %}
                 <p class="muted">{% if synchrony.stats.signed %}{% translate "No divergent synchronization episodes detected." %}{% else %}{% translate "Divergent synchronization needs the signed mode: without it an opposite-direction pair counts as synchronized." %}{% endif %}</p>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if decoupled_episodes is not None %}
+          {% translate "No synchrony: stretches between a pair's synchronization and divergent episodes whose correlation, taken over the whole stretch (the mean of its windows), lies within plus/minus the decoupling threshold (U-numbers on the chart)." as decoupled_help %}
+          <div class="disclosure">
+            <div class="disclosure-head">
+              <h3><button type="button" class="disclosure-toggle" id="decoupled-episodes-toggle" aria-expanded="true" aria-controls="decoupled-episodes-body" data-disclosure>{% translate "Decoupling (no synchrony)" %} <span class="count">{{ decoupled_episodes|length }}</span></button></h3>{% include "gsr/partials/tip.html" with text=decoupled_help tip_id="tip-decoupled-episodes" %}
+            </div>
+            <div class="disclosure-body" id="decoupled-episodes-body">
+              {% if decoupled_episodes %}
+                <div class="table-wrap">
+                  <table class="data">
+                    <thead><tr><th>#</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Pair" %}</th><th>{% translate "Mean r" %}</th></tr></thead>
+                    <tbody>
+                      {% for episode in decoupled_episodes %}
+                        <tr>
+                          <td><strong>U{{ episode.number }}</strong></td>
+                          <td class="left"><span class="when">{% if episode.bar %}<span class="minibar" aria-hidden="true"><i style="left: {{ episode.bar.left }}%; width: {{ episode.bar.width }}%"></i></span>{% endif %}{{ episode.start_relative|minutes_clock:clock_start }}–{{ episode.end_relative|minutes_clock:clock_start }}</span></td>
+                          <td class="left">{{ episode.start_relative|mmss }}–{{ episode.end_relative|mmss }}</td>
+                          <td>{{ episode.duration|mmss }}</td>
+                          <td class="left"><div class="chips">{% for member in episode.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div></td>
+                          <td>{{ episode.mean_r|floatformat:3 }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <p class="muted">{% translate "No decoupling detected." %}</p>
               {% endif %}
             </div>
           </div>

@@ -447,6 +447,8 @@
 
   // Divergent synchronization episodes: the same band as a synchronization episode, outlined dashed in the Low blue.
   var DIVERGENT_STYLE = { color: "rgba(33,102,172,0.06)", borderColor: LOW, borderWidth: 1, borderType: "dashed" };
+  // Decoupling (no synchrony): unshaded, outlined dotted in grey.
+  var DECOUPLED_STYLE = { color: "rgba(0,0,0,0)", borderColor: T.ink3, borderWidth: 1, borderType: "dotted" };
 
   // Bands for episodes ({start, end, name, style}, in time order); without a `span` they are drawn unlabelled.
   function episodeMarkArea(episodes, span) {
@@ -497,13 +499,14 @@
     if (!series.length) {
       return null;
     }
-    // Synchronization episodes E1… and divergent ones D1…, numbered as in their tables.
+    // Synchronization episodes E1…, divergent ones D1… and decoupling U1…, numbered as in their tables.
     function marked(list, prefix, style) {
       return (list || []).map(function (episode, index) {
         return { start: scale.x(episode.start), end: scale.x(episode.end), name: prefix + (index + 1), style: style };
       });
     }
-    var episodes = marked(data.episodes, "E", null).concat(marked(data.divergent, "D", DIVERGENT_STYLE))
+    var episodes = marked(data.episodes, "E", null).concat(marked(data.divergent, "D", DIVERGENT_STYLE),
+                                                           marked(data.decoupled, "U", DECOUPLED_STYLE))
       .sort(function (a, b) {
         return a.start - b.start;
       });

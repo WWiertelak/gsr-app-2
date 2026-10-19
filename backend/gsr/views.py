@@ -696,6 +696,7 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
 
         sync_episodes = numbered(synchrony.get("episodes", []))
         divergent_episodes = numbered(synchrony.get("divergent_episodes", []))
+        decoupled_episodes = numbered(synchrony.get("decoupled_episodes", []))
         scale = chart_scale(project)
         context.update(
             synchrony=synchrony,
@@ -716,6 +717,9 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
             divergent_episodes=divergent_episodes if "divergent_episodes" in synchrony else None,
             divergent_rule=_("r ≤ −%(threshold)s in every window") % {
                 "threshold": params.display_number(config.synchrony_divergent_threshold)},
+            decoupled_episodes=decoupled_episodes if "decoupled_episodes" in synchrony else None,
+            decoupled_rule=_("mean |r| < %(threshold)s between the episodes") % {
+                "threshold": params.display_number(config.synchrony_decoupled_threshold)},
             cluster_members=" | ".join(" · ".join(cluster["members"])
                                        for cluster in synchrony.get("clusters", {}).get("clusters", [])),
             pairs=[{**pair, "significant": _significant(pair.get("p_value"))} for pair in synchrony.get("pairs", [])],
@@ -1211,6 +1215,7 @@ EXPORT_FILES = {
     **{name: "table" for name in (
         "synchrony_episodes.csv",
         "synchrony_divergent_episodes.csv",
+        "synchrony_decoupled_episodes.csv",
         "synchrony_pairs.csv",
         "synchrony_windows.csv",
         "coarousal_episodes.csv",
@@ -1278,9 +1283,10 @@ def _export_groups(project: Project, chart_count: int, vsr: dict[str, Any] | Non
             _("z-scores, downsampled, sensor clock and lesson time") if chart_scale(project) != "minmax"
             else _("min-max (0–1), downsampled, sensor clock and lesson time"), "CSV",
             [_export_file(project, "analysis_input_merged.csv")]),
-        row(_("Synchronization"), _("episodes, divergent episodes, pairs, windows"), "CSV×4", [
+        row(_("Synchronization"), _("episodes, divergent episodes, decoupling, pairs, windows"), "CSV×5", [
             _export_file(project, "synchrony_episodes.csv", _("episodes")),
             _export_file(project, "synchrony_divergent_episodes.csv", _("divergent episodes")),
+            _export_file(project, "synchrony_decoupled_episodes.csv", _("decoupling")),
             _export_file(project, "synchrony_pairs.csv", _("pairs")),
             _export_file(project, "synchrony_windows.csv", _("windows")),
         ]),

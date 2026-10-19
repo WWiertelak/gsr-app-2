@@ -161,6 +161,14 @@ _TR: dict[str, dict[str, str]] = {
         "divergent_mean": "Śr. r",
         "divergent_peak": "Najniższe r",
         "summary_divergent": "rozbieżne",
+        "decoupled_heading": "Rozprzężenie (brak synchronii)",
+        "decoupled_intro": "Odcinki między epizodami synchronizacji i rozbieżności pary, których korelacja liczona dla "
+                           "całego odcinka (średnia jego okien) mieści się w ±{threshold} (schemat VSR: "
+                           "„Asynchronous = below 0.1”; na wykresie: kropkowane pasma U).",
+        "decoupled_none": "Nie wykryto rozprzężenia.",
+        "decoupled_count": "Odcinki rozprzężenia",
+        "decoupled_pair": "Para",
+        "summary_decoupled": "rozprzężenie",
         "sync_pairs_heading": "Metryki par",
         "sync_pair": "Para",
         "sync_xcorr": "Maks. korel.",
@@ -370,6 +378,14 @@ _TR: dict[str, dict[str, str]] = {
         "divergent_mean": "Mean r",
         "divergent_peak": "Lowest r",
         "summary_divergent": "divergent",
+        "decoupled_heading": "Decoupling (no synchrony)",
+        "decoupled_intro": "Stretches between a pair's synchronization and divergent episodes whose correlation over "
+                           "the whole stretch (the mean of its windows) lies within ±{threshold} (the VSR flow chart: "
+                           "“Asynchronous = below 0.1”; on the chart: dotted U bands).",
+        "decoupled_none": "No decoupling detected.",
+        "decoupled_count": "Decoupling stretches",
+        "decoupled_pair": "Pair",
+        "summary_decoupled": "decoupling",
         "sync_pairs_heading": "Pairwise metrics",
         "sync_pair": "Pair",
         "sync_xcorr": "Max corr.",
@@ -671,7 +687,8 @@ def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, 
                  f"p={_fmt(sync_stats.get('mean_synchrony_p_value'))}",
                  f"{_fmt(sync_stats.get('episode_count'))} {episodes}; "
                  f"{_tr(lang, 'summary_max_group')}={_fmt(sync_stats.get('max_episode_size'))}",
-                 *([f"{_tr(lang, 'summary_divergent')}={_fmt(sync_stats['divergent_episode_count'])}"]
+                 *([f"{_tr(lang, 'summary_divergent')}={_fmt(sync_stats['divergent_episode_count'])}; "
+                    f"{_tr(lang, 'summary_decoupled')}={_fmt(sync_stats.get('decoupled_episode_count'))}"]
                    if "divergent_episode_count" in sync_stats else []),
              ] if synchrony else []),
         _kpi(_tr(lang, "summary_contagion"), coarousal.get("coarousal_index") if coarousal else "—",
@@ -846,6 +863,8 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
         [_tr(lang, "sync_group_p"), _fmt(stats.get("mean_synchrony_p_value"))],
         *([[_tr(lang, "divergent_count"), _fmt(stats["divergent_episode_count"])]]
           if "divergent_episode_count" in stats else []),
+        *([[_tr(lang, "decoupled_count"), _fmt(stats["decoupled_episode_count"])]]
+          if "decoupled_episode_count" in stats else []),
     ], first="metric", split=True)]
 
     lesson_clock = _lesson_clock(payload)
@@ -866,6 +885,24 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
         else:
             blocks.append(_p(_tr(lang, "divergent_none" if config.get("synchrony_signed", True)
                                      else "divergent_unsigned"), style="muted"))
+
+    if "decoupled_episodes" in synchrony:
+        blocks += [_h2(_tr(lang, "decoupled_heading")),
+                   _p(_tr(lang, "decoupled_intro").format(threshold=_fmt(config.get("synchrony_decoupled_threshold"))),
+                      style="muted")]
+        decoupled = synchrony["decoupled_episodes"]
+        if decoupled:
+            rows = []
+            for index, episode in enumerate(decoupled):
+                start, end = episode.get("start_relative"), episode.get("end_relative")
+                rows.append([_fmt(index + 1), _clock_span(lesson_clock, start, end),
+                             f"{_fmt_min(start)}–{_fmt_min(end)}", _fmt_min(end - start),
+                             _members(episode.get("members")), _fmt(episode.get("mean_r"))])
+            blocks.append(_table([_tr(lang, key) for key in ("no_seg", "sync_ep_clock", "sync_ep_time",
+                                                             "sync_ep_duration", "decoupled_pair", "divergent_mean")],
+                                 rows, numeric=(0, 3, 5)))
+        else:
+            blocks.append(_p(_tr(lang, "decoupled_none"), style="muted"))
 
     pairs = synchrony.get("pairs") or []
     if pairs:
@@ -1076,9 +1113,10 @@ def _section_methodology(payload: dict[str, Any], lang: str) -> dict[str, Any]:
             [_tr(lang, "res_sync"), _tr(lang, "res_sync_p"), _fmt(sstats.get("mean_synchrony_p_value")),
              p_reading(sstats.get("mean_synchrony_p_value"))],
         ]
-        if "divergent_episode_count" in sstats:
-            result_rows.append([_tr(lang, "res_sync"), _tr(lang, "divergent_count"),
-                                _fmt(sstats["divergent_episode_count"]), _tr(lang, "res_episodes_reading")])
+        for key, label in (("divergent_episode_count", "divergent_count"), ("decoupled_episode_count", "decoupled_count")):
+            if key in sstats:
+                result_rows.append([_tr(lang, "res_sync"), _tr(lang, label), _fmt(sstats[key]),
+                                    _tr(lang, "res_episodes_reading")])
     coarousal = payload.get("coarousal")
     if isinstance(coarousal, dict):
         cstats = coarousal.get("stats") or {}
