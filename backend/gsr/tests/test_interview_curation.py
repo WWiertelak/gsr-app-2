@@ -41,7 +41,7 @@ def lesson(tmp_path: Path) -> Project:
             "S2": Participant(tonic_us=4.2, coupling=0.7),
         },
         {},
-        seconds=600.0,
+        seconds=1200.0,
         seed=11,
     )
     project = Project.objects.create(name="Lekcja", pipeline_config=dict(FAST))
@@ -58,7 +58,7 @@ def proposed(lesson: Project) -> tuple[Project, AnalysisResult]:
         {
             "student_pairs": [["S1", "S2"]],
             "video_start_time": "11:59:00",
-            # A 10-minute sample lesson: two primary and two reserve moments keep every role on the list.
+            # A 20-minute sample lesson: two primary and two reserve moments keep every role on the list.
             "primary_moment_count": 2,
             "reserve_moment_count": 2,
         },

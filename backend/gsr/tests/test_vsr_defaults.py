@@ -14,10 +14,14 @@ from gsr.services.interview import load_interview_config
 
 
 def test_the_document_values_are_the_application_defaults_and_the_pipeline_keeps_gsrv2s() -> None:
-    # Page 1 of the document: "Synchronous = above 0.8" for both co-movement thresholds behind steps 1-2.
-    assert VSR_DOCUMENT_SETTINGS == {"synchrony_threshold": 0.8, "contagion_comovement_rho": 0.8}
+    # Page 1 of the document: "Synchronous = above 0.8" for both co-movement thresholds behind steps 1-2 and for the
+    # strength an interview moment needs.
+    assert VSR_DOCUMENT_SETTINGS == {"synchrony_threshold": 0.8, "contagion_comovement_rho": 0.8,
+                                     "synchrony_interview_threshold": 0.8}
     assert params.DEFAULTS["synchrony_threshold"] == 0.8 and params.DEFAULTS["contagion_comovement_rho"] == 0.8
     assert PipelineConfig().synchrony_threshold == 0.6 and PipelineConfig().contagion_comovement_rho == 0.3
+    # A setting GSRv2 did not have takes the document value everywhere, saved projects included.
+    assert PipelineConfig().synchrony_interview_threshold == 0.8
 
 
 @pytest.mark.django_db

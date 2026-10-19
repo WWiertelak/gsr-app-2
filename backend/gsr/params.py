@@ -238,7 +238,19 @@ COAROUSAL_ADVANCED = (
     ),
 )
 
-ANALYSIS_PARAMS = (*SYNCHRONY_ESSENTIAL, *SYNCHRONY_ADVANCED, *COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED)
+INTERVIEW_ESSENTIAL = (
+    Param(
+        "synchrony_interview_threshold",
+        _("Interview moment correlation (|r| at least)"),
+        _(
+            "The strength of correlation a moment needs to count as synchronous on the Interviews step: STEPS 1–2 "
+            "take a co-movement episode whose r is at least this (the VSR flow chart: “Synchronous = above 0.8”)."
+        ),
+    ),
+)
+
+ANALYSIS_PARAMS = (*SYNCHRONY_ESSENTIAL, *SYNCHRONY_ADVANCED, *COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED,
+                   *INTERVIEW_ESSENTIAL)
 
 
 def analysis_window(values: dict[str, Any], duration_seconds: float) -> dict[str, Any]:
@@ -414,7 +426,8 @@ def analysis_summary(values: dict[str, Any], applied: dict[str, Any] | None = No
         ],
         ANALYSIS_PARAMS, values, applied,
         {**{param.name: _("Synchronization") for param in (*SYNCHRONY_ESSENTIAL, *SYNCHRONY_ADVANCED)},
-         **{param.name: _("Co-arousal") for param in (*COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED)}},
+         **{param.name: _("Co-arousal") for param in (*COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED)},
+         **{param.name: _("Interviews") for param in INTERVIEW_ESSENTIAL}},
     )
 
 

@@ -128,7 +128,7 @@ def test_each_step_takes_its_kind_of_analysis_episode() -> None:
         _coarousal("High", 500, 560, ["S1", "S2"]),
         _coarousal("Low", 700, 760, ["S1", "S2"]),
     ]
-    windows = _windows([(100, 160, 0.9), (300, 360, 0.7), (1000, 1100, -0.5)])
+    windows = _windows([(100, 160, 0.9), (300, 360, 0.85), (1000, 1100, -0.5)])
 
     steps = _steps(synchrony, coarousal, windows)
 
@@ -145,7 +145,8 @@ def test_each_step_takes_its_kind_of_analysis_episode() -> None:
 
 
 def test_a_shared_state_overlapping_co_movement_is_step_1_only() -> None:
-    steps = _steps([_sync(100, 160, ["S1", "S2"])], [_coarousal("Low", 150, 300, ["S1", "S2"])], _windows([]))
+    steps = _steps([_sync(100, 160, ["S1", "S2"])], [_coarousal("Low", 150, 300, ["S1", "S2"])],
+                   _windows([(100, 160, 0.9)]))
 
     assert [c.shared_state for c in steps[1]] == [LOW]
     assert steps[3] == steps[4] == []
@@ -154,18 +155,39 @@ def test_a_shared_state_overlapping_co_movement_is_step_1_only() -> None:
 def test_step_1_names_the_shared_state_that_overlaps_most() -> None:
     coarousal = [_coarousal("Low", 90, 105, ["S1", "S2"]), _coarousal("High", 110, 170, ["S1", "S2"])]
 
-    steps = _steps([_sync(100, 160, ["S1", "S2"])], coarousal, _windows([]))
+    steps = _steps([_sync(100, 160, ["S1", "S2"])], coarousal, _windows([(100, 160, 0.9)]))
 
     assert steps[1][0].shared_state == HIGH
     assert steps[1][0].shared.number == 2
 
 
 def test_co_movement_episodes_of_the_co_arousal_tab_count_as_co_movement() -> None:
-    steps = _steps([], [_coarousal("Co-movement", 400, 520, ["S1", "S2", "S3"])], _windows([(400, 520, 0.6)]))
+    steps = _steps([], [_coarousal("Co-movement", 400, 520, ["S1", "S2", "S3"])], _windows([(400, 520, 0.85)]))
 
     candidate, = steps[2]
     assert (candidate.episode.source, candidate.episode.number) == (COAROUSAL, 1)
-    assert candidate.correlation == pytest.approx(0.6)
+    assert candidate.correlation == pytest.approx(0.85)
+
+
+def test_steps_1_and_2_need_the_interview_threshold() -> None:
+    # "Synchronous = above 0.8": a co-movement episode whose moment r is 0.69 answers neither STEPS 1-2 nor STEP 5,
+    # and does not keep the shared state it overlaps out of STEP 3.
+    synchrony = [_sync(100, 160, ["S1", "S2"]), _sync(300, 360, ["S1", "S2"]), _sync(500, 560, ["S1", "S2"])]
+    coarousal = [_coarousal("High", 120, 200, ["S1", "S2"])]
+    windows = _windows([(100, 160, 0.69), (300, 360, 0.8), (500, 560, 0.79)])
+
+    steps = _steps(synchrony, coarousal, windows)
+
+    assert CONFIG.synchrony_interview_threshold == 0.8
+    assert steps[1] == [] and [c.start_seconds for c in steps[2]] == [300.0]
+    assert [c.episode.number for c in steps[3]] == [1]
+    assert all(c.episode is None or c.episode.source != SYNCHRONY for c in steps[5])
+    stricter = interview_episodes("dyad", ["S1", "S2"], {"episodes": synchrony}, {"episodes": coarousal}, CONFIG,
+                                  LESSON)
+    lowered = candidates_by_step(windows, *stricter, CONFIG.model_copy(update={"synchrony_interview_threshold": 0.6}),
+                                 LESSON)
+    assert [c.start_seconds for c in lowered[1]] == [100.0]
+    assert [c.start_seconds for c in lowered[2]] == pytest.approx([300.0, 500.0])
 
 
 def test_no_synchrony_needs_a_negative_correlation_for_the_minimum_episode_duration() -> None:
@@ -188,7 +210,7 @@ def test_no_synchrony_stays_outside_the_interviews_episodes() -> None:
 
 def test_an_episode_whose_signals_moved_in_opposite_directions_is_no_synchrony() -> None:
     # An unsigned-synchrony Analysis finds an anti-phase subgroup; it is no co-movement.
-    windows = _windows([(100, 160, -0.9), (600, 700, 0.6)])
+    windows = _windows([(100, 160, -0.9), (600, 700, 0.85)])
     synchrony = [_sync(100, 160, ["S1", "S2"])]
     coarousal = [_coarousal("High", 130, 200, ["S1", "S2"]), _coarousal("Co-movement", 600, 700, ["S1", "S2"])]
 
@@ -248,12 +270,13 @@ def test_a_saved_project_keeps_no_synchrony_below_zero() -> None:
     steps = _steps(synchrony, [], windows, asynchrony_threshold=0.0)
 
     assert [(c.start_seconds, c.end_seconds) for c in steps[5]] == [(800.0, 860.0)]
-    assert [round(c.start_seconds) for c in steps[2]] == [1000]
+    # Its r of 0.05 is not synchronous either.
+    assert steps[2] == []
 
 
 def test_candidates_of_one_step_are_ranked_strongest_first() -> None:
     synchrony = [_sync(100, 140, ["S1", "S2"]), _sync(300, 400, ["S1", "S2"]), _sync(600, 640, ["S1", "S2"])]
-    windows = _windows([(100, 140, 0.7), (300, 400, 0.7), (600, 640, 0.95), (900, 960, -0.2), (1200, 1240, -0.8)])
+    windows = _windows([(100, 140, 0.85), (300, 400, 0.85), (600, 640, 0.95), (900, 960, -0.2), (1200, 1240, -0.8)])
     coarousal = [_coarousal("High", 1400, 1440, ["T", "S1"]), _coarousal("High", 1500, 1600, ["T", "S1", "S2"])]
 
     steps = _steps(synchrony, coarousal, windows)

@@ -675,6 +675,7 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         "coarousal_essential": params.field_rows(params.COAROUSAL_ESSENTIAL, values),
         "coarousal_advanced": coarousal_advanced,
         "coarousal_advanced_changed": any(row["modified"] for row in coarousal_advanced),
+        "interview_essential": params.field_rows(params.INTERVIEW_ESSENTIAL, values),
         "settings_summary": params.analysis_summary(values, _applied_values(result)),
         "result": result,
         "stale": is_stale(project, result),

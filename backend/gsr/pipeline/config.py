@@ -53,6 +53,7 @@ _FIELD_RULES: dict[str, tuple[Any, ...]] = {
     "synchrony_episode_min_size": (_INT, 2, 50),
     "synchrony_episode_min_duration_seconds": (_FLOAT, 0.0, 3600.0),
     "synchrony_episode_max_gap_seconds": (_FLOAT, 0.0, 600.0),
+    "synchrony_interview_threshold": (_FLOAT, 0.0, 1.0),
     "contagion_high_z": (_FLOAT, 0.0, 10.0),
     "contagion_low_z": (_FLOAT, -10.0, 0.0),
     "contagion_window_seconds": (_FLOAT, 1.0, 600.0),
@@ -69,11 +70,15 @@ _FIELD_RULES: dict[str, tuple[Any, ...]] = {
 _NULLABLE = {"time_range_from", "time_range_to"}
 
 # The Analysis values the "VSR Interview Flow Chart" suggests (page 1, GSR participants: "Correlation criteria for
-# types of synchrony ... Synchronous = above 0.8"): both co-movement thresholds behind its steps 1-2. New projects
-# start with them; ``PipelineConfig`` keeps GSRv2's defaults, so the pipeline and saved projects are unchanged.
+# types of synchrony ... Synchronous = above 0.8", read as the strength of the correlation): both co-movement
+# thresholds behind its steps 1-2, and the strength an interview moment needs. New projects start with them and
+# "Reset defaults" restores them; ``PipelineConfig`` keeps GSRv2's defaults for GSRv2's own settings, so saved
+# projects keep theirs, and takes the settings GSRv2 did not have from here, so each is one number to change.
 VSR_DOCUMENT_SETTINGS: dict[str, Any] = {
     "synchrony_threshold": 0.8,
     "contagion_comovement_rho": 0.8,
+    # STEPS 1-2 take a moment whose r is at least this; Hassan's e-mail: "ideally above .80 for the interviews".
+    "synchrony_interview_threshold": 0.8,
 }
 
 
@@ -169,6 +174,8 @@ class PipelineConfig:
     # window aren't independently resolvable, so this filters transient blips.
     synchrony_episode_min_duration_seconds: float = 30.0
     synchrony_episode_max_gap_seconds: float = 15.0
+    # VSR interview moments (not in GSRv2): the correlation strength a moment needs to count as synchronous.
+    synchrony_interview_threshold: float = VSR_DOCUMENT_SETTINGS["synchrony_interview_threshold"]
     # Co-arousal (shared arousal, "contagion" in GSRv2). The ``contagion_*`` names
     # are kept so GSRv2 configs load unchanged. z-scoring is computed WITHIN the
     # analysis window, contributors require positive (in-phase) correlation, and

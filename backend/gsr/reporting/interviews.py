@@ -97,8 +97,9 @@ _TEXT: dict[str, dict[str, str]] = {
                             " próg asynchronii kroku 5. Epizod należy do pary, gdy obaj uczniowie są w nim (członkowie"
                             " podgrupy synchronizacji lub uczestnicy epizodu ko-pobudzenia), a do wywiadu z "
                             "nauczycielem, gdy jest w nim nauczyciel i co najmniej jeden uczeń. Kroki schematu VSR: 1 "
-                            "to epizod ko-ruchu (synchronizacji lub ko-ruchu z zakładki Ko-pobudzenie) nakładający się"
-                            " na wspólny stan Wysoki lub Niski, 2 epizod ko-ruchu bez wspólnego stanu, 3 i 4 epizod "
+                            "to epizod ko-ruchu (synchronizacji lub ko-ruchu z zakładki Ko-pobudzenie), którego r "
+                            "osiąga próg momentu wywiadu (schemat VSR: „Synchronous = above 0.8”), nakładający się"
+                            " na wspólny stan Wysoki lub Niski, 2 taki epizod ko-ruchu bez wspólnego stanu, 3 i 4 epizod "
                             "wspólnego stanu Wysokiego lub Niskiego bez ko-ruchu, 5 epizod ko-ruchu, którego r jest "
                             "poniżej progu asynchronii (schemat VSR: poniżej 0,1; poniżej zera sygnały zmieniały się w"
                             " przeciwnym kierunku, od zera nie były powiązane), albo odcinek poza tymi epizodami, w "
@@ -187,8 +188,9 @@ _TEXT: dict[str, dict[str, str]] = {
                             "students are in it (members of a synchronization subgroup or contributors of a co-arousal"
                             " episode), and to the teacher interview when the teacher and at least one student are. "
                             "The steps of the VSR flow chart: 1 is a co-movement episode (synchronization, or "
-                            "co-movement on the Co-arousal tab) overlapping a shared High or Low state, 2 a "
-                            "co-movement episode without a shared state, 3 and 4 a shared High or Low episode without "
+                            "co-movement on the Co-arousal tab) whose r reaches the interview moment threshold (the "
+                            "VSR flow chart: “Synchronous = above 0.8”) overlapping a shared High or Low state, 2 such "
+                            "a co-movement episode without a shared state, 3 and 4 a shared High or Low episode without "
                             "co-movement, 5 a co-movement episode whose r is below the asynchrony threshold (the VSR "
                             "flow chart: below 0.1; below zero the signals moved in the opposite direction, from zero "
                             "up they were not related), or a stretch outside those episodes where the correlation in "
@@ -207,8 +209,8 @@ _TEXT: dict[str, dict[str, str]] = {
 # The Analysis settings the section states, in the Analysis' own labels.
 _SETTINGS = (
     "synchrony_threshold", "synchrony_window_seconds", "synchrony_step_seconds",
-    "synchrony_episode_min_duration_seconds", "synchrony_episode_max_gap_seconds", "contagion_high_z",
-    "contagion_low_z",
+    "synchrony_episode_min_duration_seconds", "synchrony_episode_max_gap_seconds", "synchrony_interview_threshold",
+    "contagion_high_z", "contagion_low_z",
 )
 
 

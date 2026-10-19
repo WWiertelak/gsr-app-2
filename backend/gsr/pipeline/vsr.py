@@ -5,8 +5,9 @@ takes the episodes the Analysis step found, with the Analysis settings they were
 with, and sorts them into the document's STEPS 1-5 for every interview:
 
   1. co-movement and a shared arousal state - a synchronization episode (Synchronization
-     tab) or a co-movement episode (Co-arousal tab) of the interview's people, with a
-     positive r, that overlaps a shared High or Low episode (Co-arousal tab) of the same people;
+     tab) or a co-movement episode (Co-arousal tab) of the interview's people whose r is
+     at least the interview threshold (the document: "Synchronous = above 0.8"), that
+     overlaps a shared High or Low episode (Co-arousal tab) of the same people;
   2. co-movement only - such a co-movement episode that overlaps no shared state;
   3. shared High arousal - a shared High episode that overlaps no co-movement;
   4. shared Low arousal - a shared Low episode that overlaps no co-movement;
@@ -75,6 +76,7 @@ ANALYSIS_SETTINGS = (
     "synchrony_episode_min_size",
     "synchrony_episode_min_duration_seconds",
     "synchrony_episode_max_gap_seconds",
+    "synchrony_interview_threshold",
     "contagion_high_z",
     "contagion_low_z",
     "contagion_min_participants",
@@ -334,8 +336,9 @@ def candidates_by_step(windows: Windows, comovement: list[Episode], shared: list
                        asynchrony_threshold: float = DEFAULT_ASYNCHRONY_THRESHOLD) -> dict[int, list[Candidate]]:
     """Every Analysis episode of the interview as the step it answers, strongest first within a step.
 
-    A co-movement episode answers STEPS 1-2 only with a positive r at or above ``asynchrony_threshold``;
-    otherwise it answers STEP 5.
+    A co-movement episode answers STEPS 1-2 only when its r reaches the interview threshold (the document:
+    "Synchronous = above 0.8"); with r below ``asynchrony_threshold`` it answers STEP 5, and in between none
+    (the document's criteria leave that band neither synchronous nor asynchronous).
     """
     steps: dict[int, list[Candidate]] = {number: [] for number in STEP_NUMBERS}
     same_direction: list[Episode] = []
@@ -344,6 +347,8 @@ def candidates_by_step(windows: Windows, comovement: list[Episode], shared: list
         correlation = windows.mean(episode.start_seconds, episode.end_seconds)
         if correlation <= 0.0 or correlation < asynchrony_threshold:
             opposite.append(Candidate(5, episode.start_seconds, episode.end_seconds, correlation, episode=episode))
+            continue
+        if round(correlation, 2) < config.synchrony_interview_threshold:
             continue
         same_direction.append(episode)
         state = _overlapping(episode, shared)
