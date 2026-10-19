@@ -15,7 +15,7 @@ from django.utils.text import capfirst
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 
-from .pipeline.vsr import HIGH, STEP_NUMBERS, SYNCHRONY
+from .pipeline.vsr import AGGREGATE, HIGH, STEP_NUMBERS, SYNCHRONY
 from .templatetags.gsr_tags import seconds_mmss
 
 
@@ -53,6 +53,10 @@ def _times(start: float, end: float) -> str:
 
 
 def _episode(episode: dict[str, Any], times: str) -> str:
+    if episode["source"] == AGGREGATE:
+        if episode.get("state") is None:
+            return _("co-movement of the teacher and the students' average, %(times)s") % {"times": times}
+        return _("co-arousal of the teacher and the students' average, %(times)s") % {"times": times}
     if episode["source"] == SYNCHRONY:
         return _("synchronization episode E%(number)s, %(times)s") % {"number": episode["number"], "times": times}
     if episode.get("state") is None:
@@ -62,12 +66,17 @@ def _episode(episode: dict[str, Any], times: str) -> str:
 
 
 def shared_state(proposal: dict[str, Any], kind: str) -> str | None:
-    """Who was in the shared arousal state: both people of a pair, or the teacher and how many students."""
+    """Who was in the shared arousal state: both people of a pair, the teacher and the students' average, or (moments
+    chosen before the teacher interview used the students' average) the teacher and how many students."""
     state = proposal.get("shared_state")
     if state is None:
         return None
     if kind != "teacher":
         return _("both people in the High state") if state == HIGH else _("both people in the Low state")
+    state_episode = proposal.get("shared_episode") if proposal.get("step") == 1 else proposal.get("episode")
+    if (state_episode or {}).get("source") == AGGREGATE:
+        return (_("the teacher and the students' average in the High state") if state == HIGH
+                else _("the teacher and the students' average in the Low state"))
     values = {"count": proposal["in_state"], "total": proposal["people"]}
     if state == HIGH:
         return ngettext("the teacher and %(count)s of %(total)s student in the High state",

@@ -66,6 +66,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "time_changed": "czas zmieniony",
         "synchrony_episode": "synchronizacja E{number}",
         "coarousal_episode": "ko-pobudzenie {number}",
+        "aggregate_episode": "nauczyciel i średnia uczniów",
         "curated_note": "Lista momentów to lista badacza z kroku 4 Wywiady: kolejność decyduje o roli (pierwsze "
                         "momenty niewykluczone są główne, reszta rezerwowa), a uwzględnione są zaakceptowane, "
                         "przesunięte i dodane ręcznie momenty wraz z powodami i notatkami. Momenty odrzucone "
@@ -95,8 +96,10 @@ _TEXT: dict[str, dict[str, str]] = {
         "method_title": "8. Momenty do wywiadów VSR",
         "method_selection": "Momenty pochodzą z wyników Analizy, z tymi samymi ustawieniami; krok Wywiady dodaje tylko"
                             " próg asynchronii kroku 5. Epizod należy do pary, gdy obaj uczniowie są w nim (członkowie"
-                            " podgrupy synchronizacji lub uczestnicy epizodu ko-pobudzenia), a do wywiadu z "
-                            "nauczycielem, gdy jest w nim nauczyciel i co najmniej jeden uczeń. Kroki schematu VSR: 1 "
+                            " podgrupy synchronizacji lub uczestnicy epizodu ko-pobudzenia). Wywiad z nauczycielem to "
+                            "para: nauczyciel i średnia sygnałów uczniów (schemat VSR: momenty na podstawie "
+                            "zagregowanych danych nauczyciela i uczniów); jej epizody wyznaczają te same funkcje i "
+                            "ustawienia Analizy. Kroki schematu VSR: 1 "
                             "to epizod ko-ruchu (synchronizacji lub ko-ruchu z zakładki Ko-pobudzenie), którego r "
                             "osiąga próg momentu wywiadu (schemat VSR: „Synchronous = above 0.8”), nakładający się"
                             " na wspólny stan Wysoki lub Niski, 2 taki epizod ko-ruchu bez wspólnego stanu, 3 i 4 epizod "
@@ -108,9 +111,9 @@ _TEXT: dict[str, dict[str, str]] = {
         "method_choice": "Korelacja r momentu to średnia z okien zakładki Synchronizacja (to samo okno, krok i "
                          "metoda) dla sygnałów pary albo nauczyciela i średniej uczniów (każdy uczeń w z-score, "
                          "potem średnia ponownie w z-score). Gdy kilka epizodów spełnia ten sam krok, pierwszy jest "
-                         "najsilniejszy: najwyższe r w krokach 1–2, najwięcej osób we wspólnym stanie w krokach "
-                         "3–4, najniższe r w kroku 5, potem dłuższy. Kroki 1–5 przechodzi się od początku (krok 6), "
-                         "aż wybrano momenty główne, potem rezerwowe. Momenty nie mogą się nakładać.",
+                         "najsilniejszy: najwyższe r w krokach 1–2, najniższe r w kroku 5, potem dłuższy. Kroki 1–5 "
+                         "przechodzi się od początku (krok 6), aż wybrano momenty główne, potem rezerwowe. Momenty "
+                         "nie mogą się nakładać.",
     },
     "en": {
         "title": "Moments for VSR interviews",
@@ -156,6 +159,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "time_changed": "time changed",
         "synchrony_episode": "synchronization E{number}",
         "coarousal_episode": "co-arousal {number}",
+        "aggregate_episode": "teacher and students' average",
         "curated_note": "The list of moments is the researcher's list from the Interviews step: its order decides "
                         "the role (the first moments not rejected are primary, the rest reserve), and it holds the "
                         "accepted, retimed and manually added moments with their reasons and notes. Moments the "
@@ -186,7 +190,9 @@ _TEXT: dict[str, dict[str, str]] = {
         "method_selection": "The moments come from the Analysis results, with the same settings; the Interviews step "
                             "adds only the asynchrony threshold of step 5. An episode belongs to a pair when both "
                             "students are in it (members of a synchronization subgroup or contributors of a co-arousal"
-                            " episode), and to the teacher interview when the teacher and at least one student are. "
+                            " episode). The teacher interview is a pair: the teacher and the students' average signal "
+                            "(the VSR flow chart: moments based on the teacher and student aggregated data); the same "
+                            "Analysis functions and settings find its episodes. "
                             "The steps of the VSR flow chart: 1 is a co-movement episode (synchronization, or "
                             "co-movement on the Co-arousal tab) whose r reaches the interview moment threshold (the "
                             "VSR flow chart: “Synchronous = above 0.8”) overlapping a shared High or Low state, 2 such "
@@ -199,8 +205,8 @@ _TEXT: dict[str, dict[str, str]] = {
         "method_choice": "A moment's correlation r is the mean over the Synchronization tab's windows (same window, "
                          "step and method) of the pair's signals, or of the teacher and the students' average (each "
                          "student z-scored, then the average z-scored again). When several episodes answer the "
-                         "same step, the strongest comes first: the highest r in steps 1–2, the most people in the "
-                         "shared state in steps 3–4, the lowest r in step 5, then the longer one. Steps 1–5 are "
+                         "same step, the strongest comes first: the highest r in steps 1–2, the lowest r in step 5, "
+                         "then the longer one. Steps 1–5 are "
                          "walked again (step 6) until the primary moments are chosen, then the reserve. Moments "
                          "may not overlap.",
     },
@@ -260,7 +266,8 @@ def _episode_cell(lang: str, moment: dict[str, Any]) -> str:
     episode = moment["episode"]
     if not episode:
         return "—"
-    key = "synchrony_episode" if episode["source"] == "synchrony" else "coarousal_episode"
+    key = {"synchrony": "synchrony_episode", "aggregate": "aggregate_episode"}.get(episode["source"],
+                                                                               "coarousal_episode")
     return _t(lang, key, number=episode["number"])
 
 

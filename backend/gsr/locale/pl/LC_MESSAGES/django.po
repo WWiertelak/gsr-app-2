@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-19 20:11+0000\n"
+"POT-Creation-Date: 2026-10-19 20:16+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -2740,30 +2740,48 @@ msgstr "brak synchronii"
 msgid "Step %(number)s · %(name)s"
 msgstr "Krok %(number)s · %(name)s"
 
-#: gsr/vsr_text.py:57
+#: gsr/vsr_text.py:58
+#, python-format
+msgid "co-movement of the teacher and the students' average, %(times)s"
+msgstr "ko-ruch nauczyciela i średniej uczniów, %(times)s"
+
+#: gsr/vsr_text.py:59
+#, python-format
+msgid "co-arousal of the teacher and the students' average, %(times)s"
+msgstr "ko-pobudzenie nauczyciela i średniej uczniów, %(times)s"
+
+#: gsr/vsr_text.py:61
 #, python-format
 msgid "synchronization episode E%(number)s, %(times)s"
 msgstr "epizod synchronizacji E%(number)s, %(times)s"
 
-#: gsr/vsr_text.py:59
+#: gsr/vsr_text.py:63
 #, python-format
 msgid "co-movement episode %(number)s of the co-arousal, %(times)s"
 msgstr "epizod ko-ruchu nr %(number)s z Ko-pobudzenia, %(times)s"
 
-#: gsr/vsr_text.py:61
+#: gsr/vsr_text.py:65
 #, python-format
 msgid "co-arousal episode %(number)s, %(times)s"
 msgstr "epizod ko-pobudzenia nr %(number)s, %(times)s"
 
-#: gsr/vsr_text.py:70
+#: gsr/vsr_text.py:75
 msgid "both people in the High state"
 msgstr "obie osoby w stanie Wysokim"
 
-#: gsr/vsr_text.py:70
+#: gsr/vsr_text.py:75
 msgid "both people in the Low state"
 msgstr "obie osoby w stanie Niskim"
 
-#: gsr/vsr_text.py:73
+#: gsr/vsr_text.py:78
+msgid "the teacher and the students' average in the High state"
+msgstr "nauczyciel i średnia uczniów w stanie Wysokim"
+
+#: gsr/vsr_text.py:79
+msgid "the teacher and the students' average in the Low state"
+msgstr "nauczyciel i średnia uczniów w stanie Niskim"
+
+#: gsr/vsr_text.py:82
 #, python-format
 msgid "the teacher and %(count)s of %(total)s student in the High state"
 msgid_plural ""
@@ -2772,7 +2790,7 @@ msgstr[0] "nauczyciel i %(count)s z %(total)s ucznia w stanie Wysokim"
 msgstr[1] "nauczyciel i %(count)s z %(total)s uczniów w stanie Wysokim"
 msgstr[2] "nauczyciel i %(count)s z %(total)s uczniów w stanie Wysokim"
 
-#: gsr/vsr_text.py:75
+#: gsr/vsr_text.py:84
 #, python-format
 msgid "the teacher and %(count)s of %(total)s student in the Low state"
 msgid_plural "the teacher and %(count)s of %(total)s students in the Low state"
@@ -2780,28 +2798,28 @@ msgstr[0] "nauczyciel i %(count)s z %(total)s ucznia w stanie Niskim"
 msgstr[1] "nauczyciel i %(count)s z %(total)s uczniów w stanie Niskim"
 msgstr[2] "nauczyciel i %(count)s z %(total)s uczniów w stanie Niskim"
 
-#: gsr/vsr_text.py:85
+#: gsr/vsr_text.py:94
 msgid "no shared arousal state"
 msgstr "bez wspólnego stanu pobudzenia"
 
-#: gsr/vsr_text.py:87
+#: gsr/vsr_text.py:96
 msgid "no co-movement"
 msgstr "bez ko-ruchu"
 
-#: gsr/vsr_text.py:88
+#: gsr/vsr_text.py:97
 msgid "the signals moved in the opposite direction"
 msgstr "sygnały zmieniały się w przeciwnym kierunku"
 
-#: gsr/vsr_text.py:89
+#: gsr/vsr_text.py:98
 msgid "the signals were not related"
 msgstr "sygnały nie były powiązane"
 
-#: gsr/vsr_text.py:92
+#: gsr/vsr_text.py:101
 #, python-format
 msgid "%(times)s outside the synchronization and co-arousal episodes"
 msgstr "%(times)s poza epizodami synchronizacji i ko-pobudzenia"
 
-#: gsr/vsr_text.py:103
+#: gsr/vsr_text.py:112
 #, python-format
 msgid "VSR flow chart step %(step)s: %(name)s"
 msgstr "Krok %(step)s schematu VSR: %(name)s"

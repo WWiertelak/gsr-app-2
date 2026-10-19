@@ -194,6 +194,8 @@ def _episode_label(episode: dict[str, Any] | None) -> str | None:
     """The Analysis episode a moment came from, as the Analysis screen numbers it."""
     if not episode:
         return None
+    if episode["source"] == "aggregate":
+        return "teacher and students' average"
     if episode["source"] == "synchrony":
         return f"synchronization E{episode['number']}"
     return f"co-arousal {episode['number']}"

@@ -16,11 +16,13 @@ from django.utils import translation
 
 from gsr import vsr_text
 from gsr.pipeline.coarousal import compute_coarousal
-from gsr.pipeline.common import PipelineError
+from gsr.pipeline.common import PipelineError, _zscore
 from gsr.pipeline.config import PipelineConfig
 from gsr.pipeline.preprocessing import run_pipeline
 from gsr.pipeline.synchrony import compute_synchrony
 from gsr.pipeline.vsr import (
+    AGGREGATE,
+    AGGREGATE_PAIR,
     COAROUSAL,
     DEFAULT_ASYNCHRONY_THRESHOLD,
     HIGH,
@@ -33,6 +35,7 @@ from gsr.pipeline.vsr import (
     Proposal,
     Windows,
     _moment_payload,
+    aggregate_analysis,
     aggregate_student_signal,
     candidates_by_step,
     compute_vsr,
@@ -66,11 +69,10 @@ def _windows(values_by_span: list[tuple[float, float, float]], end: float = 1800
     return Windows(centers, values)
 
 
-def _steps(synchrony: list[dict], coarousal: list[dict], windows: Windows, kind: str = "dyad",
-           participants: list[str] | None = None,
+def _steps(synchrony: list[dict], coarousal: list[dict], windows: Windows,
            asynchrony_threshold: float = DEFAULT_ASYNCHRONY_THRESHOLD) -> dict[int, list[Candidate]]:
-    comovement, shared = interview_episodes(kind, participants or ["S1", "S2"], {"episodes": synchrony},
-                                            {"episodes": coarousal}, CONFIG, LESSON)
+    comovement, shared = interview_episodes(["S1", "S2"], {"episodes": synchrony}, {"episodes": coarousal}, CONFIG,
+                                            LESSON)
     return candidates_by_step(windows, comovement, shared, CONFIG, LESSON, asynchrony_threshold)
 
 
@@ -86,8 +88,8 @@ def test_pair_episodes_are_the_analysis_episodes_both_students_are_in() -> None:
         _coarousal("Low", 700, 760, ["S2", "S1"]),
     ]
 
-    comovement, shared = interview_episodes("dyad", ["S1", "S2"], {"episodes": synchrony}, {"episodes": coarousal},
-                                            CONFIG, LESSON)
+    comovement, shared = interview_episodes(["S1", "S2"], {"episodes": synchrony}, {"episodes": coarousal}, CONFIG,
+                                            LESSON)
 
     # Numbered as on the Analysis screen: E1, E3 on Synchronization, 3 on Co-arousal.
     assert [(episode.source, episode.number) for episode in comovement] == [
@@ -97,20 +99,42 @@ def test_pair_episodes_are_the_analysis_episodes_both_students_are_in() -> None:
     assert (comovement[0].start_seconds, comovement[0].end_seconds) == pytest.approx((60.0, 120.0))
 
 
-def test_teacher_episodes_need_the_teacher_and_at_least_one_student() -> None:
-    synchrony = [_sync(60, 120, ["T", "S1"]), _sync(200, 260, ["S1", "S2"]), _sync(300, 360, ["T", "X"])]
-    coarousal = [_coarousal("High", 400, 460, ["T", "S1", "S2", "S3"]), _coarousal("High", 500, 560, ["S1", "S2"])]
+def test_the_teacher_interview_is_analysed_as_the_teacher_and_the_students_average() -> None:
+    # The Analysis functions on the pair: a shared wave makes a synchronization and a co-movement episode, a stretch
+    # where both are high a shared High episode.
+    minutes = np.arange(0, 1200) / 60.0
+    rng = np.random.default_rng(3)
+    teacher, students = rng.normal(0, 0.3, len(minutes)), rng.normal(0, 0.3, len(minutes))
+    wave = np.sin(2 * np.pi * np.arange(120) / 40.0) * 2.0
+    teacher[300:420] += wave
+    students[300:420] += wave
+    teacher[800:900] += 3.0
+    students[800:900] += 3.0
 
-    comovement, shared = interview_episodes("teacher", ["T", "S1", "S2", "S3", "S4", "S5", "S6"],
-                                            {"episodes": synchrony}, {"episodes": coarousal}, CONFIG, LESSON)
+    synchrony, coarousal = aggregate_analysis(_zscore(teacher), _zscore(students), minutes, CONFIG)
+    comovement, shared = interview_episodes(AGGREGATE_PAIR, synchrony, coarousal, CONFIG, (0.0, 1199.0),
+                                            source=AGGREGATE)
 
-    assert [episode.number for episode in comovement] == [1]
-    assert [(episode.number, episode.in_episode, episode.people) for episode in shared] == [(1, 3, 6)]
+    assert synchrony["aliases"] == list(AGGREGATE_PAIR) and len(synchrony["windows"]["pairs"]) == 1
+    assert comovement and all(episode.source == AGGREGATE for episode in comovement + shared)
+    # The shared wave: a synchronization episode and a co-arousal co-movement episode around it.
+    assert len([episode for episode in comovement
+                if episode.overlap(300, 420) and 270 <= episode.start_seconds and episode.end_seconds <= 450]) == 2
+    assert [(episode.state, episode.in_episode, episode.people) for episode in shared if episode.overlap(800, 900)] \
+        == [(HIGH, 2, 2)]
+
+    # Named as the teacher with the students' average, not as an Analysis episode.
+    windows = _windows([(780, 920, 0.1)])
+    high = candidates_by_step(windows, comovement, shared, CONFIG, (0.0, 1199.0))[3][0]
+    with translation.override("en"):
+        sentence = vsr_text.justification(_moment_payload(Proposal(1, PRIMARY, 1, 1, 1, high), None), "teacher")
+    assert "co-arousal of the teacher and the students' average" in sentence
+    assert "the teacher and the students' average in the High state" in sentence and "of 6" not in sentence
 
 
 def test_a_single_window_episode_gets_the_window_it_was_measured_over() -> None:
-    comovement, _shared = interview_episodes("dyad", ["S1", "S2"], {"episodes": [_sync(100, 100, ["S1", "S2"]),
-                                                                                  _sync(5, 5, ["S1", "S2"])]},
+    comovement, _shared = interview_episodes(["S1", "S2"], {"episodes": [_sync(100, 100, ["S1", "S2"]),
+                                                                          _sync(5, 5, ["S1", "S2"])]},
                                              {"episodes": []}, CONFIG, LESSON)
 
     assert (comovement[0].start_seconds, comovement[0].end_seconds) == pytest.approx((85.0, 115.0))
@@ -182,8 +206,7 @@ def test_steps_1_and_2_need_the_interview_threshold() -> None:
     assert steps[1] == [] and [c.start_seconds for c in steps[2]] == [300.0]
     assert [c.episode.number for c in steps[3]] == [1]
     assert all(c.episode is None or c.episode.source != SYNCHRONY for c in steps[5])
-    stricter = interview_episodes("dyad", ["S1", "S2"], {"episodes": synchrony}, {"episodes": coarousal}, CONFIG,
-                                  LESSON)
+    stricter = interview_episodes(["S1", "S2"], {"episodes": synchrony}, {"episodes": coarousal}, CONFIG, LESSON)
     lowered = candidates_by_step(windows, *stricter, CONFIG.model_copy(update={"synchrony_interview_threshold": 0.6}),
                                  LESSON)
     assert [c.start_seconds for c in lowered[1]] == [100.0]
@@ -277,17 +300,16 @@ def test_a_saved_project_keeps_no_synchrony_below_zero() -> None:
 def test_candidates_of_one_step_are_ranked_strongest_first() -> None:
     synchrony = [_sync(100, 140, ["S1", "S2"]), _sync(300, 400, ["S1", "S2"]), _sync(600, 640, ["S1", "S2"])]
     windows = _windows([(100, 140, 0.85), (300, 400, 0.85), (600, 640, 0.95), (900, 960, -0.2), (1200, 1240, -0.8)])
-    coarousal = [_coarousal("High", 1400, 1440, ["T", "S1"]), _coarousal("High", 1500, 1600, ["T", "S1", "S2"])]
+    coarousal = [_coarousal("High", 1400, 1440, ["S1", "S2"]), _coarousal("High", 1500, 1600, ["S1", "S2"])]
 
     steps = _steps(synchrony, coarousal, windows)
-    teacher = _steps([], coarousal, _windows([]), kind="teacher", participants=["T", "S1", "S2"])
 
     # Highest r first, then the longer one.
     assert [c.start_seconds for c in steps[2]] == [600.0, 300.0, 100.0]
     # Lowest r first.
     assert [c.start_seconds for c in steps[5]] == [1200.0, 900.0]
-    # The most people in the shared state first.
-    assert [(c.episode.in_episode, c.start_seconds) for c in teacher[3]] == [(2, 1500.0), (1, 1400.0)]
+    # Both people are in every shared state of a pair: the longer one first.
+    assert [c.start_seconds for c in steps[3]] == [1500.0, 1400.0]
 
 
 # ─── STEP 6: walking the steps until the moments are chosen ────────────────
@@ -397,6 +419,44 @@ def test_compute_vsr_builds_one_interview_per_pair_and_one_for_the_teacher(tmp_p
             assert moment["start_seconds"] < moment["end_seconds"]
             assert moment["step"] in range(1, 6)
             assert (moment["episode"] is None) == (moment["step"] == 5)
+
+
+def _class_recordings(tmp_path: Path, together: dict[str, tuple[float, float]], seconds: float = 900.0) -> dict:
+    """A teacher T and students S1-S6 with independent responses; the aliases in ``together`` share a strong wave
+    in the given (start, end) seconds."""
+    from .sample_data import SAMPLE_PERIOD_MS, _scr, write_esense_csv
+
+    rng = np.random.default_rng(11)
+    t = np.arange(int(seconds * 1000 / SAMPLE_PERIOD_MS)) * SAMPLE_PERIOD_MS / 1000.0
+    files = {}
+    for alias in ["T", "S1", "S2", "S3", "S4", "S5", "S6"]:
+        signal = 5.0 + 0.3 * np.sin(t / 300.0 + rng.uniform(0, 6))
+        for onset in rng.uniform(30, seconds - 30, size=15):
+            signal = signal + 0.5 * rng.uniform(0.6, 1.3) * _scr(t, onset)
+        for start, end in [span for name, span in together.items() if alias in name.split("+")]:
+            signal = signal + 0.8 * np.sin(2 * np.pi * (t - start) / 18.0) * ((t > start) & (t < end))
+        files[alias] = write_esense_csv(tmp_path / f"{alias}.csv", signal + rng.normal(0, 0.02, len(t)))
+    return files
+
+
+def test_the_teacher_moments_come_from_the_aggregated_data_not_from_one_student(tmp_path: Path) -> None:
+    # The scouting report's E5: the teacher co-moves with S1 alone at 300-380 s (the Analysis has a T + S1
+    # synchronization episode there), and with every student at 600-680 s.
+    files = _class_recordings(tmp_path, {"T+S1": (300.0, 380.0), "T+S1+S2+S3+S4+S5+S6": (600.0, 680.0)})
+    config = PipelineConfig(scaling_enabled=True, synchrony_threshold=0.8, contagion_comovement_rho=0.8,
+                            synchrony_surrogate_count=0, contagion_surrogate_count=0)
+    result = run_pipeline(files, config)
+    analysis = {"synchrony": compute_synchrony(result, None, config), "coarousal": compute_coarousal(result, None, config)}
+    assert any({"T", "S1"} <= set(episode["members"]) and episode["start_relative"] * 60 < 380
+               and episode["end_relative"] * 60 > 300 for episode in analysis["synchrony"]["episodes"])
+
+    teacher = compute_vsr(result, analysis, config, dyads=[], teacher_alias="T",
+                          student_aliases=["S1", "S2", "S3", "S4", "S5", "S6"])["interviews"][0]
+
+    synchronous = [c for c in teacher["candidates"] if c["step"] in (1, 2)]
+    assert not [c for c in synchronous if c["start_seconds"] < 380 and c["end_seconds"] > 300]
+    assert [c for c in synchronous if c["start_seconds"] < 680 and c["end_seconds"] > 600]
+    assert all(c["episode"]["source"] == AGGREGATE for c in teacher["candidates"] if c["episode"])
 
 
 def test_compute_vsr_reports_moment_times_on_the_sensor_clock(tmp_path: Path) -> None:

@@ -19,17 +19,20 @@ with, and sorts them into the document's STEPS 1-5 for every interview:
      episode gap are bridged).
 
 An episode belongs to a student pair when both students are in it (members of a
-synchronization subgroup, contributors of a co-arousal episode), and to the teacher
-interview when the teacher and at least one student are. The correlation r of a moment
-is the interview's own, from the Synchronization tab's windows (window, step and method
-from the Analysis settings): the pair's two signals, or the teacher against the students'
-average signal (page 1 of the document: "Student data will be aggregated to create
-average GSR values").
+synchronization subgroup, contributors of a co-arousal episode). The teacher interview is
+the pair of the teacher and the students' average signal (page 1 of the document:
+"Student data will be aggregated to create average GSR values for the 6 students",
+"Points selected for discussion are based on teacher and student aggregated GSR data"):
+its episodes are found by the Analysis' own functions and settings on that pair
+(``aggregate_analysis``), not taken from the Analysis episodes the teacher shares with
+any one student. The correlation r of a moment is the interview's own, from the
+Synchronization tab's windows (window, step and method from the Analysis settings): the
+pair's two signals, or the teacher against the students' average.
 
 STEP 6 then walks STEPS 1-5 again until the primary moments are selected, and once more
 for the reserve. Of several moments answering one step the strongest comes first: the
-highest r in STEPS 1-2, the most people in the shared state in STEPS 3-4, the lowest r
-in STEP 5; then the longer one, then the earlier one. Selected moments may not overlap.
+highest r in STEPS 1-2, the lowest r in STEP 5; then the longer one, then the earlier one.
+Selected moments may not overlap.
 
 The ESM half of the document is out of scope: the application analyses GSR.
 """
@@ -41,11 +44,13 @@ from datetime import datetime
 from typing import Any, Sequence
 
 import numpy as np
+import pandas as pd
 
+from .coarousal import compute_coarousal
 from .common import PipelineError, _estimate_step_seconds, _resolve_aliases, _zscore, clock_at, clock_start
 from .config import PipelineConfig
 from .preprocessing import PipelineResult
-from .synchrony import _window_correlation
+from .synchrony import _rolling_synchrony, _window_correlation
 
 STEP_NUMBERS = (1, 2, 3, 4, 5)
 
@@ -57,6 +62,11 @@ LOW = "LOW"
 
 SYNCHRONY = "synchrony"
 COAROUSAL = "coarousal"
+# An episode of the teacher and the students' average, found for the teacher interview (not on the Analysis screen).
+AGGREGATE = "aggregate"
+
+# The two participants of the teacher interview's own analysis.
+AGGREGATE_PAIR = ("teacher", "students")
 
 # The document: "A total of 5 moments discussed per interview (ideally)" and "Aim to identify more (e.g. 8)".
 DEFAULT_PRIMARY_COUNT = 5
@@ -88,12 +98,13 @@ ANALYSIS_SETTINGS = (
 class Episode:
     """One Analysis episode as an interview sees it."""
 
-    source: str  # SYNCHRONY or COAROUSAL
+    source: str  # SYNCHRONY or COAROUSAL, or AGGREGATE for the teacher interview's own episodes
     number: int  # its number on the Analysis screen: E<number> on Synchronization, <number> on Co-arousal
     start_seconds: float
     end_seconds: float
     state: str | None  # HIGH or LOW for a shared-state episode, None for co-movement
-    # The interview's people in the episode: 2 of 2 for a pair, the students with the teacher for the teacher.
+    # The interview's people in the episode: 2 of 2 for a pair (the teacher and the students' average too); moments
+    # chosen before the teacher interview used the aggregated signals counted the students in it with the teacher.
     in_episode: int
     people: int
 
@@ -228,48 +239,62 @@ def _span(start: float, end: float, half_window: float, lesson: tuple[float, flo
     return max(lesson[0], start - half_window), min(lesson[1], end + half_window)
 
 
-def interview_episodes(kind: str, participants: Sequence[str], synchrony: dict[str, Any],
-                       coarousal: dict[str, Any], config: PipelineConfig,
-                       lesson: tuple[float, float]) -> tuple[list[Episode], list[Episode]]:
-    """The interview's co-movement episodes and shared-state episodes among the Analysis episodes.
+@dataclass(frozen=True)
+class _PairInput:
+    """The part of a ``PipelineResult`` the co-arousal analysis reads, for a pair of signals of the interview's own."""
 
-    ``lesson`` is the analysed period in lesson seconds.
+    aliases: list[str]
+    merged_decimated: pd.DataFrame
+
+
+def aggregate_analysis(teacher: np.ndarray, students: np.ndarray, relative_minutes: np.ndarray,
+                       config: PipelineConfig) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The Analysis of the teacher and the students' average as a pair of participants (``AGGREGATE_PAIR``).
+
+    The Analysis step's own functions and settings, with the pair as the only subgroup (two people make an
+    episode): the synchronization windows and episodes, and the co-arousal High, Low and co-movement episodes,
+    shaped like the Analysis payload so ``interview_episodes`` reads them as it reads a student pair's. The
+    co-arousal surrogate test is skipped: the moments do not use it.
+    """
+    pair_config = config.model_copy(update={"synchrony_episode_min_size": 2, "contagion_min_participants": 2,
+                                            "contagion_surrogate_count": 0})
+    aliases = list(AGGREGATE_PAIR)
+    signals = dict(zip(aliases, (np.asarray(teacher, dtype=float), np.asarray(students, dtype=float))))
+    step_seconds = _estimate_step_seconds(relative_minutes)
+    fs = 1.0 / step_seconds if step_seconds > 0 else 1.0
+    windows, episodes = _rolling_synchrony(signals, aliases, relative_minutes, fs, pair_config)
+    frame = pd.DataFrame({"time": relative_minutes, **{f"microsiemens_{alias}": signals[alias] for alias in aliases}})
+    coarousal = compute_coarousal(_PairInput(aliases, frame), aliases, pair_config)  # type: ignore[arg-type]
+    return {"aliases": aliases, "windows": windows, "episodes": episodes}, coarousal
+
+
+def interview_episodes(pair: Sequence[str], synchrony: dict[str, Any], coarousal: dict[str, Any],
+                       config: PipelineConfig, lesson: tuple[float, float],
+                       source: str | None = None) -> tuple[list[Episode], list[Episode]]:
+    """The pair's co-movement episodes and shared-state episodes: the Analysis episodes both of them are in.
+
+    ``synchrony`` and ``coarousal`` are the Analysis payloads, or the teacher interview's own (``aggregate_analysis``,
+    with ``source`` AGGREGATE); ``lesson`` is the analysed period in lesson seconds.
     """
     half_window = config.synchrony_window_seconds / 2.0
-    if kind == "teacher":
-        teacher, students = participants[0], set(participants[1:])
+    members = set(pair)
 
-        def people_in(group: Sequence[str]) -> int | None:
-            count = len(students.intersection(group))
-            return count if teacher in group and count else None
-
-        people = len(students)
-    else:
-        pair = set(participants)
-
-        def people_in(group: Sequence[str]) -> int | None:
-            return 2 if pair.issubset(group) else None
-
-        people = 2
+    def episode(default_source: str, index: int, start: float, end: float, state: str | None) -> Episode:
+        return Episode(source or default_source, index + 1, *_span(start, end, half_window, lesson), state, 2, 2)
 
     comovement: list[Episode] = []
     shared: list[Episode] = []
-    for index, episode in enumerate(synchrony.get("episodes", [])):
-        count = people_in(episode["members"])
-        if count is not None:
-            start, end = _span(episode["start_relative"] * 60.0, episode["end_relative"] * 60.0, half_window, lesson)
-            comovement.append(Episode(SYNCHRONY, index + 1, start, end, None, count, people))
-    for index, episode in enumerate(coarousal.get("episodes", [])):
-        count = people_in(episode.get("contributors", []))
-        if count is None:
+    for index, item in enumerate(synchrony.get("episodes", [])):
+        if members.issubset(item["members"]):
+            comovement.append(episode(SYNCHRONY, index, item["start_relative"] * 60.0, item["end_relative"] * 60.0,
+                                      None))
+    for index, item in enumerate(coarousal.get("episodes", [])):
+        if not members.issubset(item.get("contributors", [])):
             continue
-        start, end = _span(float(episode["start_s"]), float(episode["end_s"]), half_window, lesson)
-        direction = episode["direction"]
-        if direction == "Co-movement":
-            comovement.append(Episode(COAROUSAL, index + 1, start, end, None, count, people))
-        else:
-            state = HIGH if direction == "High" else LOW
-            shared.append(Episode(COAROUSAL, index + 1, start, end, state, count, people))
+        direction = item["direction"]
+        state = None if direction == "Co-movement" else HIGH if direction == "High" else LOW
+        (shared if state else comovement).append(episode(COAROUSAL, index, float(item["start_s"]),
+                                                         float(item["end_s"]), state))
     return comovement, shared
 
 
@@ -447,7 +472,12 @@ def _interview_payload(key: str, kind: str, participants: list[str], frame: Any,
     signal_a, signal_b = interview_signals(frame, kind, participants)
     windows = windowed_correlation(signal_a, signal_b, relative_minutes, config)
     lesson = (float(relative_minutes[0]) * 60.0, float(relative_minutes[-1]) * 60.0)
-    comovement, shared = interview_episodes(kind, participants, synchrony, coarousal, config, lesson)
+    if kind == "teacher":
+        own_synchrony, own_coarousal = aggregate_analysis(signal_a, signal_b, relative_minutes, config)
+        comovement, shared = interview_episodes(AGGREGATE_PAIR, own_synchrony, own_coarousal, config, lesson,
+                                                source=AGGREGATE)
+    else:
+        comovement, shared = interview_episodes(participants, synchrony, coarousal, config, lesson)
     steps = candidates_by_step(windows, comovement, shared, config, lesson, asynchrony_threshold)
     proposals = select(steps, primary_count, reserve_count)
     primary = sum(1 for proposal in proposals if proposal.status == PRIMARY)
