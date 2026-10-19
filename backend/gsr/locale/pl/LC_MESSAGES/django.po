@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-19 20:34+0000\n"
+"POT-Creation-Date: 2026-10-19 20:39+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -48,13 +48,13 @@ msgid "Time window"
 msgstr "Zakres czasu"
 
 #: gsr/charts.py:33 gsr/templates/gsr/partials/analysis_main.html:223
-#: gsr/templates/gsr/partials/analysis_main.html:294
+#: gsr/templates/gsr/partials/analysis_main.html:295
 #: gsr/templates/gsr/partials/direction.html:1
 msgid "High ↑"
 msgstr "Wysoki ↑"
 
 #: gsr/charts.py:34 gsr/templates/gsr/partials/analysis_main.html:224
-#: gsr/templates/gsr/partials/analysis_main.html:294
+#: gsr/templates/gsr/partials/analysis_main.html:295
 #: gsr/templates/gsr/partials/direction.html:1
 msgid "Low ↓"
 msgstr "Niski ↓"
@@ -64,46 +64,51 @@ msgstr "Niski ↓"
 msgid "Co-move ↔"
 msgstr "Ko-ruch ↔"
 
-#: gsr/charts.py:36
+#: gsr/charts.py:36 gsr/templates/gsr/partials/analysis_main.html:226
+#: gsr/templates/gsr/partials/direction.html:1
+msgid "Opposite ⇅"
+msgstr "Przeciwstawny ⇅"
+
+#: gsr/charts.py:37
 msgid "Episodes"
 msgstr "Epizody"
 
-#: gsr/charts.py:37
+#: gsr/charts.py:38
 msgid "State"
 msgstr "Stan"
 
-#: gsr/charts.py:38 gsr/templates/gsr/partials/analysis_main.html:88
+#: gsr/charts.py:39 gsr/templates/gsr/partials/analysis_main.html:88
 #: gsr/templates/gsr/partials/analysis_main.html:120
-#: gsr/templates/gsr/partials/analysis_main.html:253
-#: gsr/templates/gsr/partials/analysis_main.html:271
+#: gsr/templates/gsr/partials/analysis_main.html:254
+#: gsr/templates/gsr/partials/analysis_main.html:272
 #: gsr/templates/gsr/partials/interview_moment.html:44
 #: gsr/templates/gsr/partials/interviews_main.html:181
 msgid "Sensor clock"
 msgstr "Zegar czujnika"
 
-#: gsr/charts.py:39
+#: gsr/charts.py:40
 msgid "lesson"
 msgstr "lekcja"
 
-#: gsr/charts.py:40
+#: gsr/charts.py:41
 msgid "Save PNG"
 msgstr "Zapisz PNG"
 
-#: gsr/charts.py:41 gsr/templates/gsr/partials/interview_moment.html:9
+#: gsr/charts.py:42 gsr/templates/gsr/partials/interview_moment.html:9
 #: gsr/templates/gsr/partials/interviews_main.html:138
 msgid "primary"
 msgstr "główny"
 
-#: gsr/charts.py:42 gsr/templates/gsr/partials/interview_moment.html:10
+#: gsr/charts.py:43 gsr/templates/gsr/partials/interview_moment.html:10
 #: gsr/templates/gsr/partials/interviews_main.html:138
 msgid "reserve"
 msgstr "rezerwowy"
 
-#: gsr/charts.py:43 gsr/templates/gsr/partials/interviews_main.html:138
+#: gsr/charts.py:44 gsr/templates/gsr/partials/interviews_main.html:138
 msgid "other candidate"
 msgstr "inny znaleziony fragment"
 
-#: gsr/charts.py:44 gsr/templates/gsr/partials/interview_moment.html:8
+#: gsr/charts.py:45 gsr/templates/gsr/partials/interview_moment.html:8
 #: gsr/templates/gsr/partials/interviews_main.html:138
 #: gsr/templates/gsr/partials/interviews_main.html:185
 msgid "rejected"
@@ -681,12 +686,12 @@ msgid "Min. participants: %(value)s"
 msgstr "Min. uczestników: %(value)s"
 
 #: gsr/params.py:445 gsr/templates/gsr/partials/analysis_main.html:13
-#: gsr/views.py:1280 gsr/views.py:1305
+#: gsr/views.py:1281 gsr/views.py:1306
 msgid "Synchronization"
 msgstr "Synchronizacja"
 
 #: gsr/params.py:446 gsr/templates/gsr/partials/analysis_main.html:17
-#: gsr/views.py:1286 gsr/views.py:1307
+#: gsr/views.py:1287 gsr/views.py:1308
 msgid "Co-arousal"
 msgstr "Ko-pobudzenie"
 
@@ -878,8 +883,11 @@ msgid "Pairs and subgroups whose signals move together"
 msgstr "Pary i podgrupy, których sygnały zmieniają się razem"
 
 #: gsr/templates/gsr/partials/analysis_main.html:18
-msgid "Shared High or Low arousal states and co-movement episodes"
-msgstr "Wspólne stany wysokiego lub niskiego pobudzenia i epizody ko-ruchu"
+msgid ""
+"Shared High or Low arousal states, opposite states and co-movement episodes"
+msgstr ""
+"Wspólne stany wysokiego lub niskiego pobudzenia, stany przeciwstawne i "
+"epizody ko-ruchu"
 
 #: gsr/templates/gsr/partials/analysis_main.html:24
 msgid "No results for this step yet. Set the parameters and run the analysis."
@@ -1006,15 +1014,15 @@ msgstr "Epizody synchronizacji podgrup"
 
 #: gsr/templates/gsr/partials/analysis_main.html:88
 #: gsr/templates/gsr/partials/analysis_main.html:120
-#: gsr/templates/gsr/partials/analysis_main.html:253
-#: gsr/templates/gsr/partials/analysis_main.html:271
+#: gsr/templates/gsr/partials/analysis_main.html:254
+#: gsr/templates/gsr/partials/analysis_main.html:272
 msgid "Lesson time (m:ss)"
 msgstr "Czas lekcji (m:ss)"
 
 #: gsr/templates/gsr/partials/analysis_main.html:88
 #: gsr/templates/gsr/partials/analysis_main.html:120
-#: gsr/templates/gsr/partials/analysis_main.html:253
-#: gsr/templates/gsr/partials/analysis_main.html:271
+#: gsr/templates/gsr/partials/analysis_main.html:254
+#: gsr/templates/gsr/partials/analysis_main.html:272
 #: gsr/templates/gsr/partials/upload_main.html:32
 msgid "Duration"
 msgstr "Czas trwania"
@@ -1145,7 +1153,7 @@ msgid "Cluster"
 msgstr "Klaster"
 
 #: gsr/templates/gsr/partials/analysis_main.html:196
-#: gsr/templates/gsr/partials/analysis_main.html:311
+#: gsr/templates/gsr/partials/analysis_main.html:312
 msgid "No results for this step yet."
 msgstr "Brak wyników dla tego kroku."
 
@@ -1180,7 +1188,7 @@ msgstr "przesunięcie kołowe, średnia ± SD"
 msgid "Test"
 msgstr "Test"
 
-#: gsr/templates/gsr/partials/analysis_main.html:231
+#: gsr/templates/gsr/partials/analysis_main.html:232
 msgid ""
 "Mean state of each participant in 1-minute bins: red = High (+1), white = "
 "Neutral (0), blue = Low (−1)."
@@ -1188,7 +1196,7 @@ msgstr ""
 "Średni stan każdego uczestnika w 1-minutowych oknach: czerwony = Wysoki "
 "(+1), biały = Neutralny (0), niebieski = Niski (−1)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:232
+#: gsr/templates/gsr/partials/analysis_main.html:233
 msgid ""
 "We look for moments when many participants are simultaneously in the same "
 "arousal state (High/Low) or genuinely co-vary (correlation-based co-"
@@ -1199,71 +1207,74 @@ msgstr ""
 "oparty na korelacji). Sygnały są standaryzowane (z-score) w obrębie okna "
 "analizy."
 
-#: gsr/templates/gsr/partials/analysis_main.html:234
-#: gsr/templates/gsr/partials/analysis_main.html:237
+#: gsr/templates/gsr/partials/analysis_main.html:235
+#: gsr/templates/gsr/partials/analysis_main.html:238
 msgid "Participant state map over time"
 msgstr "Mapa stanów uczestników w czasie"
 
-#: gsr/templates/gsr/partials/analysis_main.html:235
+#: gsr/templates/gsr/partials/analysis_main.html:236
 msgid "episodes above, 1-minute bins below"
 msgstr "u góry epizody, u dołu przedziały 1-minutowe"
 
-#: gsr/templates/gsr/partials/analysis_main.html:242
+#: gsr/templates/gsr/partials/analysis_main.html:243
 msgid ""
 "Episodes where ≥ the required number of participants hold a shared state "
-"(High/Low), plus co-movement episodes (mean pairwise Spearman in the window "
+"(High/Low), opposite episodes (someone High while someone else is Low, the "
+"same rules), plus co-movement episodes (mean pairwise Spearman in the window "
 "≥ threshold)."
 msgstr ""
 "Epizody, w których ≥ wymagana liczba uczestników utrzymuje wspólny stan "
-"(Wysoki/Niski), oraz epizody ko-ruchu (średnia parowa korelacja Spearmana w "
-"oknie ≥ próg)."
+"(Wysoki/Niski), epizody przeciwstawne (ktoś w stanie Wysokim, gdy ktoś inny "
+"w Niskim, te same reguły) oraz epizody ko-ruchu (średnia parowa korelacja "
+"Spearmana w oknie ≥ próg)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:243
+#: gsr/templates/gsr/partials/analysis_main.html:244
 msgid ""
 "Each second gets one label by precedence: High/Low (joint extreme) > Co-"
-"movement. Adjacent same-label seconds are merged."
+"movement > Opposite. Adjacent same-label seconds are merged."
 msgstr ""
 "Każda sekunda dostaje jedną etykietę wg precedencji: Wysoki/Niski (wspólne "
-"ekstremum) > Ko-ruch. Sąsiednie sekundy o tej samej etykiecie są łączone."
+"ekstremum) > Ko-ruch > Przeciwstawny. Sąsiednie sekundy o tej samej "
+"etykiecie są łączone."
 
-#: gsr/templates/gsr/partials/analysis_main.html:245
+#: gsr/templates/gsr/partials/analysis_main.html:246
 msgid "Co-arousal episodes"
 msgstr "Epizody ko-pobudzenia"
 
-#: gsr/templates/gsr/partials/analysis_main.html:247
+#: gsr/templates/gsr/partials/analysis_main.html:248
 msgid "Merge overlaps"
 msgstr "Połącz nakładające się"
 
-#: gsr/templates/gsr/partials/analysis_main.html:253
-#: gsr/templates/gsr/partials/analysis_main.html:271
+#: gsr/templates/gsr/partials/analysis_main.html:254
+#: gsr/templates/gsr/partials/analysis_main.html:272
 msgid "Type"
 msgstr "Typ"
 
-#: gsr/templates/gsr/partials/analysis_main.html:253
+#: gsr/templates/gsr/partials/analysis_main.html:254
 msgid "Contributors"
 msgstr "Współtworzący"
 
-#: gsr/templates/gsr/partials/analysis_main.html:253
+#: gsr/templates/gsr/partials/analysis_main.html:254
 msgid "Strength"
 msgstr "Siła"
 
-#: gsr/templates/gsr/partials/analysis_main.html:263
+#: gsr/templates/gsr/partials/analysis_main.html:264
 msgid "full"
 msgstr "pełna"
 
-#: gsr/templates/gsr/partials/analysis_main.html:263
+#: gsr/templates/gsr/partials/analysis_main.html:264
 msgid "strong"
 msgstr "silna"
 
-#: gsr/templates/gsr/partials/analysis_main.html:263
+#: gsr/templates/gsr/partials/analysis_main.html:264
 msgid "partial"
 msgstr "częściowa"
 
-#: gsr/templates/gsr/partials/analysis_main.html:286
+#: gsr/templates/gsr/partials/analysis_main.html:287
 msgid "No episodes detected."
 msgstr "Brak wykrytych epizodów."
 
-#: gsr/templates/gsr/partials/analysis_main.html:290
+#: gsr/templates/gsr/partials/analysis_main.html:291
 msgid ""
 "Percent of time each signal was in the High, Neutral and Low state (z-score "
 "relative to its own baseline within the analysis window)."
@@ -1271,28 +1282,28 @@ msgstr ""
 "Procent czasu, w którym każdy sygnał był w stanie Wysokim, Neutralnym i "
 "Niskim (z-score względem własnej linii bazowej w oknie analizy)."
 
-#: gsr/templates/gsr/partials/analysis_main.html:291
+#: gsr/templates/gsr/partials/analysis_main.html:292
 msgid "Time in states (per signal)"
 msgstr "Udział czasu w stanach (per sygnał)"
 
-#: gsr/templates/gsr/partials/analysis_main.html:294
+#: gsr/templates/gsr/partials/analysis_main.html:295
 #: gsr/templates/gsr/partials/cleaning_main.html:80
 msgid "Signal"
 msgstr "Sygnał"
 
-#: gsr/templates/gsr/partials/analysis_main.html:294
+#: gsr/templates/gsr/partials/analysis_main.html:295
 msgid "Distribution"
 msgstr "Rozkład"
 
-#: gsr/templates/gsr/partials/analysis_main.html:294
+#: gsr/templates/gsr/partials/analysis_main.html:295
 msgid "Neutral"
 msgstr "Neutralny"
 
-#: gsr/templates/gsr/partials/analysis_main.html:319
+#: gsr/templates/gsr/partials/analysis_main.html:320
 msgid "The results go into the PDF report and the ZIP."
 msgstr "Wyniki trafiają do raportu PDF i do ZIP."
 
-#: gsr/templates/gsr/partials/analysis_main.html:321
+#: gsr/templates/gsr/partials/analysis_main.html:322
 msgid "Next: Interviews"
 msgstr "Dalej: Wywiady"
 
@@ -1321,8 +1332,8 @@ msgstr "Ustawienia zaawansowane"
 msgid "Co-arousal settings"
 msgstr "Ustawienia ko-pobudzenia"
 
-#: gsr/templates/gsr/partials/analysis_settings.html:27 gsr/views.py:1270
-#: gsr/views.py:1309
+#: gsr/templates/gsr/partials/analysis_settings.html:27 gsr/views.py:1271
+#: gsr/views.py:1310
 msgid "VSR interview moments"
 msgstr "Momenty do wywiadów VSR"
 
@@ -2513,11 +2524,11 @@ msgstr "Czy na pewno usunąć projekt?"
 msgid "No saved projects yet. Create one to get started."
 msgstr "Brak zapisanych projektów. Utwórz pierwszy projekt, aby zacząć."
 
-#: gsr/views.py:105 gsr/views.py:1303
+#: gsr/views.py:105 gsr/views.py:1304
 msgid "Import"
 msgstr "Import"
 
-#: gsr/views.py:105 gsr/views.py:1303
+#: gsr/views.py:105 gsr/views.py:1304
 msgid "Cleaning"
 msgstr "Czyszczenie"
 
@@ -2673,22 +2684,22 @@ msgstr "Para %(left)s + %(right)s"
 msgid "Students' average"
 msgstr "Średnia uczniów"
 
-#: gsr/views.py:1251
+#: gsr/views.py:1252
 #, python-format
 msgid "Signals added: %(aliases)s"
 msgstr "Dodane sygnały: %(aliases)s"
 
-#: gsr/views.py:1253
+#: gsr/views.py:1254
 #, python-format
 msgid "Signals removed: %(aliases)s"
 msgstr "Usunięte sygnały: %(aliases)s"
 
-#: gsr/views.py:1254
+#: gsr/views.py:1255
 #, python-format
 msgid "Signal renamed: %(old)s → %(new)s"
 msgstr "Zmieniona nazwa sygnału: %(old)s → %(new)s"
 
-#: gsr/views.py:1271
+#: gsr/views.py:1272
 msgid ""
 "per interview: step, lesson and sensor clock times, correlation, "
 "justification"
@@ -2696,71 +2707,71 @@ msgstr ""
 "dla każdego wywiadu: krok, czas lekcji i zegar czujnika, korelacja, "
 "uzasadnienie"
 
-#: gsr/views.py:1274
+#: gsr/views.py:1275
 msgid "Cleaned signals"
 msgstr "Sygnały po czyszczeniu"
 
-#: gsr/views.py:1274
+#: gsr/views.py:1275
 msgid "per participant, sensor clock and lesson time, full resolution"
 msgstr "per uczestnik, zegar czujnika i czas lekcji, pełna rozdzielczość"
 
-#: gsr/views.py:1276
+#: gsr/views.py:1277
 msgid "Analysis-ready merged file"
 msgstr "Połączony plik do analizy"
 
-#: gsr/views.py:1277
+#: gsr/views.py:1278
 msgid "z-scores, downsampled, sensor clock and lesson time"
 msgstr "z-score, po downsamplingu, zegar czujnika i czas lekcji"
 
-#: gsr/views.py:1278
+#: gsr/views.py:1279
 msgid "min-max (0–1), downsampled, sensor clock and lesson time"
 msgstr "min-max (0–1), po downsamplingu, zegar czujnika i czas lekcji"
 
-#: gsr/views.py:1280
+#: gsr/views.py:1281
 msgid "episodes, divergent episodes, pairs, windows"
 msgstr "epizody, epizody rozbieżne, pary, okna"
 
-#: gsr/views.py:1281 gsr/views.py:1287
+#: gsr/views.py:1282 gsr/views.py:1288
 msgid "episodes"
 msgstr "epizody"
 
-#: gsr/views.py:1282
+#: gsr/views.py:1283
 msgid "divergent episodes"
 msgstr "epizody rozbieżne"
 
-#: gsr/views.py:1283
+#: gsr/views.py:1284
 msgid "pairs"
 msgstr "pary"
 
-#: gsr/views.py:1284
+#: gsr/views.py:1285
 msgid "windows"
 msgstr "okna"
 
-#: gsr/views.py:1286
+#: gsr/views.py:1287
 msgid "episodes, state timeline, time in states"
 msgstr "epizody, stany w czasie, udział czasu w stanach"
 
-#: gsr/views.py:1288
+#: gsr/views.py:1289
 msgid "state timeline"
 msgstr "oś stanów"
 
-#: gsr/views.py:1289
+#: gsr/views.py:1290
 msgid "time in states"
 msgstr "udział czasu w stanach"
 
-#: gsr/views.py:1292
+#: gsr/views.py:1293
 msgid "Run settings and results"
 msgstr "Ustawienia i wyniki obliczenia"
 
-#: gsr/views.py:1292
+#: gsr/views.py:1293
 msgid "for reproducibility: settings, library versions, file SHA-256"
 msgstr "dla odtwarzalności: ustawienia, wersje bibliotek, SHA-256 plików"
 
-#: gsr/views.py:1294
+#: gsr/views.py:1295
 msgid "Charts"
 msgstr "Wykresy"
 
-#: gsr/views.py:1294
+#: gsr/views.py:1295
 #, python-format
 msgid "%(count)d report chart, 2× resolution, white background, in the ZIP"
 msgid_plural ""
@@ -2772,19 +2783,19 @@ msgstr[1] ""
 msgstr[2] ""
 "%(count)d wykresów raportu, rozdzielczość 2×, białe tło, w archiwum ZIP"
 
-#: gsr/views.py:1303
+#: gsr/views.py:1304
 msgid "Summary page"
 msgstr "Strona podsumowania"
 
-#: gsr/views.py:1310
+#: gsr/views.py:1311
 msgid "Methodology"
 msgstr "Metodologia"
 
-#: gsr/views.py:1310
+#: gsr/views.py:1311
 msgid "Reproducibility"
 msgstr "Odtwarzalność"
 
-#: gsr/views.py:1311
+#: gsr/views.py:1312
 #, python-format
 msgid "%(count)d chart"
 msgid_plural "%(count)d charts"
@@ -2841,56 +2852,61 @@ msgstr "rozprzężenie nauczyciela i średniej uczniów, %(times)s"
 
 #: gsr/vsr_text.py:67
 #, python-format
+msgid "opposite arousal of the teacher and the students' average, %(times)s"
+msgstr "pobudzenie przeciwstawne nauczyciela i średniej uczniów, %(times)s"
+
+#: gsr/vsr_text.py:69
+#, python-format
 msgid "co-movement of the teacher and the students' average, %(times)s"
 msgstr "ko-ruch nauczyciela i średniej uczniów, %(times)s"
 
-#: gsr/vsr_text.py:68
+#: gsr/vsr_text.py:70
 #, python-format
 msgid "co-arousal of the teacher and the students' average, %(times)s"
 msgstr "ko-pobudzenie nauczyciela i średniej uczniów, %(times)s"
 
-#: gsr/vsr_text.py:71
+#: gsr/vsr_text.py:73
 #, python-format
 msgid "divergent synchronization episode D%(number)s, %(times)s"
 msgstr "epizod synchronizacji rozbieżnej D%(number)s, %(times)s"
 
-#: gsr/vsr_text.py:73
+#: gsr/vsr_text.py:75
 #, python-format
 msgid "decoupling stretch U%(number)s, %(times)s"
 msgstr "odcinek rozprzężenia U%(number)s, %(times)s"
 
-#: gsr/vsr_text.py:74
+#: gsr/vsr_text.py:76
 #, python-format
 msgid "synchronization episode E%(number)s, %(times)s"
 msgstr "epizod synchronizacji E%(number)s, %(times)s"
 
-#: gsr/vsr_text.py:76
+#: gsr/vsr_text.py:78
 #, python-format
 msgid "co-movement episode %(number)s of the co-arousal, %(times)s"
 msgstr "epizod ko-ruchu nr %(number)s z Ko-pobudzenia, %(times)s"
 
-#: gsr/vsr_text.py:77
+#: gsr/vsr_text.py:79
 #, python-format
 msgid "co-arousal episode %(number)s, %(times)s"
 msgstr "epizod ko-pobudzenia nr %(number)s, %(times)s"
 
-#: gsr/vsr_text.py:87
+#: gsr/vsr_text.py:89
 msgid "both people in the High state"
 msgstr "obie osoby w stanie Wysokim"
 
-#: gsr/vsr_text.py:87
+#: gsr/vsr_text.py:89
 msgid "both people in the Low state"
 msgstr "obie osoby w stanie Niskim"
 
-#: gsr/vsr_text.py:91
+#: gsr/vsr_text.py:93
 msgid "the teacher and the students' average in the High state"
 msgstr "nauczyciel i średnia uczniów w stanie Wysokim"
 
-#: gsr/vsr_text.py:92
+#: gsr/vsr_text.py:94
 msgid "the teacher and the students' average in the Low state"
 msgstr "nauczyciel i średnia uczniów w stanie Niskim"
 
-#: gsr/vsr_text.py:95
+#: gsr/vsr_text.py:97
 #, python-format
 msgid "the teacher and %(count)s of %(total)s student in the High state"
 msgid_plural ""
@@ -2899,7 +2915,7 @@ msgstr[0] "nauczyciel i %(count)s z %(total)s ucznia w stanie Wysokim"
 msgstr[1] "nauczyciel i %(count)s z %(total)s uczniów w stanie Wysokim"
 msgstr[2] "nauczyciel i %(count)s z %(total)s uczniów w stanie Wysokim"
 
-#: gsr/vsr_text.py:97
+#: gsr/vsr_text.py:99
 #, python-format
 msgid "the teacher and %(count)s of %(total)s student in the Low state"
 msgid_plural "the teacher and %(count)s of %(total)s students in the Low state"
@@ -2907,32 +2923,43 @@ msgstr[0] "nauczyciel i %(count)s z %(total)s ucznia w stanie Niskim"
 msgstr[1] "nauczyciel i %(count)s z %(total)s uczniów w stanie Niskim"
 msgstr[2] "nauczyciel i %(count)s z %(total)s uczniów w stanie Niskim"
 
-#: gsr/vsr_text.py:107
+#: gsr/vsr_text.py:109
 msgid "no shared arousal state"
 msgstr "bez wspólnego stanu pobudzenia"
 
-#: gsr/vsr_text.py:109
+#: gsr/vsr_text.py:111
 msgid "no co-movement"
 msgstr "bez ko-ruchu"
 
-#: gsr/vsr_text.py:111
+#: gsr/vsr_text.py:113
 msgid "the signals moved in opposite directions"
 msgstr "sygnały zmieniały się w przeciwnych kierunkach"
 
-#: gsr/vsr_text.py:113 gsr/vsr_text.py:116
+#: gsr/vsr_text.py:115
+msgid ""
+"the teacher or the students' average in the High state, the other in the Low "
+"state"
+msgstr ""
+"nauczyciel albo średnia uczniów w stanie Wysokim, drugie w stanie Niskim"
+
+#: gsr/vsr_text.py:116
+msgid "one person in the High state, the other in the Low state"
+msgstr "jedna osoba w stanie Wysokim, druga w stanie Niskim"
+
+#: gsr/vsr_text.py:119 gsr/vsr_text.py:122
 msgid "the signals were not related"
 msgstr "sygnały nie były powiązane"
 
-#: gsr/vsr_text.py:115
+#: gsr/vsr_text.py:121
 msgid "the signals moved in the opposite direction"
 msgstr "sygnały zmieniały się w przeciwnym kierunku"
 
-#: gsr/vsr_text.py:119
+#: gsr/vsr_text.py:125
 #, python-format
 msgid "%(times)s outside the synchronization and co-arousal episodes"
 msgstr "%(times)s poza epizodami synchronizacji i ko-pobudzenia"
 
-#: gsr/vsr_text.py:130
+#: gsr/vsr_text.py:136
 #, python-format
 msgid "VSR flow chart step %(step)s: %(name)s"
 msgstr "Krok %(step)s schematu VSR: %(name)s"

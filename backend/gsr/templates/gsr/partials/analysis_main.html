@@ -15,7 +15,7 @@
       </a>
       <a href="?tab=coarousal" role="tab" id="tab-coarousal" aria-controls="panel-coarousal" aria-labelledby="tab-coarousal-title" aria-describedby="tab-coarousal-desc" data-tab="coarousal" class="{% if tab == 'coarousal' %}active{% endif %}" aria-selected="{% if tab == 'coarousal' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'coarousal' %}0{% else %}-1{% endif %}">
         <span class="tab-title" id="tab-coarousal-title">{% translate "Co-arousal" %}{% if result and coarousal %} {% include "gsr/partials/episode_count.html" with count=coarousal.stats.episode_count %}{% endif %}</span>
-        <span class="tab-desc" id="tab-coarousal-desc">{% translate "Shared High or Low arousal states and co-movement episodes" %}</span>
+        <span class="tab-desc" id="tab-coarousal-desc">{% translate "Shared High or Low arousal states, opposite states and co-movement episodes" %}</span>
       </a>
     </div>
 
@@ -223,6 +223,7 @@
               <span class="badge high" title="{% translate 'High ↑' %}">↑ {{ coarousal.stats.high_episode_count }}</span>
               <span class="badge low" title="{% translate 'Low ↓' %}">↓ {{ coarousal.stats.low_episode_count }}</span>
               <span class="badge comove" title="{% translate 'Co-move ↔' %}">↔ {{ coarousal.stats.comovement_episode_count }}</span>
+              {% if coarousal.stats.opposite_episode_count is not None %}<span class="badge opposite" title="{% translate 'Opposite ⇅' %}">⇅ {{ coarousal.stats.opposite_episode_count }}</span>{% endif %}
             </span>
           </li>
         </ul>
@@ -239,8 +240,8 @@
 
         <div class="grid-2 section-gap">
           <div>
-            {% translate "Episodes where ≥ the required number of participants hold a shared state (High/Low), plus co-movement episodes (mean pairwise Spearman in the window ≥ threshold)." as coarousal_episodes_help %}
-            {% translate "Each second gets one label by precedence: High/Low (joint extreme) > Co-movement. Adjacent same-label seconds are merged." as merge_help %}
+            {% translate "Episodes where ≥ the required number of participants hold a shared state (High/Low), opposite episodes (someone High while someone else is Low, the same rules), plus co-movement episodes (mean pairwise Spearman in the window ≥ threshold)." as coarousal_episodes_help %}
+            {% translate "Each second gets one label by precedence: High/Low (joint extreme) > Co-movement > Opposite. Adjacent same-label seconds are merged." as merge_help %}
             <div class="section-head">
               <h3>{% translate "Co-arousal episodes" %}</h3>{% include "gsr/partials/tip.html" with text=coarousal_episodes_help tip_id="tip-coarousal-episodes" %}
               {% if coarousal_episodes %}
@@ -259,7 +260,7 @@
                         <td class="left">{{ episode.start_s|seconds_clock:clock_start }}–{{ episode.end_s|seconds_clock:clock_start }}</td>
                         <td class="left">{{ episode.start_s|seconds_mmss }}–{{ episode.end_s|seconds_mmss }}</td>
                         <td>{{ episode.duration_s|seconds_mmss }}</td>
-                        <td class="left"><div class="chips">{% for member in episode.contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% empty %}—{% endfor %}</div></td>
+                        <td class="left"><div class="chips">{% if episode.direction == "Opposite" %}{% for member in episode.high_contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }} ↑</span>{% endfor %}{% for member in episode.low_contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }} ↓</span>{% endfor %}{% else %}{% for member in episode.contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% empty %}—{% endfor %}{% endif %}</div></td>
                         <td class="left">{% if episode.strength == "full" %}{% translate "full" %}{% elif episode.strength == "strong" %}{% translate "strong" %}{% else %}{% translate "partial" %}{% endif %}</td>
                       </tr>
                     {% endfor %}

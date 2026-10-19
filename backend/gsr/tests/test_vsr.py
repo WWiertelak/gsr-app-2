@@ -30,6 +30,7 @@ from gsr.pipeline.vsr import (
     DIVERGENT,
     HIGH,
     LOW,
+    OPPOSITE,
     PRIMARY,
     RESERVE,
     STEP_NUMBERS,
@@ -125,6 +126,7 @@ def test_pair_episodes_are_the_analysis_episodes_both_students_are_in() -> None:
         (1, HIGH, 2, 2), (4, LOW, 2, 2)]
     assert [(episode.kind, episode.number) for episode in found.divergent] == [("divergent", 1)]
     assert [(episode.kind, episode.number) for episode in found.decoupled] == [("decoupled", 1)]
+    assert found.opposite == []
     assert (found.comovement[0].start_seconds, found.comovement[0].end_seconds) == pytest.approx((60.0, 120.0))
 
 
@@ -298,6 +300,30 @@ def test_no_synchrony_is_the_analysis_decoupling_closest_to_zero_first() -> None
     assert "r = 0.01" in english and "the signals were not related" in english
     assert "opposite" not in english
     assert "sygnały nie były powiązane" in polish
+
+
+def _opposite(start_s: float, end_s: float, high: list[str], low: list[str]) -> dict:
+    return {"direction": "Opposite", "start_s": start_s, "end_s": end_s, "contributors": high + low,
+            "high_contributors": high, "low_contributors": low}
+
+
+def test_opposite_arousal_is_step_5_before_decoupling() -> None:
+    # Hassan: "opposite shared arousal (one is high, one is low)". One of the pair on each side; not both on one side.
+    coarousal = [_opposite(900, 960, ["S2"], ["S1"]), _opposite(1100, 1200, ["S1", "S3"], ["S2"]),
+                 _opposite(1300, 1360, ["S1", "S2"], ["S3"]), _opposite(1400, 1460, ["S1"], ["S3"])]
+    decoupled = [_decoupled(100, 160, ["S1", "S2"], 0.0)]
+
+    steps = _steps([], coarousal, _windows([(100, 160, 0.0)]), decoupled=decoupled)
+
+    assert [(c.kind, c.start_seconds) for c in steps["5"]] == [(OPPOSITE, 1100.0), (OPPOSITE, 900.0),
+                                                               (DECOUPLED, pytest.approx(100.0))]
+    assert steps["3"] == steps["4"] == []
+    english, polish = _sentences(steps["5"][1])
+    assert english.startswith("VSR flow chart step 5: no synchrony – co-arousal episode 1, 15:00–16:00, "
+                              "one person in the High state, the other in the Low state, r = ")
+    assert "jedna osoba w stanie Wysokim, druga w stanie Niskim" in polish
+    teacher, _polish = _sentences(steps["5"][1], "teacher")
+    assert "the teacher or the students' average in the High state, the other in the Low state" in teacher
 
 
 def test_a_moment_stored_before_the_strength_reading_keeps_its_sentence() -> None:

@@ -860,6 +860,9 @@
   }
 
   function episodeLabel(direction, labels) {
+    if (direction === "Opposite") {
+      return labels.opposite;
+    }
     return direction === "High" ? labels.high : direction === "Low" ? labels.low : labels.comove;
   }
 
@@ -872,13 +875,22 @@
       var height = api.size([0, 1])[1] * 0.78;
       var width = Math.max(end[0] - start[0], 2);
       var text = episodeLabel(episode.direction, labels) || "";
-      var children = [
-        {
-          type: "rect",
-          shape: { x: start[0], y: start[1] - height / 2, width: width, height: height, r: 3 },
-          style: { fill: episodeColor(episode.direction) }
-        }
-      ];
+      var top = start[1] - height / 2;
+      // Opposite arousal: someone High (top half) while someone else is Low (bottom half).
+      var children = episode.direction === "Opposite"
+        ? [
+            { type: "rect", shape: { x: start[0], y: top, width: width, height: height / 2, r: [3, 3, 0, 0] },
+              style: { fill: HIGH } },
+            { type: "rect", shape: { x: start[0], y: top + height / 2, width: width, height: height / 2, r: [0, 0, 3, 3] },
+              style: { fill: LOW } }
+          ]
+        : [
+            {
+              type: "rect",
+              shape: { x: start[0], y: top, width: width, height: height, r: 3 },
+              style: { fill: episodeColor(episode.direction) }
+            }
+          ];
       // About 6.5 px per character at 11 px.
       if (text && width > text.length * 6.5 + 10) {
         children.push({

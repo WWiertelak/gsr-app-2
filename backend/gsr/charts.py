@@ -33,6 +33,7 @@ def chart_labels() -> dict[str, str]:
         "high": _("High ↑"),
         "low": _("Low ↓"),
         "comove": _("Co-move ↔"),
+        "opposite": _("Opposite ⇅"),
         "episodes": _("Episodes"),
         "state": _("State"),
         "clock": _("Sensor clock"),

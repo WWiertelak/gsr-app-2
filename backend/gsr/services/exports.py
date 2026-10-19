@@ -154,7 +154,7 @@ def synchrony_windows_csv(synchrony: dict[str, Any], lesson_clock: datetime | No
 
 def coarousal_episodes_csv(coarousal: dict[str, Any], lesson_clock: datetime | None = None) -> bytes:
     columns = ["episode", "direction", "clock_start", "clock_end", "start_s", "end_s", "duration_s", "n_contributors",
-               "strength", "contributors", "non_contributors"]
+               "strength", "contributors", "non_contributors", "high_contributors", "low_contributors"]
     rows = [
         {
             **{key: episode.get(key) for key in ("direction", "start_s", "end_s", "duration_s", "n_contributors",
@@ -164,6 +164,9 @@ def coarousal_episodes_csv(coarousal: dict[str, Any], lesson_clock: datetime | N
             "clock_end": clock_at(lesson_clock, episode.get("end_s")),
             "contributors": _join(episode.get("contributors")),
             "non_contributors": _join(episode.get("non_contributors")),
+            # Opposite arousal only: who was High and who was Low.
+            "high_contributors": _join(episode.get("high_contributors")),
+            "low_contributors": _join(episode.get("low_contributors")),
         }
         for index, episode in enumerate(coarousal.get("episodes", []))
     ]

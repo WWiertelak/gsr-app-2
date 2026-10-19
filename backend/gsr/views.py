@@ -862,14 +862,15 @@ def _moment_chart(payload: dict[str, Any], interview: dict[str, Any], row: Inter
         for name, color, values in zip(_signal_names(interview), colors, (window["a"], window["b"]))
     ]
     shared = row.proposal.get("shared_state") if not row.is_manual else None
+    opposite = not row.is_manual and row.proposal.get("type") == "opposite"
     return {
         "series": series,
         "moment": {"start": window["start"] / 60.0, "end": window["end"] / 60.0, "label": str(number or "×")},
         "range": {"min": window["low"] / 60.0, "max": window["high"] / 60.0},
         "clock_start": clock_seconds_of_day(curation.lesson_clock_start(payload)),
-        # The Co-arousal thresholds, drawn when the moment is about a shared state.
-        "high": settings.get("contagion_high_z") if shared == "HIGH" else None,
-        "low": settings.get("contagion_low_z") if shared == "LOW" else None,
+        # The Co-arousal thresholds, drawn when the moment is about a shared state (both for opposite arousal).
+        "high": settings.get("contagion_high_z") if shared == "HIGH" or opposite else None,
+        "low": settings.get("contagion_low_z") if shared == "LOW" or opposite else None,
     }
 
 

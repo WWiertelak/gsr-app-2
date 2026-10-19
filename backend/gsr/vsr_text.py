@@ -63,6 +63,8 @@ def _episode(episode: dict[str, Any], times: str) -> str:
             return _("divergent synchrony of the teacher and the students' average, %(times)s") % values
         if kind == "decoupled":
             return _("decoupling of the teacher and the students' average, %(times)s") % values
+        if kind == "opposite":
+            return _("opposite arousal of the teacher and the students' average, %(times)s") % values
         if episode.get("state") is None:
             return _("co-movement of the teacher and the students' average, %(times)s") % values
         return _("co-arousal of the teacher and the students' average, %(times)s") % values
@@ -72,7 +74,7 @@ def _episode(episode: dict[str, Any], times: str) -> str:
         if kind == "decoupled":
             return _("decoupling stretch U%(number)s, %(times)s") % values
         return _("synchronization episode E%(number)s, %(times)s") % values
-    if episode.get("state") is None:
+    if episode.get("state") is None and kind != "opposite":
         return _("co-movement episode %(number)s of the co-arousal, %(times)s") % values
     return _("co-arousal episode %(number)s, %(times)s") % values
 
@@ -109,6 +111,10 @@ def _details(proposal: dict[str, Any], kind: str) -> list[str]:
         return [_episode(proposal["episode"], times), shared_state(proposal, kind), r, _("no co-movement")]
     if step == "4b":
         return [_episode(proposal["episode"], times), r, _("the signals moved in opposite directions")]
+    if proposal.get("type") == "opposite":
+        who = (_("the teacher or the students' average in the High state, the other in the Low state")
+               if kind == "teacher" else _("one person in the High state, the other in the Low state"))
+        return [_episode(proposal["episode"], times), who, r]
     if proposal.get("type"):
         return [_episode(proposal["episode"], times), r, _("the signals were not related")]
     # STEP 5 of moments chosen when it took a correlation below 0.1 with its sign.

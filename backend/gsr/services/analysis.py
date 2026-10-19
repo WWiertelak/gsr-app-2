@@ -94,7 +94,7 @@ def analyze_files_with_result(
     if "synchrony" in analyses:
         payload["synchrony"] = synchrony_types(compute_synchrony(result, aliases, config, cancel_callback), config)
     if "coarousal" in analyses:
-        payload["coarousal"] = compute_coarousal(result, aliases, config, cancel_callback)
+        payload["coarousal"] = compute_coarousal(result, aliases, config, cancel_callback, opposite=True)
     return result, payload
 
 

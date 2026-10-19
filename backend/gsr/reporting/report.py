@@ -59,6 +59,7 @@ _TR: dict[str, dict[str, str]] = {
         "summary_high": "wysokie",
         "summary_low": "niskie",
         "summary_comovement": "ko-ruch",
+        "summary_opposite": "przeciwstawne",
         "summary_mean": "średnia",
         "summary_index": "indeks",
         "contents": "Spis treści",
@@ -189,6 +190,7 @@ _TR: dict[str, dict[str, str]] = {
         "contagion_dir_high": "Wysoki",
         "contagion_dir_low": "Niski",
         "contagion_dir_comov": "Ko-ruch",
+        "contagion_dir_opposite": "Przeciwstawny",
         "contagion_strength_full": "pełna",
         "contagion_strength_strong": "silna",
         "contagion_strength_partial": "częściowa",
@@ -218,6 +220,7 @@ _TR: dict[str, dict[str, str]] = {
         "res_cont": "Ko-pobudzenie",
         "res_cont_metric": "Indeks ko-pobudzenia",
         "res_cont_ep": "Epizody (High/Low/ko-ruch)",
+        "res_cont_opposite": "Epizody przeciwstawnego pobudzenia",
         "res_cont_p": "Istotność (p surogatowe)",
         "res_episodes_reading": "Liczba wykrytych okresów i grup; ich znaczenie zależy od czasu, uczestników i kontekstu.",
         "res_cont_reading": "Średnia liczba osób w liczniejszym stanie skrajnym High albo Low; zakres 0–{participants}.",
@@ -265,6 +268,7 @@ _TR: dict[str, dict[str, str]] = {
         "summary_high": "high",
         "summary_low": "low",
         "summary_comovement": "co-movement",
+        "summary_opposite": "opposite",
         "summary_mean": "mean",
         "summary_index": "index",
         "contents": "Contents",
@@ -395,6 +399,7 @@ _TR: dict[str, dict[str, str]] = {
         "contagion_dir_high": "High",
         "contagion_dir_low": "Low",
         "contagion_dir_comov": "Co-move",
+        "contagion_dir_opposite": "Opposite",
         "contagion_strength_full": "full",
         "contagion_strength_strong": "strong",
         "contagion_strength_partial": "partial",
@@ -424,6 +429,7 @@ _TR: dict[str, dict[str, str]] = {
         "res_cont": "Co-arousal",
         "res_cont_metric": "Co-arousal index",
         "res_cont_ep": "Episodes (High/Low/co-move)",
+        "res_cont_opposite": "Opposite-arousal episodes",
         "res_cont_p": "Significance (surrogate p)",
         "res_episodes_reading": "Number of detected periods and groups; meaning depends on timing, participants, and context.",
         "res_cont_reading": "Average number of people in the more populated High or Low state; range 0–{participants}.",
@@ -458,7 +464,8 @@ CHART_SECTIONS = {
     "coarousal": ("coarousal_states",),
 }
 
-_CONTAGION_DIR_KEYS = {"High": "contagion_dir_high", "Low": "contagion_dir_low", "Co-movement": "contagion_dir_comov"}
+_CONTAGION_DIR_KEYS = {"High": "contagion_dir_high", "Low": "contagion_dir_low", "Co-movement": "contagion_dir_comov",
+                       "Opposite": "contagion_dir_opposite"}
 
 
 def resolve_lang(value: Any) -> str:
@@ -610,6 +617,15 @@ def _members(values: Any) -> str:
     return ", ".join(str(member) for member in values or [])
 
 
+def _contributors(episode: dict[str, Any]) -> str:
+    """A co-arousal episode's contributors; for opposite arousal the High side (↑) and the Low side (↓)."""
+    if episode.get("direction") == "Opposite":
+        sides = [f"{member} ↑" for member in episode.get("high_contributors") or []]
+        sides += [f"{member} ↓" for member in episode.get("low_contributors") or []]
+        return ", ".join(sides) or "—"
+    return _members(episode.get("contributors")) or "—"
+
+
 # ─── Sections ────────────────────────────────────────────────────────────────
 
 
@@ -665,7 +681,9 @@ def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, 
                  f"{_fmt(coarousal_stats.get('episode_count'))} {episodes}: "
                  f"{_tr(lang, 'summary_high')}={_fmt(coarousal_stats.get('high_episode_count'))}, "
                  f"{_tr(lang, 'summary_low')}={_fmt(coarousal_stats.get('low_episode_count'))}, "
-                 f"{_tr(lang, 'summary_comovement')}={_fmt(coarousal_stats.get('comovement_episode_count'))}",
+                 f"{_tr(lang, 'summary_comovement')}={_fmt(coarousal_stats.get('comovement_episode_count'))}"
+                 + (f", {_tr(lang, 'summary_opposite')}={_fmt(coarousal_stats['opposite_episode_count'])}"
+                    if "opposite_episode_count" in coarousal_stats else ""),
              ] if coarousal else []),
     ]
     interviews_kpi = interviews.summary_kpi(payload.get("vsr"), lang)
@@ -945,7 +963,7 @@ def _section_coarousal(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
                 _clock_span(lesson_clock, (episode.get("start_s") or 0) / 60, (episode.get("end_s") or 0) / 60),
                 f"{_fmt_min((episode.get('start_s') or 0) / 60)}–{_fmt_min((episode.get('end_s') or 0) / 60)}",
                 _fmt_min((episode.get("duration_s") or 0) / 60),
-                _members(episode.get("contributors")) or "—",
+                _contributors(episode),
                 _tr(lang, f"contagion_strength_{episode.get('strength')}"),
                 _members(episode.get("non_contributors")) or "—",
             ]
@@ -1074,6 +1092,9 @@ def _section_methodology(payload: dict[str, Any], lang: str) -> dict[str, Any]:
              _tr(lang, "res_episodes_reading")],
             [_tr(lang, "res_cont"), _tr(lang, "res_cont_p"), _fmt(c_p) if c_p is not None else "—", p_reading(c_p)],
         ]
+        if "opposite_episode_count" in cstats:
+            result_rows.insert(-1, [_tr(lang, "res_cont"), _tr(lang, "res_cont_opposite"),
+                                    _fmt(cstats["opposite_episode_count"]), _tr(lang, "res_episodes_reading")])
     blocks.append(_table([_tr(lang, key) for key in ("res_method", "res_metric", "res_value", "res_reading")],
                          result_rows, numeric=(2,)))
     return _section("methodology", content["title"], blocks)

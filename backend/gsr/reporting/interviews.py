@@ -341,11 +341,12 @@ def _chart(vsr: dict[str, Any], interview: dict[str, Any], moment: dict[str, Any
         return None
     settings = vsr["analysis_settings"]
     state = moment["shared_state"] if moment["source"] != "manual" else None
+    opposite = moment["source"] != "manual" and moment.get("type") == "opposite"
     svg = moment_chart_svg(
         moment["preview"], _names(interview, lang), interview["colors"],
         _t(lang, "chart_label", number=moment["number"]), moment["number"],
-        high=settings.get("contagion_high_z") if state == HIGH else None,
-        low=settings.get("contagion_low_z") if state == LOW else None,
+        high=settings.get("contagion_high_z") if state == HIGH or opposite else None,
+        low=settings.get("contagion_low_z") if state == LOW or opposite else None,
         clock=vsr.get("clock_start"),
     )
     return SafeString(svg) if svg else None

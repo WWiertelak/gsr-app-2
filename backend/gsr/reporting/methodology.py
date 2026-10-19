@@ -163,6 +163,9 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                           "Wysoki (z > próg), Niski (z < próg), Neutralny. Wykrywamy epizody High/Low (wspólny stan skrajny) "
                           "oraz ko-ruch (średnia parowa korelacja Spearmana w oknie ≥ próg)."),
                     ("formula", "Indeks ko-pobudzenia = średnia po czasie z max( liczba osób High , liczba osób Low ); zakres 0–N"),
+                    ("p", "Pobudzenie przeciwstawne (za prośbą zespołu Hassana, dopełnienie wspólnego stanu Wysokiego i "
+                          "Niskiego): ktoś jest w stanie Wysokim, gdy ktoś inny jest w stanie Niskim, z tymi samymi "
+                          "progami z i regułami epizodu co High/Low. To brak synchronii w kroku 5 wywiadów VSR."),
                     ("p", "Kontrybutorzy: dla High/Low uczestnik utrzymuje stan przez ≥ ułamek epizodu; dla ko-ruchu musi "
                           "być dodatnio skorelowany z resztą grupy (leave-one-out), co wyklucza osoby płaskie/w przeciwfazie."),
                     ("p", "Istotność: indeks porównany z rozkładem zerowym z przesunięcia kołowego każdego sygnału "
@@ -341,6 +344,9 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                           "Low (z < threshold), Neutral. We detect High/Low episodes (shared extreme state) and co-movement "
                           "(mean pairwise Spearman in the window ≥ threshold)."),
                     ("formula", "Co-arousal index = time-average of max( people High , people Low ); range 0–N"),
+                    ("p", "Opposite arousal (as Hassan's team asked, the complement of a shared High and Low state): "
+                          "someone is High while someone else is Low, with the same z thresholds and episode rules as "
+                          "High/Low. It is no synchrony in step 5 of the VSR interviews."),
                     ("p", "Contributors: for High/Low a participant holds the state for ≥ a fraction of the episode; for "
                           "co-movement they must be positively correlated with the rest of the group (leave-one-out), "
                           "excluding flat/anti-phase participants."),

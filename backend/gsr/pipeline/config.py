@@ -87,6 +87,10 @@ VSR_DOCUMENT_SETTINGS: dict[str, Any] = {
     # Decoupling: a stretch whose correlation lies within plus/minus this ("Asynchronous = below 0.1"; Hassan:
     # "between -.10 and +.10").
     "synchrony_decoupled_threshold": 0.1,
+    # The High and Low states (shared High/Low, and opposite arousal: one High while another is Low), as GSRv2's
+    # defaults; Hassan's script uses the same.
+    "contagion_high_z": 1.0,
+    "contagion_low_z": -1.0,
 }
 
 

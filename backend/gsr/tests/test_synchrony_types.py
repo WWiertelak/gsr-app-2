@@ -1,11 +1,15 @@
-"""The synchrony types GSRv2 did not have: divergent synchrony and decoupling (Hassan's e-mail; the VSR flow chart
-read by strength)."""
+"""The types GSRv2 did not have: divergent synchrony, decoupling and opposite arousal (Hassan's e-mail; the VSR flow
+chart read by strength)."""
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
+import pandas as pd
 import pytest
 
+from gsr.pipeline.coarousal import compute_coarousal
 from gsr.pipeline.config import PipelineConfig
 from gsr.pipeline.synchrony import decoupled_episodes, divergent_episodes, synchrony_types
 
@@ -121,3 +125,50 @@ def test_decoupling_is_found_for_every_pair_of_a_group() -> None:
 
     assert [episode["members"] for episode in episodes] == [["A", "B"], ["B", "C"]]
     assert all(episode["size"] == 2 for episode in episodes)
+
+
+# ─── Opposite arousal (co-arousal) ───────────────────────────────────────────
+
+
+def _states(signals: dict[str, np.ndarray]) -> SimpleNamespace:
+    """The part of a pipeline result compute_coarousal reads: 1 Hz signals on lesson minutes."""
+    minutes = np.arange(len(next(iter(signals.values())))) / 60.0
+    frame = pd.DataFrame({"time": minutes, **{f"microsiemens_{alias}": values for alias, values in signals.items()}})
+    return SimpleNamespace(aliases=list(signals), merged_decimated=frame)
+
+
+def test_opposite_arousal_is_one_person_high_while_another_is_low() -> None:
+    rng = np.random.default_rng(5)
+    a, b, c = (rng.normal(0, 0.2, 900) for _ in range(3))
+    a[300:400] += 3.0  # A High ...
+    b[300:400] -= 3.0  # ... while B is Low
+    result = _states({"A": a, "B": b, "C": c})
+    config = CONFIG.model_copy(update={"contagion_surrogate_count": 0})
+
+    plain = compute_coarousal(result, None, config)
+    typed = compute_coarousal(result, None, config, opposite=True)
+
+    assert not any(episode["direction"] == "Opposite" for episode in plain["episodes"])
+    assert "opposite_episode_count" not in plain["stats"]
+    opposite = [episode for episode in typed["episodes"] if episode["direction"] == "Opposite"]
+    assert len(opposite) == typed["stats"]["opposite_episode_count"] == 1
+    episode, = opposite
+    assert 290 <= episode["start_s"] <= 310 and 380 <= episode["end_s"] <= 410
+    assert (episode["high_contributors"], episode["low_contributors"]) == (["A"], ["B"])
+    assert episode["contributors"] == ["A", "B"] and episode["non_contributors"] == ["C"]
+    # Everything GSRv2 found is unchanged; on the non-overlapping timeline the other labels win over Opposite.
+    assert [e for e in typed["episodes"] if e["direction"] != "Opposite"] == plain["episodes"]
+    assert {segment["label"] for segment in typed["primary_timeline"]} - {"Opposite"} == {
+        segment["label"] for segment in plain["primary_timeline"]}
+
+
+def test_opposite_arousal_uses_the_state_thresholds() -> None:
+    rng = np.random.default_rng(6)
+    a, b = rng.normal(0, 0.2, 900), rng.normal(0, 0.2, 900)
+    a[300:400] += 3.0
+    b[300:400] -= 3.0
+    config = CONFIG.model_copy(update={"contagion_surrogate_count": 0, "contagion_high_z": 9.0})
+
+    typed = compute_coarousal(_states({"A": a, "B": b}), None, config, opposite=True)
+
+    assert typed["stats"]["opposite_episode_count"] == 0

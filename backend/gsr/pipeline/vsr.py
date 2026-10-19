@@ -17,9 +17,10 @@ type. The steps (``PROTOCOL``, the one place their order lives):
   4b. divergent synchrony - a divergent synchronization episode (Synchronization tab: the
      signals move in opposite directions) whose r is at or below minus the interview
      threshold ("ideally above .80 for the interviews");
-  5. no synchrony - a decoupling stretch (Synchronization tab: between the pair's
-     synchronization and divergent episodes, its mean r within +/-0.1, "Asynchronous =
-     below 0.1").
+  5. no synchrony - opposite arousal first (Co-arousal tab: one person High while the
+     other is Low, the complement of STEPS 3-4), then a decoupling stretch (Synchronization
+     tab: between the pair's synchronization and divergent episodes, its mean r within
+     +/-0.1, "Asynchronous = below 0.1").
 
 An episode belongs to a student pair when both students are in it (members of a
 synchronization subgroup, contributors of a co-arousal episode). The teacher interview is
@@ -34,8 +35,9 @@ pair's two signals, or the teacher against the students' average.
 
 STEP 6 then walks the steps again until the primary moments are selected, and once more
 for the reserve. Of several moments answering one step the strongest comes first: the
-highest r in STEPS 1-2, the lowest r in STEP 4b, the r closest to zero in STEP 5 (the
-clearest absence of a relation); then the longer one, then the earlier one. Selected
+highest r in STEPS 1-2, the lowest r in STEP 4b; in STEP 5 opposite arousal before
+decoupling, and of the decoupling stretches the r closest to zero (the clearest absence of
+a relation); then the longer one, then the earlier one. Selected
 moments may not overlap.
 
 The ESM half of the document is out of scope: the application analyses GSR.
@@ -76,10 +78,12 @@ COMOVEMENT = "comovement"
 SHARED_HIGH = "shared_high"
 SHARED_LOW = "shared_low"
 DIVERGENT = "divergent"
+OPPOSITE = "opposite"
 DECOUPLED = "decoupled"
 
 # Every moment type with the step of the VSR flow chart it answers, in the order STEP 6 walks them: the document's
-# STEPS 1-5 read by correlation strength, divergent synchrony (Hassan's e-mail) as STEP 4b after the synchronous types.
+# STEPS 1-5 read by correlation strength, with Hassan's e-mail's types where they belong - divergent synchrony as
+# STEP 4b after the synchronous types, opposite arousal before decoupling in STEP 5 (no synchrony).
 # This is the one place the order lives: moving or renumbering a type is one line.
 PROTOCOL = (
     ("1", COMOVEMENT_STATE),
@@ -87,6 +91,7 @@ PROTOCOL = (
     ("3", SHARED_HIGH),
     ("4", SHARED_LOW),
     ("4b", DIVERGENT),
+    ("5", OPPOSITE),
     ("5", DECOUPLED),
 )
 STEP_NUMBERS = tuple(dict.fromkeys(step for step, _kind in PROTOCOL))
@@ -140,8 +145,8 @@ class Episode:
     # chosen before the teacher interview used the aggregated signals counted the students in it with the teacher.
     in_episode: int
     people: int
-    # "synchronization", "co-movement", "state", "divergent" or "decoupled"; moments chosen before the kinds were
-    # stored have none.
+    # "synchronization", "co-movement", "state", "opposite", "divergent" or "decoupled"; moments chosen before the
+    # kinds were stored have none.
     kind: str = ""
 
     def overlap(self, start: float, end: float) -> float:
@@ -168,7 +173,8 @@ class Candidate:
     start_seconds: float
     end_seconds: float
     correlation: float
-    # The Analysis episode the moment is: co-movement (STEPS 1-2), shared state (3-4), divergent (4b), decoupling (5).
+    # The Analysis episode the moment is: co-movement (STEPS 1-2), shared state (3-4), divergent (4b), opposite
+    # arousal or decoupling (5).
     episode: Episode | None = None
     # STEP 1: the shared-state episode the co-movement episode overlaps most.
     shared: Episode | None = None
@@ -192,7 +198,7 @@ class Candidate:
         r = round(self.correlation, 2)
         if self.kind in (COMOVEMENT_STATE, COMOVEMENT):
             strength = -r
-        elif self.kind in (SHARED_HIGH, SHARED_LOW):
+        elif self.kind in (SHARED_HIGH, SHARED_LOW, OPPOSITE):
             strength = -float(self.episode.in_episode) if self.episode else 0.0
         elif self.kind == DIVERGENT:
             strength = r
@@ -297,7 +303,7 @@ def aggregate_analysis(teacher: np.ndarray, students: np.ndarray, relative_minut
 
     The Analysis step's own functions and settings, with the pair as the only subgroup (two people make an
     episode): the synchronization windows with their synchronization, divergent and decoupling episodes, and the
-    co-arousal High, Low and co-movement episodes, shaped like the Analysis payload so ``interview_episodes``
+    co-arousal High, Low, co-movement and opposite episodes, shaped like the Analysis payload so ``interview_episodes``
     reads them as it reads a student pair's. The co-arousal surrogate test is skipped: the moments do not use it.
     """
     pair_config = config.model_copy(update={"synchrony_episode_min_size": 2, "contagion_min_participants": 2,
@@ -308,7 +314,8 @@ def aggregate_analysis(teacher: np.ndarray, students: np.ndarray, relative_minut
     fs = 1.0 / step_seconds if step_seconds > 0 else 1.0
     windows, episodes = _rolling_synchrony(signals, aliases, relative_minutes, fs, pair_config)
     frame = pd.DataFrame({"time": relative_minutes, **{f"microsiemens_{alias}": signals[alias] for alias in aliases}})
-    coarousal = compute_coarousal(_PairInput(aliases, frame), aliases, pair_config)  # type: ignore[arg-type]
+    coarousal = compute_coarousal(_PairInput(aliases, frame), aliases, pair_config,  # type: ignore[arg-type]
+                                  opposite=True)
     synchrony = synchrony_types({"aliases": aliases, "windows": windows, "episodes": episodes, "stats": {}}, pair_config)
     return synchrony, coarousal
 
@@ -320,6 +327,7 @@ class InterviewEpisodes:
     comovement: list[Episode]
     shared: list[Episode]
     divergent: list[Episode]
+    opposite: list[Episode]
     decoupled: list[Episode]
 
 
@@ -333,7 +341,7 @@ def interview_episodes(pair: Sequence[str], synchrony: dict[str, Any], coarousal
     """
     half_window = config.synchrony_window_seconds / 2.0
     members = set(pair)
-    found = InterviewEpisodes([], [], [], [])
+    found = InterviewEpisodes([], [], [], [], [])
 
     def episode(default_source: str, kind: str, index: int, start: float, end: float,
                 state: str | None = None) -> Episode:
@@ -347,9 +355,15 @@ def interview_episodes(pair: Sequence[str], synchrony: dict[str, Any], coarousal
                 target.append(episode(SYNCHRONY, kind, index, item["start_relative"] * 60.0,
                                       item["end_relative"] * 60.0))
     for index, item in enumerate(coarousal.get("episodes", [])):
+        start, end = float(item["start_s"]), float(item["end_s"])
+        if item["direction"] == "Opposite":
+            # One of the pair on the High side, the other on the Low side.
+            high, low = set(item.get("high_contributors", [])), set(item.get("low_contributors", []))
+            if any(first in high and second in low for first, second in (pair, tuple(reversed(pair)))):
+                found.opposite.append(episode(COAROUSAL, "opposite", index, start, end))
+            continue
         if not members.issubset(item.get("contributors", [])):
             continue
-        start, end = float(item["start_s"]), float(item["end_s"])
         if item["direction"] == "Co-movement":
             found.comovement.append(episode(COAROUSAL, "co-movement", index, start, end))
         elif item["direction"] in ("High", "Low"):
@@ -376,7 +390,8 @@ def candidates_by_step(windows: Windows, episodes: InterviewEpisodes,
     A co-movement episode is synchronous (STEPS 1-2) when its r reaches the interview threshold (the document:
     "Synchronous = above 0.8"), a divergent one (STEP 4b) when its r reaches minus it; in between neither
     (the document's criteria leave that band neither synchronous nor asynchronous). A decoupling stretch is STEP 5
-    as the Analysis found it (its mean r within the decoupling threshold).
+    as the Analysis found it (its mean r within the decoupling threshold), after opposite arousal (one of the pair
+    High, the other Low), which has no correlation criterion, as shared High and Low have none.
     """
     steps: dict[str, list[Candidate]] = {step: [] for step in STEP_NUMBERS}
     threshold = config.synchrony_interview_threshold
@@ -403,6 +418,8 @@ def candidates_by_step(windows: Windows, episodes: InterviewEpisodes,
         correlation = r(episode)
         if round(correlation, 2) <= -threshold:
             add(DIVERGENT, episode, correlation)
+    for episode in episodes.opposite:
+        add(OPPOSITE, episode, r(episode))
     for episode in episodes.decoupled:
         add(DECOUPLED, episode, r(episode))
     for candidates in steps.values():

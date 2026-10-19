@@ -314,6 +314,7 @@ input[type="checkbox"].switch:checked::after { transform: translateX(13px); }
 .dot.high { background: var(--high); }
 .dot.low { background: var(--low); }
 .dot.comove { background: var(--comove); }
+.dot.opposite { background: linear-gradient(var(--high) 50%, var(--low) 50%); }
 .badge { display: inline-flex; align-items: center; gap: var(--s1); padding: 2px var(--s2); border-radius: 999px; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; }
 .badge.good { background: var(--ok-weak); color: var(--ok); }
 .badge.warning { background: var(--warn-weak); color: var(--warn); }
@@ -339,6 +340,7 @@ table.data tr.nsig td { color: var(--ink-3); }
 .badge.high { background: #f9e3e5; color: var(--high); }
 .badge.low { background: #e2edf7; color: var(--low); }
 .badge.comove { background: #e9ecef; color: var(--comove); }
+.badge.opposite { background: linear-gradient(#f9e3e5 50%, #e2edf7 50%); color: var(--ink); }
 
 /* Key figures and quality tiles: the label, the number, then what it means */
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s3); margin: var(--s2) 0 var(--s5); padding: 0; list-style: none; }
