@@ -27,6 +27,7 @@ from gsr.services.datasets import add_dataset
 from gsr.services.results import is_stale
 
 from .sample_data import Participant, RecordingFormat, write_group
+from .test_report import _pdf_objects
 
 FAST = {"synchrony_surrogate_count": 20, "contagion_surrogate_count": 20}
 HTMX = {"HTTP_HX_REQUEST": "true"}
@@ -1162,7 +1163,8 @@ def test_export_pdf_follows_ui_language_and_embeds_charts(client, project) -> No
     assert without_charts.content.startswith(b"%PDF") and "report_pl.pdf" in without_charts["Content-Disposition"]
 
     with_charts = client.post(url, {"chart_sync_signals": _png_data_url(), "chart_coarousal_states": _png_data_url()})
-    assert with_charts.content.startswith(b"%PDF") and len(with_charts.content) > len(without_charts.content)
+    assert with_charts.content.startswith(b"%PDF") and b"/Subtype /Image" in _pdf_objects(with_charts.content)
+    assert b"/Subtype /Image" not in _pdf_objects(without_charts.content)
 
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     english = client.get(url)

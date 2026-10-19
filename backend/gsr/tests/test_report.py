@@ -271,7 +271,9 @@ def test_render_report_pdf_embeds_plex_fonts_and_charts(payload) -> None:
     fonts = set(re.findall(rb"/BaseFont\s*/[A-Z]{6}\+([\w-]+)", _pdf_objects(pdf)))
     # The app's IBM Plex; Polish letters come from the Latin Extended file, which needs its own family name.
     assert pdf.startswith(b"%PDF") and {b"Plex-Sans-Latin", b"Plex-Sans-Latin-Semi-Bold", b"Plex-Sans-Ext"} <= fonts
+    # Muted notes are italic; Plex ships no italic file, so the PDF carries a slanted (Oblique) copy of the regular.
     assert fonts <= {b"Plex-Sans-Latin", b"Plex-Sans-Latin-Semi-Bold", b"Plex-Sans-Ext", b"Plex-Sans-Ext-Semi-Bold",
+                     b"Plex-Sans-Latin-Oblique", b"Plex-Sans-Ext-Oblique",
                      b"Plex-Mono-Latin", b"Plex-Mono-Ext", b"DejaVu-Sans", b"DejaVu-Sans-Bold"}
     with_chart = render_report_pdf({**payload, "lang": "pl", "chart_images": {"sync_signals": _png()}})
     assert b"/Subtype /Image" in _pdf_objects(with_chart) and b"/Subtype /Image" not in _pdf_objects(pdf)
