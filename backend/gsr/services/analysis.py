@@ -86,16 +86,18 @@ def analyze_files_with_result(
     result = run_cleaning_pipeline(dataset_files, config)
 
     aliases = list(dataset_files)
+    # A two-person project is a dyad: it joins no episodes across gaps (``PipelineConfig.for_people``).
+    group_config = config.for_people(len(aliases))
     payload: dict[str, Any] = {"preview": serialize_preview(result, max_points)}
     # The z-scored analysis input next to the 0–1 one, for the chart scale the project shows (services/display.py).
     zscores = serialize_zscore_preview(result, max_points)
     for entry in payload["preview"]["datasets"]:
         entry["zscore"] = zscores[entry["alias"]]
     if "synchrony" in analyses:
-        payload["synchrony"] = synchrony_types(compute_synchrony(result, aliases, config, cancel_callback), config,
-                                               result.merged_decimated)
+        payload["synchrony"] = synchrony_types(compute_synchrony(result, aliases, group_config, cancel_callback),
+                                               group_config, result.merged_decimated)
     if "coarousal" in analyses:
-        payload["coarousal"] = compute_coarousal(result, aliases, config, cancel_callback, opposite=True)
+        payload["coarousal"] = compute_coarousal(result, aliases, group_config, cancel_callback, opposite=True)
     return result, payload
 
 

@@ -95,9 +95,10 @@ divergent synchronization episodes (r <= -0.3 in every window), decoupling stret
 episodes (z above +1 while another is below -1) as its own types. New projects start with the values
 the VSR Interview Flow Chart and the e-mail suggest and, where the chart is silent, the values of Hassan's
 script (`VSR_DOCUMENT_SETTINGS`: 0.8 for the interview moments; from the script, Spearman correlation,
-co-movement detected from 0.3, as divergent synchrony is detected from -0.3, and in the interviews' own
-analysis of two signals episodes not joined across gaps - the whole-class Analysis screen keeps GSRv2's
-15 s / 30 s joining, which his script has no counterpart for; 0.1 decoupling, High/Low at
+co-movement detected from 0.3, as divergent synchrony is detected from -0.3, and a dyad - a two-person
+project or an interview's own two signals - joins no episodes across gaps, since joining exists to keep a
+subgroup's episode together when its membership changes and two people have no subgroups (his script is such a
+dyad analysis); a class keeps GSRv2's 15 s / 30 s joining; 0.1 decoupling, High/Low at
 z = +/-1, shared High/Low episodes whole even with co-movement during them; 5 moments per interview plus 3 in
 reserve); projects saved earlier keep GSRv2's synchronization and co-movement settings until "Reset
 defaults" in the Analysis settings sets these. The 5 + 3 moment counts are the existing defaults;

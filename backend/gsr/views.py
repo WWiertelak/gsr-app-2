@@ -715,6 +715,9 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
             sync_episode_rule=_("subgroups of ≥ %(size)s people above %(threshold)s") % {
                 "size": config.synchrony_episode_min_size,
                 "threshold": params.display_number(config.synchrony_threshold)},
+            # A two-person project is a dyad and joins no episodes across gaps (PipelineConfig.for_people): say so.
+            dyad_without_gaps=len(payload.get("preview", {}).get("aliases") or []) == 2
+            and config.synchrony_dyad_without_gap_joining,
             # Results stored before divergent synchrony was found have none to show (None), not zero.
             divergent_episodes=divergent_episodes if "divergent_episodes" in synchrony else None,
             divergent_rule=_("r ≤ −%(threshold)s in every window") % {

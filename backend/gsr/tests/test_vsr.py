@@ -51,6 +51,7 @@ from gsr.pipeline.vsr import (
     select,
     windowed_correlation,
 )
+from gsr.services.analysis import analyze_files_with_result
 
 from .esense_csv import build_esense_csv
 
@@ -447,10 +448,10 @@ def test_student_average_z_scores_each_student_before_averaging() -> None:
     assert np.std(average) == pytest.approx(1.0)
 
 
-def test_the_interviews_own_analysis_joins_episodes_only_across_its_own_gap() -> None:
-    # Hassan's script joins no episodes across gaps; the whole-class Analysis keeps GSRv2's 15 s. Two shared waves a
-    # short gap apart are two synchronization episodes of the pair until the interview gap (not the class one) allows
-    # joining them.
+def test_a_dyad_joins_no_episodes_across_gaps_unless_the_setting_says_otherwise() -> None:
+    # Joining keeps a subgroup's episode together when its membership changes; two people have no subgroups, so an
+    # interview's own two signals join none, as Hassan's dyad script (a class keeps GSRv2's 15 s). Two shared waves a
+    # short gap apart stay two synchronization episodes whatever the class gap is.
     minutes = np.arange(0, 900) / 60.0
     rng = np.random.default_rng(7)
     a, b = rng.normal(0, 0.3, len(minutes)), rng.normal(0, 0.3, len(minutes))
@@ -459,15 +460,26 @@ def test_the_interviews_own_analysis_joins_episodes_only_across_its_own_gap() ->
         a[start:start + 60] += wave
         b[start:start + 60] += wave
 
-    def episodes(**update: float) -> list[dict]:
-        config = CONFIG.model_copy(update=update)
+    def episodes(**update: object) -> list[dict]:
+        config = CONFIG.model_copy(update={"synchrony_episode_max_gap_seconds": 120.0, **update})
         return pair_analysis(_zscore(a), _zscore(b), minutes, config, ("A", "B"))[0]["episodes"]
 
-    apart = episodes(synchrony_interview_episode_max_gap_seconds=0.0, synchrony_episode_max_gap_seconds=120.0)
-    joined = episodes(synchrony_interview_episode_max_gap_seconds=120.0, synchrony_episode_max_gap_seconds=0.0)
+    assert CONFIG.synchrony_dyad_without_gap_joining is True
+    assert len(episodes()) == 2
+    assert len(episodes(synchrony_dyad_without_gap_joining=False)) == 1  # joined like a class
 
-    assert CONFIG.synchrony_interview_episode_max_gap_seconds == 0.0
-    assert len(apart) == 2 and len(joined) == 1
+
+def test_the_settings_of_an_analysis_depend_on_whether_it_is_a_dyad() -> None:
+    config = CONFIG.model_copy(update={"synchrony_episode_max_gap_seconds": 15.0,
+                                       "contagion_min_episode_gap_seconds": 30.0})
+
+    dyad, group = config.for_people(2), config.for_people(3)
+
+    assert (dyad.synchrony_episode_max_gap_seconds, dyad.contagion_min_episode_gap_seconds) == (0.0, 0.0)
+    assert (group.synchrony_episode_max_gap_seconds, group.contagion_min_episode_gap_seconds) == (15.0, 30.0)
+    off = config.model_copy(update={"synchrony_dyad_without_gap_joining": False}).for_people(2)
+    assert (off.synchrony_episode_max_gap_seconds, off.contagion_min_episode_gap_seconds) == (15.0, 30.0)
+    assert dyad.synchrony_threshold == config.synchrony_threshold  # nothing else changes
 
 
 def test_student_average_needs_at_least_one_student() -> None:
@@ -581,6 +593,26 @@ def test_a_pairs_moments_do_not_depend_on_who_else_is_in_the_project(tmp_path: P
     assert all(c["episode"]["source"] == OWN for c in in_class["candidates"] if c["episode"])
     assert [c for c in in_class["candidates"] if c["step"] in ("1", "2") and c["start_seconds"] < 380
             and c["end_seconds"] > 300]
+
+
+def test_a_two_person_projects_analysis_is_a_dyad_and_joins_no_gaps(tmp_path: Path) -> None:
+    # The Analysis step itself: a two-person project joins no episodes across gaps whatever the class gap is, a
+    # larger project keeps joining them, and the setting takes a two-person project back to the class behaviour.
+    files = _class_recordings(tmp_path, {"S1+S2": (300.0, 360.0), "S2+S1": (380.0, 440.0)}, seconds=700.0)
+    config = PipelineConfig(scaling_enabled=True, synchrony_surrogate_count=0, contagion_surrogate_count=0,
+                            synchrony_threshold=0.6, synchrony_episode_max_gap_seconds=120.0)
+    pair = {alias: files[alias] for alias in ("S1", "S2")}
+
+    def pair_episodes(payload: dict) -> list[tuple[float, float]]:
+        return [(round(e["start_relative"] * 60), round(e["end_relative"] * 60))
+                for e in payload["synchrony"]["episodes"] if {"S1", "S2"} <= set(e["members"])]
+
+    dyad = pair_episodes(analyze_files_with_result(pair, config)[1])
+    as_class = pair_episodes(analyze_files_with_result(
+        pair, config.model_copy(update={"synchrony_dyad_without_gap_joining": False}))[1])
+
+    assert len(dyad) == 2 and len(as_class) == 1
+    assert as_class[0][0] <= dyad[0][0] and dyad[1][1] <= as_class[0][1]
 
 
 def test_compute_vsr_reports_moment_times_on_the_sensor_clock(tmp_path: Path) -> None:

@@ -205,8 +205,8 @@ SYNCHRONY_ADVANCED = (
         "synchrony_episode_max_gap_seconds",
         _("Max gap (s)"),
         _(
-            "Synchronization and divergent episodes of the whole class closer than this are joined into one (default "
-            "15 s, as in GSRv2). The interviews' own analysis of two signals has its own setting."
+            "Synchronization and divergent episodes closer than this are joined into one (default 15 s, as in GSRv2). "
+            "A dyad joins none (Dyads: no joining across gaps)."
         ),
     ),
     Param("synchrony_cluster_distance_threshold", _("Clustering threshold")),
@@ -261,8 +261,8 @@ COAROUSAL_ADVANCED = (
         "contagion_min_episode_gap_seconds",
         _("Max gap (s)"),
         _(
-            "Co-arousal episodes of one kind closer than this are joined into one (default 30 s, as in GSRv2). The "
-            "interviews' own analysis of two signals has its own setting."
+            "Co-arousal episodes of one kind closer than this are joined into one (default 30 s, as in GSRv2). A dyad "
+            "joins none (Dyads: no joining across gaps)."
         ),
     ),
     Param(
@@ -292,12 +292,14 @@ INTERVIEW_ESSENTIAL = (
         ),
     ),
     Param(
-        "synchrony_interview_episode_max_gap_seconds",
-        _("Interview episodes: max gap (s)"),
+        "synchrony_dyad_without_gap_joining",
+        _("Dyads: no joining across gaps"),
         _(
-            "The interviews' own analysis of two signals joins synchronization and co-arousal episodes closer than "
-            "this. 0 (default) joins none, as in Hassan's script; the whole-class Analysis keeps its own gaps."
+            "Joining episodes across gaps keeps a subgroup's episode together when the group's membership changes. "
+            "Two people have no subgroups, so a dyad (a two-person project, or an interview's own two signals) joins "
+            "none, as Hassan's dyad script. Off: dyads join gaps like a class (the Max gap settings)."
         ),
+        kind="bool",
     ),
     Param(
         "synchrony_interview_shared_without_comovement",

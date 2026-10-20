@@ -139,6 +139,10 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                 "blocks": [
                     ("p", "Oknowa korelacja krzyżowa par (z opóźnieniem do maks. lagu), koherencja, opcjonalnie DTW. "
                           "Podgrupy utrzymujące synchronizację powyżej progu tworzą epizody; sygnały są klastrowane."),
+                    ("p", "Epizody rozdzielone krótką przerwą (domyślnie do 15 s, w ko-pobudzeniu do 30 s) łączy się, "
+                          "żeby epizod podgrupy nie rozpadał się przy zmianie jej składu; w projekcie dwuosobowym, "
+                          "czyli analizie diady, podgrup nie ma, więc epizodów nie łączy się, tak jak w skrypcie "
+                          "zespołu Hassana (także we własnej analizie dwóch sygnałów każdego wywiadu)."),
                     ("p", "Istotność: test surogatowy zachowujący autokorelację (przesunięcie kołowe / randomizacja fazy) "
                           "niszczy tylko synchronizację między osobami. Synchronizacja liczona ze znakiem — antyfaza nie jest "
                           "mylona z synchronizacją."),
@@ -329,6 +333,10 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                 "blocks": [
                     ("p", "Windowed cross-correlation of pairs (with lag up to a max), coherence, optionally DTW. Subgroups "
                           "staying synchronized above threshold form episodes; signals are clustered."),
+                    ("p", "Episodes separated by a short gap (by default up to 15 s, 30 s in co-arousal) are joined so "
+                          "that a subgroup's episode does not fall apart when its membership changes; a two-person "
+                          "project, a dyad analysis, has no subgroups, so its episodes are not joined, as in Hassan's "
+                          "team's script (and in every interview's own analysis of two signals)."),
                     ("p", "Significance: an autocorrelation-preserving surrogate test (circular shift / phase randomization) "
                           "destroys only between-person synchrony. Synchrony is signed — anti-phase is not mistaken for synchrony."),
                     ("p", "Divergent synchrony: subgroups in which every pair's windowed r is at or below minus the "

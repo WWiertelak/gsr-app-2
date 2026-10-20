@@ -28,6 +28,10 @@
       <div class="alert warning stale-note">{% if stale_from %}{% include "gsr/partials/stale_from.html" %}{% elif predates_rules %}{% translate "This run used the earlier rules. The app now reads the VSR flow chart's correlation criteria by strength and also finds divergent synchrony, decoupling and opposite arousal: run the analysis again." %}{% else %}{% translate "Settings or signals changed since this run. Run the analysis again." %}{% endif %}</div>
     {% endif %}
 
+    {% if result and dyad_without_gaps %}
+      <p class="muted small dyad-note">{% translate "Two people: a dyad analysis. Episodes are not joined across gaps, since joining keeps a subgroup's episode together when its membership changes and a pair has no subgroups (setting: Dyads: no joining across gaps)." %}</p>
+    {% endif %}
+
     <div class="result{% if stale %} is-stale{% endif %}" role="tabpanel" id="panel-synchronization" aria-labelledby="tab-synchronization" tabindex="0" data-tab-panel="synchronization"{% if tab != "synchronization" %} hidden{% endif %}>
       {% if result and synchrony %}
         {% translate "Mean of the pairs' maximum cross-correlation (the synchronization matrix below)." as mean_help %}

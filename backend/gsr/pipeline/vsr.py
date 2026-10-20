@@ -127,7 +127,7 @@ ANALYSIS_SETTINGS = (
     "synchrony_decoupled_threshold",
     "synchrony_decoupled_rule",
     "synchrony_interview_shared_without_comovement",
-    "synchrony_interview_episode_max_gap_seconds",
+    "synchrony_dyad_without_gap_joining",
     "contagion_high_z",
     "contagion_low_z",
     "contagion_min_participants",
@@ -310,14 +310,12 @@ def pair_analysis(first: np.ndarray, second: np.ndarray, relative_minutes: np.nd
     The Analysis step's own functions and settings, with the two as the only subgroup (two people make an
     episode): the synchronization windows with their synchronization, divergent and decoupling episodes, and the
     co-arousal High, Low, co-movement and opposite episodes, shaped like the Analysis payload for
-    ``interview_episodes``. No one else in the project changes them. Episodes are joined across gaps up to
-    ``synchrony_interview_episode_max_gap_seconds`` (0 as in Hassan's script), not the whole-class Analysis' gaps.
-    The co-arousal surrogate test is skipped: the moments do not use it.
+    ``interview_episodes``. No one else in the project changes them. As a dyad it joins no episodes across gaps
+    (``PipelineConfig.for_people``). The co-arousal surrogate test is skipped: the moments do not use it.
     """
-    gap = config.synchrony_interview_episode_max_gap_seconds
-    pair_config = config.model_copy(update={"synchrony_episode_min_size": 2, "contagion_min_participants": 2,
-                                            "contagion_surrogate_count": 0, "synchrony_episode_max_gap_seconds": gap,
-                                            "contagion_min_episode_gap_seconds": gap})
+    pair_config = config.for_people(2).model_copy(update={"synchrony_episode_min_size": 2,
+                                                          "contagion_min_participants": 2,
+                                                          "contagion_surrogate_count": 0})
     aliases = list(aliases)
     signals = dict(zip(aliases, (np.asarray(first, dtype=float), np.asarray(second, dtype=float))))
     step_seconds = _estimate_step_seconds(relative_minutes)

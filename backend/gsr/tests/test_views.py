@@ -759,6 +759,32 @@ def test_analysis_settings_live_in_the_drawer_with_run_and_apply_buttons(client,
 
 
 @pytest.mark.django_db
+def test_a_two_person_project_is_analysed_as_a_dyad_and_says_so(client, recordings) -> None:
+    # Two people have no subgroups, so a dyad joins no episodes across gaps (Hassan's dyad script; test_vsr shows the
+    # episodes): the class gap settings do not change its results, and the Analysis screen says why.
+    project = Project.objects.create(name="Para", pipeline_config=dict(FAST))
+    for alias in ("A", "B"):
+        add_dataset(project, _upload(recordings[alias]), alias=alias)
+    note = "Two people: a dyad analysis. Episodes are not joined across gaps"
+
+    def analysed(**overrides: object) -> tuple[dict, str]:
+        client.post(reverse("gsr:analysis", args=[project.pk]), _analysis_form(project, **overrides), **HTMX)
+        stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
+        with translation.override("en"):
+            page = client.get(reverse("gsr:analysis", args=[project.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
+        return stored.payload, page
+
+    wide, page = analysed(synchrony_episode_max_gap_seconds=600, contagion_min_episode_gap_seconds=600)
+    none, _page = analysed(synchrony_episode_max_gap_seconds=0, contagion_min_episode_gap_seconds=0)
+
+    assert wide["synchrony"]["episodes"] == none["synchrony"]["episodes"]
+    assert wide["coarousal"]["episodes"] == none["coarousal"]["episodes"]
+    assert note in page
+    _payload, page = analysed(synchrony_dyad_without_gap_joining=False)
+    assert note not in page
+
+
+@pytest.mark.django_db
 def test_polish_screens_use_polish_numbers_and_labels(client, project) -> None:
     project.pipeline_config = {**project.pipeline_config, "time_range_to": 2.5, "synchrony_threshold": 0.75}
     project.save()
