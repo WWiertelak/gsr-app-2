@@ -5,7 +5,7 @@
     <span class="run-source">{% blocktranslate with time=analysis.computed_at|date:"Y-m-d H:i" %}From the Analysis of {{ time }}:{% endblocktranslate %}</span>
     <ul class="kv" aria-label="{% translate 'Analysis settings' %}">{% for item in analysis_settings %}<li>{{ item.text }}</li>{% endfor %}</ul>
   {% else %}
-    <span class="run-source grow">{% translate "The moments come from the Analysis results." %}</span>
+    <span class="run-source grow">{% translate "The moments come from the Analysis run: each interview's own two signals, with its settings." %}</span>
   {% endif %}
   <span class="run-actions">
     {% if result %}
@@ -82,7 +82,7 @@
           {% endif %}
         </div>
       </div>
-      <p class="roles-help muted small">{% translate "“Choose moments” saves the participants and takes the moments from the Analysis: its episodes are sorted into the steps of the VSR flow chart, the strongest first." %}</p>
+      <p class="roles-help muted small">{% translate "“Choose moments” saves the participants and analyses each interview's two signals with the Analysis settings: a pair's own, or the teacher's and the students' average. Their episodes are sorted into the steps of the VSR flow chart, the strongest first. The Analysis screen shows the whole class." %}</p>
     </form>
   </section>
 
@@ -120,14 +120,14 @@
             <div class="alert warning">{% blocktranslate with alias=signal.alias pct=signal.pct %}The GSR signal of {{ alias }} has poor quality ({{ pct }}% of its samples were rejected on the Cleaning step). Check the recording before discussing these moments.{% endblocktranslate %}</div>
           {% endfor %}
           {% if not interview.stats.complete %}
-            <div class="alert warning">{% blocktranslate with count=interview.stats.primary_count target=interview.stats.primary_target %}The Analysis has episodes for only {{ count }} of {{ target }} moments. Add moments by hand if you need more.{% endblocktranslate %}</div>
+            <div class="alert warning">{% blocktranslate with count=interview.stats.primary_count target=interview.stats.primary_target %}The interview's signals have episodes for only {{ count }} of {{ target }} moments. Add moments by hand if you need more.{% endblocktranslate %}</div>
           {% endif %}
 
           <p class="interview-signals small">
             {% for signal in interview.signals %}<span class="chip"><span class="dot" style="background: {{ signal.color }}"></span>{{ signal.name }}</span>{% endfor %}
             {% if interview.kind == "teacher" %}<span class="muted">{% blocktranslate with students=interview.participants|slice:"1:"|join:", " %}average of: {{ students }}{% endblocktranslate %}</span>{% endif %}
           </p>
-          <ul class="step-counts" aria-label="{% translate 'Analysis episodes per step' %}">
+          <ul class="step-counts" aria-label="{% translate 'Episodes per step' %}">
             {% for step in interview.steps %}
               <li{% if not step.count %} class="none"{% endif %}><span class="step-type"><b>{{ step.number }}</b> {{ step.name }}</span> <span class="count">{{ step.count }}</span></li>
             {% endfor %}

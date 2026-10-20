@@ -42,7 +42,8 @@ def lesson(tmp_path: Path) -> Project:
         },
         {},
         seconds=1200.0,
-        seed=11,
+        # A lesson in which the pair's own signals give four moments (two primary, two reserve).
+        seed=13,
     )
     project = Project.objects.create(name="Lekcja", pipeline_config=dict(FAST))
     for alias, path in paths.items():

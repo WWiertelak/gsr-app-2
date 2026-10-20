@@ -21,8 +21,6 @@ from gsr.pipeline.config import PipelineConfig
 from gsr.pipeline.preprocessing import run_pipeline
 from gsr.pipeline.synchrony import compute_synchrony
 from gsr.pipeline.vsr import (
-    AGGREGATE,
-    AGGREGATE_PAIR,
     COAROUSAL,
     COMOVEMENT,
     COMOVEMENT_STATE,
@@ -31,23 +29,25 @@ from gsr.pipeline.vsr import (
     HIGH,
     LOW,
     OPPOSITE,
+    OWN,
     PRIMARY,
     RESERVE,
     SHARED_HIGH,
     SHARED_LOW,
     STEP_NUMBERS,
     SYNCHRONY,
+    TEACHER_PAIR,
     Candidate,
     Episode,
     Proposal,
     Windows,
     _moment_payload,
-    aggregate_analysis,
     aggregate_student_signal,
     candidates_by_step,
     compute_vsr,
     interview_episodes,
     interview_signals,
+    pair_analysis,
     select,
     windowed_correlation,
 )
@@ -144,12 +144,12 @@ def test_the_teacher_interview_is_analysed_as_the_teacher_and_the_students_avera
     teacher[800:900] += 3.0
     students[800:900] += 3.0
 
-    synchrony, coarousal = aggregate_analysis(_zscore(teacher), _zscore(students), minutes, CONFIG)
-    found = interview_episodes(AGGREGATE_PAIR, synchrony, coarousal, CONFIG, (0.0, 1199.0), source=AGGREGATE)
+    synchrony, coarousal = pair_analysis(_zscore(teacher), _zscore(students), minutes, CONFIG, TEACHER_PAIR)
+    found = interview_episodes(TEACHER_PAIR, synchrony, coarousal, CONFIG, (0.0, 1199.0), source=OWN)
     comovement, shared = found.comovement, found.shared
 
-    assert synchrony["aliases"] == list(AGGREGATE_PAIR) and len(synchrony["windows"]["pairs"]) == 1
-    assert comovement and all(episode.source == AGGREGATE for episode in comovement + shared)
+    assert synchrony["aliases"] == list(TEACHER_PAIR) and len(synchrony["windows"]["pairs"]) == 1
+    assert comovement and all(episode.source == OWN for episode in comovement + shared)
     # The shared wave: a synchronization episode and a co-arousal co-movement episode around it.
     assert len([episode for episode in comovement
                 if episode.overlap(300, 420) and 270 <= episode.start_seconds and episode.end_seconds <= 450]) == 2
@@ -466,7 +466,7 @@ def test_the_pair_correlation_is_the_synchronization_tabs_windows(tmp_path: Path
 def test_compute_vsr_builds_one_interview_per_pair_and_one_for_the_teacher(tmp_path: Path) -> None:
     result, analysis, config = _analysed(tmp_path)
 
-    payload = compute_vsr(result, analysis, config, dyads=[("S1", "S2")], teacher_alias="T",
+    payload = compute_vsr(result, config, dyads=[("S1", "S2")], teacher_alias="T",
                           student_aliases=["S1", "S2", "S3"], primary_count=4, reserve_count=2)
 
     assert [interview["key"] for interview in payload["interviews"]] == ["S1+S2", "T"]
@@ -484,7 +484,7 @@ def test_compute_vsr_builds_one_interview_per_pair_and_one_for_the_teacher(tmp_p
             assert moment["status"] in {PRIMARY, RESERVE}
             assert moment["start_seconds"] < moment["end_seconds"]
             assert moment["step"] in STEP_NUMBERS and moment["type"]
-            assert moment["episode"] is not None  # every moment is an Analysis episode
+            assert moment["episode"]["source"] == OWN  # every moment is an episode of the interview's own signals
 
 
 def _class_recordings(tmp_path: Path, together: dict[str, tuple[float, float]], seconds: float = 900.0) -> dict:
@@ -516,19 +516,39 @@ def test_the_teacher_moments_come_from_the_aggregated_data_not_from_one_student(
     assert any({"T", "S1"} <= set(episode["members"]) and episode["start_relative"] * 60 < 380
                and episode["end_relative"] * 60 > 300 for episode in analysis["synchrony"]["episodes"])
 
-    teacher = compute_vsr(result, analysis, config, dyads=[], teacher_alias="T",
+    teacher = compute_vsr(result, config, dyads=[], teacher_alias="T",
                           student_aliases=["S1", "S2", "S3", "S4", "S5", "S6"])["interviews"][0]
 
     synchronous = [c for c in teacher["candidates"] if c["step"] in ("1", "2")]
     assert not [c for c in synchronous if c["start_seconds"] < 380 and c["end_seconds"] > 300]
     assert [c for c in synchronous if c["start_seconds"] < 680 and c["end_seconds"] > 600]
-    assert all(c["episode"]["source"] == AGGREGATE for c in teacher["candidates"] if c["episode"])
+    assert all(c["episode"]["source"] == OWN for c in teacher["candidates"] if c["episode"])
+
+
+def test_a_pairs_moments_do_not_depend_on_who_else_is_in_the_project(tmp_path: Path) -> None:
+    # The flow chart: "Points for discussion are selected based on the dyad's GSR data". S1 and S2 share a wave at
+    # 300-380 s, S3 joins them at 600-680 s; the pair's moments are the same with or without the rest of the class.
+    files = _class_recordings(tmp_path, {"S1+S2": (300.0, 380.0), "S1+S2+S3": (600.0, 680.0)})
+    config = PipelineConfig(scaling_enabled=True, synchrony_surrogate_count=0, contagion_surrogate_count=0)
+    whole_class = run_pipeline(files, config)
+    pair_alone = run_pipeline({alias: files[alias] for alias in ("S1", "S2")}, config)
+
+    def interview(result: object) -> dict:
+        return compute_vsr(result, config, dyads=[("S1", "S2")])["interviews"][0]
+
+    in_class, alone = interview(whole_class), interview(pair_alone)
+
+    assert in_class["candidates"] and in_class["candidates"] == alone["candidates"]
+    assert in_class["moments"] == alone["moments"]
+    assert all(c["episode"]["source"] == OWN for c in in_class["candidates"] if c["episode"])
+    assert [c for c in in_class["candidates"] if c["step"] in ("1", "2") and c["start_seconds"] < 380
+            and c["end_seconds"] > 300]
 
 
 def test_compute_vsr_reports_moment_times_on_the_sensor_clock(tmp_path: Path) -> None:
     result, analysis, config = _analysed(tmp_path)
 
-    moments = compute_vsr(result, analysis, config, dyads=[("S1", "S2")])["interviews"][0]["moments"]
+    moments = compute_vsr(result, config, dyads=[("S1", "S2")])["interviews"][0]["moments"]
 
     assert moments, "the synthetic recording produced no moment to place on the clock"
     for moment in moments:
@@ -543,11 +563,11 @@ def test_compute_vsr_rejects_unusable_interview_participants(tmp_path: Path) -> 
     result, analysis, config = _analysed(tmp_path)
 
     with pytest.raises(PipelineError, match="Unknown aliases requested: S9"):
-        compute_vsr(result, analysis, config, dyads=[("S1", "S9")])
+        compute_vsr(result, config, dyads=[("S1", "S9")])
     with pytest.raises(PipelineError, match="two different participants"):
-        compute_vsr(result, analysis, config, dyads=[("S1", "S1")])
+        compute_vsr(result, config, dyads=[("S1", "S1")])
     with pytest.raises(PipelineError, match="at least one student recording"):
-        compute_vsr(result, analysis, config, dyads=[], teacher_alias="T", student_aliases=["T"])
+        compute_vsr(result, config, dyads=[], teacher_alias="T", student_aliases=["T"])
 
 
 def test_episode_overlap_is_measured_in_lesson_seconds() -> None:

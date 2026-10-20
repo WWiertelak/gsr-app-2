@@ -1,9 +1,9 @@
-"""VSR interview moments behind the Interviews screen: choose them from the Analysis, store, check for staleness.
+"""VSR interview moments behind the Interviews screen: choose them from the Analysis run, store, check for staleness.
 
-The moments are the stored analysis run's episodes (``pipeline/vsr.py``), with the
-Analysis settings they were found with and the interview roles and moment counts
-stored on the project, kept as the project's ``AnalysisResult`` of kind ``vsr``. An
-outdated or missing analysis is not worked around: the Analysis has to run first.
+The moments come from the stored analysis run (``pipeline/vsr.py``): its signals, analysed per
+interview with the settings the run used, and the interview roles and moment counts stored on
+the project, kept as the project's ``AnalysisResult`` of kind ``vsr``. An outdated or missing
+analysis is not worked around: the Analysis has to run first.
 """
 
 from __future__ import annotations
@@ -95,8 +95,8 @@ def compute_interviews(project: Project) -> AnalysisResult:
         )
     students = interview_students(roles, result.aliases) if roles.teacher_alias is not None else []
     try:
-        payload = compute_vsr(result, analysis.payload, pipeline_config, roles.student_pairs, roles.teacher_alias,
-                              students, config.primary_count, config.reserve_count)
+        payload = compute_vsr(result, pipeline_config, roles.student_pairs, roles.teacher_alias, students,
+                              config.primary_count, config.reserve_count)
     except PipelineError as exc:
         raise AnalysisError.from_pipeline(exc) from exc
 

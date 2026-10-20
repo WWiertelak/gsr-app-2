@@ -1,38 +1,36 @@
-"""VSR interview moments chosen from the Analysis results (the "VSR Interview Flow Chart", GSR section).
+"""VSR interview moments from each interview's own two signals (the "VSR Interview Flow Chart", GSR section).
 
-The Interviews step does not analyse the signals again with settings of its own: it
-takes the episodes the Analysis step found, with the Analysis settings they were found
-with, and sorts them into the document's steps for every interview. The document's
+Every interview compares two signals: a student pair's two (page 1 of the document: "Points
+for discussion are selected based on the dyad's GSR data"), or the teacher and the students'
+average ("Student data will be aggregated to create average GSR values for the 6 students").
+The Interviews step has no settings of its own: it runs the Analysis' own functions with the
+stored Analysis run's settings on those two signals alone (``pair_analysis``), so the moments
+of a pair do not depend on who else is in the project (in the whole-class Analysis a third
+person breaks a pair's synchronization run, and shared states are found class-wide), and
+sorts the episodes into the document's steps. The Analysis screen keeps its whole-class
+episodes. The document's
 correlation criteria ("Synchronous = above 0.8", "Asynchronous = below 0.1") are read as
 the strength of the correlation, its absolute value; Hassan's e-mail adds the divergent
 type. The steps (``PROTOCOL``, the one place their order lives):
 
-  1. co-movement and a shared arousal state - a synchronization episode (Synchronization
-     tab) or a co-movement episode (Co-arousal tab) of the interview's people whose r is
-     at least the interview threshold (0.8), that overlaps a shared High or Low episode
-     (Co-arousal tab) of the same people;
+  1. co-movement and a shared arousal state - a synchronization episode or a co-arousal
+     co-movement episode of the interview's two signals whose r is at least the interview
+     threshold (0.8), that overlaps a shared High or Low episode of the same two;
   2. co-movement only - such a co-movement episode that overlaps no shared state;
   3. shared High arousal - a shared High episode that overlaps no such co-movement;
   4. shared Low arousal - a shared Low episode that overlaps no such co-movement;
-  5. no synchrony - opposite arousal first (Co-arousal tab: one person High while the
-     other is Low, the complement of STEPS 3-4), then a decoupling stretch (Synchronization
-     tab: between the pair's synchronization and divergent episodes, every window |r| < 0.1
-     for at least the minimum episode duration, "Asynchronous = below 0.1");
-  4b. divergent synchrony - a divergent synchronization episode (Synchronization tab: the
-     signals move in opposite directions) whose r is at or below minus the interview
+  5. no synchrony - opposite arousal first (one of the two High while the other is Low,
+     the complement of STEPS 3-4), then a decoupling stretch (between the two signals'
+     synchronization and divergent episodes, every window |r| < 0.1 for at least the minimum
+     episode duration, "Asynchronous = below 0.1");
+  4b. divergent synchrony - a divergent synchronization episode (the two signals move in
+     opposite directions) whose r is at or below minus the interview
      threshold ("ideally above .80 for the interviews"), walked after STEP 5 so the first
      five moments keep the document's "4 synchronous, 1 not synchronous".
 
-An episode belongs to a student pair when both students are in it (members of a
-synchronization subgroup, contributors of a co-arousal episode). The teacher interview is
-the pair of the teacher and the students' average signal (page 1 of the document:
-"Student data will be aggregated to create average GSR values for the 6 students",
-"Points selected for discussion are based on teacher and student aggregated GSR data"):
-its episodes are found by the Analysis' own functions and settings on that pair
-(``aggregate_analysis``), not taken from the Analysis episodes the teacher shares with
-any one student. The correlation r of a moment is the interview's own, from the
-Synchronization tab's windows (window, step and method from the Analysis settings): the
-pair's two signals, or the teacher against the students' average.
+The correlation r of a moment is the mean of the interview's windows over the moment (the
+Synchronization tab's window, step and method), all of them; the Analysis tables' strengths
+are means over the windows above the threshold only.
 
 STEP 6 then walks the steps again until the primary moments are selected, and once more
 for the reserve. Of several moments answering one step the strongest comes first: the
@@ -67,11 +65,11 @@ LOW = "LOW"
 
 SYNCHRONY = "synchrony"
 COAROUSAL = "coarousal"
-# An episode of the teacher and the students' average, found for the teacher interview (not on the Analysis screen).
-AGGREGATE = "aggregate"
+# An episode found by the interview's own analysis of its two signals (``pair_analysis``), not an Analysis screen one.
+OWN = "own"
 
 # The two participants of the teacher interview's own analysis.
-AGGREGATE_PAIR = ("teacher", "students")
+TEACHER_PAIR = ("teacher", "students")
 
 # The moment types.
 COMOVEMENT_STATE = "comovement_state"
@@ -135,11 +133,11 @@ ANALYSIS_SETTINGS = (
 
 @dataclass(frozen=True)
 class Episode:
-    """One Analysis episode as an interview sees it."""
+    """One episode of an interview's two signals."""
 
-    source: str  # SYNCHRONY or COAROUSAL, or AGGREGATE for the teacher interview's own episodes
-    # Its number on the Analysis screen: E<number> (D, U for divergent and decoupling) on Synchronization, <number>
-    # on Co-arousal.
+    source: str  # OWN (the interview's own analysis); SYNCHRONY or COAROUSAL in moments chosen from the Analysis
+    # Its number in its list (1-based); for moments chosen from the whole-class Analysis, its number on the Analysis
+    # screen: E<number> (D, U for divergent and decoupling) on Synchronization, <number> on Co-arousal.
     number: int
     start_seconds: float
     end_seconds: float
@@ -300,19 +298,20 @@ class _PairInput:
     merged_decimated: pd.DataFrame
 
 
-def aggregate_analysis(teacher: np.ndarray, students: np.ndarray, relative_minutes: np.ndarray,
-                       config: PipelineConfig) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The Analysis of the teacher and the students' average as a pair of participants (``AGGREGATE_PAIR``).
+def pair_analysis(first: np.ndarray, second: np.ndarray, relative_minutes: np.ndarray, config: PipelineConfig,
+                  aliases: Sequence[str]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The Analysis of two signals alone: a student pair's, or the teacher and the students' average.
 
-    The Analysis step's own functions and settings, with the pair as the only subgroup (two people make an
+    The Analysis step's own functions and settings, with the two as the only subgroup (two people make an
     episode): the synchronization windows with their synchronization, divergent and decoupling episodes, and the
-    co-arousal High, Low, co-movement and opposite episodes, shaped like the Analysis payload so ``interview_episodes``
-    reads them as it reads a student pair's. The co-arousal surrogate test is skipped: the moments do not use it.
+    co-arousal High, Low, co-movement and opposite episodes, shaped like the Analysis payload for
+    ``interview_episodes``. No one else in the project changes them. The co-arousal surrogate test is skipped: the
+    moments do not use it.
     """
     pair_config = config.model_copy(update={"synchrony_episode_min_size": 2, "contagion_min_participants": 2,
                                             "contagion_surrogate_count": 0})
-    aliases = list(AGGREGATE_PAIR)
-    signals = dict(zip(aliases, (np.asarray(teacher, dtype=float), np.asarray(students, dtype=float))))
+    aliases = list(aliases)
+    signals = dict(zip(aliases, (np.asarray(first, dtype=float), np.asarray(second, dtype=float))))
     step_seconds = _estimate_step_seconds(relative_minutes)
     fs = 1.0 / step_seconds if step_seconds > 0 else 1.0
     windows, episodes = _rolling_synchrony(signals, aliases, relative_minutes, fs, pair_config)
@@ -326,7 +325,7 @@ def aggregate_analysis(teacher: np.ndarray, students: np.ndarray, relative_minut
 
 @dataclass(frozen=True)
 class InterviewEpisodes:
-    """The Analysis episodes of one interview's pair, by kind."""
+    """The episodes of one interview's two signals, by kind."""
 
     comovement: list[Episode]
     shared: list[Episode]
@@ -338,10 +337,8 @@ class InterviewEpisodes:
 def interview_episodes(pair: Sequence[str], synchrony: dict[str, Any], coarousal: dict[str, Any],
                        config: PipelineConfig, lesson: tuple[float, float],
                        source: str | None = None) -> InterviewEpisodes:
-    """The pair's episodes: the Analysis episodes both of them are in.
-
-    ``synchrony`` and ``coarousal`` are the Analysis payloads, or the teacher interview's own (``aggregate_analysis``,
-    with ``source`` AGGREGATE); ``lesson`` is the analysed period in lesson seconds.
+    """The pair's episodes: those of ``synchrony`` and ``coarousal`` (payloads shaped like the Analysis', from
+    ``pair_analysis`` with ``source`` OWN) both of them are in; ``lesson`` is the analysed period in lesson seconds.
     """
     half_window = config.synchrony_window_seconds / 2.0
     members = set(pair)
@@ -389,12 +386,12 @@ def _overlapping(episode: Episode, others: list[Episode]) -> Episode | None:
 
 def candidates_by_step(windows: Windows, episodes: InterviewEpisodes,
                        config: PipelineConfig) -> dict[str, list[Candidate]]:
-    """Every Analysis episode of the interview as the step it answers (``PROTOCOL``), strongest first within a step.
+    """Every episode of the interview as the step it answers (``PROTOCOL``), strongest first within a step.
 
     A co-movement episode is synchronous (STEPS 1-2) when its r reaches the interview threshold (the document:
     "Synchronous = above 0.8"), a divergent one (STEP 4b) when its r reaches minus it; in between neither
     (the document's criteria leave that band neither synchronous nor asynchronous). A decoupling stretch is STEP 5
-    as the Analysis found it (by the decoupling rule and threshold), after opposite arousal (one of the pair
+    as found by the Analysis' decoupling rule and threshold, after opposite arousal (one of the pair
     High, the other Low), which has no correlation criterion, as shared High and Low have none.
     """
     steps: dict[str, list[Candidate]] = {step: [] for step in STEP_NUMBERS}
@@ -505,17 +502,14 @@ def _trace(values: np.ndarray, stride: int) -> list[float]:
 
 
 def _interview_payload(key: str, kind: str, participants: list[str], frame: Any, relative_minutes: np.ndarray,
-                       synchrony: dict[str, Any], coarousal: dict[str, Any], config: PipelineConfig,
-                       primary_count: int, reserve_count: int,
+                       config: PipelineConfig, primary_count: int, reserve_count: int,
                        lesson_clock: datetime | None, stride: int) -> dict[str, Any]:
     signal_a, signal_b = interview_signals(frame, kind, participants)
     windows = windowed_correlation(signal_a, signal_b, relative_minutes, config)
     lesson = (float(relative_minutes[0]) * 60.0, float(relative_minutes[-1]) * 60.0)
-    if kind == "teacher":
-        own_synchrony, own_coarousal = aggregate_analysis(signal_a, signal_b, relative_minutes, config)
-        episodes = interview_episodes(AGGREGATE_PAIR, own_synchrony, own_coarousal, config, lesson, source=AGGREGATE)
-    else:
-        episodes = interview_episodes(participants, synchrony, coarousal, config, lesson)
+    pair = TEACHER_PAIR if kind == "teacher" else tuple(participants)
+    synchrony, coarousal = pair_analysis(signal_a, signal_b, relative_minutes, config, pair)
+    episodes = interview_episodes(pair, synchrony, coarousal, config, lesson, source=OWN)
     steps = candidates_by_step(windows, episodes, config)
     proposals = select(steps, primary_count, reserve_count)
     primary = sum(1 for proposal in proposals if proposal.status == PRIMARY)
@@ -544,7 +538,6 @@ def _interview_payload(key: str, kind: str, participants: list[str], frame: Any,
 
 def compute_vsr(
     result: PipelineResult,
-    analysis: dict[str, Any],
     config: PipelineConfig,
     dyads: Sequence[Sequence[str]],
     teacher_alias: str | None = None,
@@ -554,14 +547,12 @@ def compute_vsr(
 ) -> dict[str, Any]:
     """Interview moments for every student pair and the teacher, from a stored Analysis run.
 
-    ``result`` is the pipeline run behind ``analysis`` (the stored payload with its
-    ``synchrony`` and ``coarousal``) and ``config`` the settings it ran with.
+    ``result`` is the pipeline run of the stored Analysis and ``config`` the settings it ran with; every interview
+    analyses its own two signals with them (``pair_analysis``).
     """
     frame = result.merged_decimated
     relative_minutes = frame["time"].to_numpy(dtype=float)
     lesson_clock = clock_start(result.alignment)
-    synchrony = analysis.get("synchrony") or {}
-    coarousal = analysis.get("coarousal") or {}
     stride = max(1, int(np.ceil(len(relative_minutes) / TRACE_POINTS)))
 
     requested = [alias for dyad in dyads for alias in dyad]
@@ -570,8 +561,8 @@ def compute_vsr(
     _resolve_aliases(result.aliases, requested or None)
 
     def payload(key: str, kind: str, participants: list[str]) -> dict[str, Any]:
-        return _interview_payload(key, kind, participants, frame, relative_minutes, synchrony, coarousal, config,
-                                  primary_count, reserve_count, lesson_clock, stride)
+        return _interview_payload(key, kind, participants, frame, relative_minutes, config, primary_count,
+                                  reserve_count, lesson_clock, stride)
 
     interviews: list[dict[str, Any]] = []
     for dyad in dyads:

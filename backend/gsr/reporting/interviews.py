@@ -57,7 +57,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "col_status": "Status",
         "col_lesson": "Czas lekcji",
         "col_clock": "Zegar czujnika",
-        "col_episode": "Epizod Analizy",
+        "col_episode": "Epizod",
         "decision": "Decyzja",
         "accepted": "zaakceptowany",
         "undecided": "bez decyzji",
@@ -67,7 +67,14 @@ _TEXT: dict[str, dict[str, str]] = {
         "divergent_episode": "rozbieżna D{number}",
         "decoupled_episode": "rozprzężenie U{number}",
         "coarousal_episode": "ko-pobudzenie {number}",
-        "aggregate_episode": "nauczyciel i średnia uczniów",
+        "own_whose_dyad": "pary",
+        "own_whose_teacher": "nauczyciela i średniej uczniów",
+        "own_synchronization": "synchronizacja",
+        "own_co-movement": "ko-ruch",
+        "own_state": "wspólny stan",
+        "own_divergent": "synchronia rozbieżna",
+        "own_decoupled": "rozprzężenie",
+        "own_opposite": "pobudzenie przeciwstawne",
         "curated_note": "Lista momentów to lista badacza z kroku 4 Wywiady: kolejność decyduje o roli (pierwsze "
                         "momenty niewykluczone są główne, reszta rezerwowa), a uwzględnione są zaakceptowane, "
                         "przesunięte i dodane ręcznie momenty wraz z powodami i notatkami. Momenty odrzucone "
@@ -91,7 +98,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "chart_note": "Sygnały (z-score) wokół momentu (zacieniony) na zegarze czujnika, jak na kroku Wywiady.",
         "chart_label": "Sygnały wokół momentu {number}",
         "no_moments": "Brak momentów na liście.",
-        "incomplete": "Analiza ma epizody tylko dla {count} z {target} momentów głównych.",
+        "incomplete": "Sygnały wywiadu mają epizody tylko dla {count} z {target} momentów głównych.",
         "poor_signal": "Sygnał GSR {alias} ma słabą jakość ({pct}% próbek odrzucono przy czyszczeniu). Sprawdź "
                        "nagranie przed omówieniem tych momentów.",
         "warning": "Uwaga",
@@ -100,13 +107,14 @@ _TEXT: dict[str, dict[str, str]] = {
         "summary_interviews": "wywiadów: {count}",
         "summary_stale": "momenty nieaktualne",
         "method_title": "8. Momenty do wywiadów VSR",
-        "method_selection": "Momenty pochodzą z wyników Analizy, z tymi samymi ustawieniami. Kryteria schematu VSR "
-                            "(„Synchronous = above 0.8”, „Asynchronous = below 0.1”) czytane są jako siła korelacji, "
-                            "czyli jej wartość bezwzględna. Epizod należy do pary, gdy obaj uczniowie są w nim "
-                            "(członkowie podgrupy lub uczestnicy epizodu ko-pobudzenia). Wywiad z nauczycielem to "
-                            "para: nauczyciel i średnia sygnałów uczniów (schemat VSR: momenty na podstawie "
-                            "zagregowanych danych nauczyciela i uczniów); jej epizody wyznaczają te same funkcje i "
-                            "ustawienia Analizy. Kroki: 1 to epizod ko-ruchu (synchronizacji lub ko-ruchu z zakładki "
+        "method_selection": "Momenty każdego wywiadu pochodzą z analizy jego własnych dwóch sygnałów: tymi samymi "
+                            "funkcjami i ustawieniami co przebieg Analizy, zastosowanymi tylko do sygnałów pary "
+                            "(schemat VSR: momenty na podstawie danych GSR diady) albo "
+                            "nauczyciela i średniej sygnałów uczniów (schemat VSR: momenty na podstawie zagregowanych "
+                            "danych nauczyciela i uczniów). Momenty pary nie zależą więc od tego, kto jeszcze jest w "
+                            "projekcie; ekran Analizy pokazuje całą klasę. Kryteria schematu VSR („Synchronous = above "
+                            "0.8”, „Asynchronous = below 0.1”) czytane są jako siła korelacji, czyli jej wartość "
+                            "bezwzględna. Kroki: 1 to epizod ko-ruchu (synchronizacji lub ko-ruchu z zakładki "
                             "Ko-pobudzenie), którego r osiąga próg momentu wywiadu (0,8), nakładający się na wspólny "
                             "stan Wysoki lub Niski; 2 taki epizod ko-ruchu bez wspólnego stanu; 3 i 4 epizod wspólnego "
                             "stanu Wysokiego lub Niskiego bez takiego ko-ruchu; 4b, przechodzony po kroku 5, żeby pierwsze pięć "
@@ -160,7 +168,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "col_status": "Status",
         "col_lesson": "Lesson time",
         "col_clock": "Sensor clock",
-        "col_episode": "Analysis episode",
+        "col_episode": "Episode",
         "decision": "Decision",
         "accepted": "accepted",
         "undecided": "undecided",
@@ -170,7 +178,14 @@ _TEXT: dict[str, dict[str, str]] = {
         "divergent_episode": "divergent D{number}",
         "decoupled_episode": "decoupling U{number}",
         "coarousal_episode": "co-arousal {number}",
-        "aggregate_episode": "teacher and students' average",
+        "own_whose_dyad": "of the pair",
+        "own_whose_teacher": "of the teacher and students' average",
+        "own_synchronization": "synchronization",
+        "own_co-movement": "co-movement",
+        "own_state": "shared state",
+        "own_divergent": "divergent synchrony",
+        "own_decoupled": "decoupling",
+        "own_opposite": "opposite arousal",
         "curated_note": "The list of moments is the researcher's list from the Interviews step: its order decides "
                         "the role (the first moments not rejected are primary, the rest reserve), and it holds the "
                         "accepted, retimed and manually added moments with their reasons and notes. Moments the "
@@ -195,7 +210,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "chart_note": "Signals (z-scores) around the moment (shaded) on the sensor clock, as on the Interviews step.",
         "chart_label": "Signals around moment {number}",
         "no_moments": "There are no moments on the list.",
-        "incomplete": "The Analysis has episodes for only {count} of {target} primary moments.",
+        "incomplete": "The interview's signals have episodes for only {count} of {target} primary moments.",
         "poor_signal": "The GSR signal of {alias} has poor quality ({pct}% of its samples were rejected on the "
                        "Cleaning step). Check the recording before discussing these moments.",
         "warning": "Note",
@@ -204,13 +219,14 @@ _TEXT: dict[str, dict[str, str]] = {
         "summary_interviews": "interviews: {count}",
         "summary_stale": "moments outdated",
         "method_title": "8. Moments for VSR interviews",
-        "method_selection": "The moments come from the Analysis results, with the same settings. The VSR flow chart's "
+        "method_selection": "Every interview's moments come from the analysis of its own two signals: the same "
+                            "functions and settings as the Analysis run, applied to the pair's two signals alone (the "
+                            "VSR flow chart: moments based on the dyad's GSR data) or to "
+                            "the teacher and the students' average signal (the VSR flow chart: moments based on the "
+                            "teacher and student aggregated data). A pair's moments therefore do not depend on who "
+                            "else is in the project; the Analysis screen shows the whole class. The VSR flow chart's "
                             "criteria (“Synchronous = above 0.8”, “Asynchronous = below 0.1”) are read as the strength "
-                            "of the correlation, its absolute value. An episode belongs to a pair when both students "
-                            "are in it (members of a subgroup or contributors of a co-arousal episode). The teacher "
-                            "interview is a pair: the teacher and the students' average signal (the VSR flow chart: "
-                            "moments based on the teacher and student aggregated data); the same Analysis functions and "
-                            "settings find its episodes. The steps: 1 is a co-movement episode (synchronization, or "
+                            "of the correlation, its absolute value. The steps: 1 is a co-movement episode (synchronization, or "
                             "co-movement on the Co-arousal tab) whose r reaches the interview moment threshold (0.8) "
                             "overlapping a shared High or Low state; 2 such a co-movement episode without a shared "
                             "state; 3 and 4 a shared High or Low episode without such co-movement; 4b, walked after step "
@@ -282,12 +298,16 @@ def _step_cell(lang: str, moment: dict[str, Any]) -> str:
     return "—" if not moment["step"] else f"{_t(lang, 'step')} {moment['step']}"
 
 
-def _episode_cell(lang: str, moment: dict[str, Any]) -> str:
+def _episode_cell(lang: str, moment: dict[str, Any], interview_kind: str) -> str:
+    """The episode a moment is: of the interview's own analysis, or (moments chosen from the whole-class Analysis)
+    its number on the Analysis screen."""
     episode = moment["episode"]
     if not episode:
         return "—"
-    key = {"synchrony": "synchrony_episode", "aggregate": "aggregate_episode"}.get(episode["source"],
-                                                                               "coarousal_episode")
+    if episode["source"] == "own":
+        whose = _t(lang, f"own_whose_{'teacher' if interview_kind == 'teacher' else 'dyad'}")
+        return f"{_t(lang, 'own_' + (episode.get('kind') or 'synchronization'))} {whose}"
+    key = "synchrony_episode" if episode["source"] == "synchrony" else "coarousal_episode"
     if episode["source"] == "synchrony" and episode.get("kind") in ("divergent", "decoupled"):
         key = f"{episode['kind']}_episode"
     return _t(lang, key, number=episode["number"])
@@ -421,7 +441,7 @@ def _interview_blocks(interview: dict[str, Any], vsr: dict[str, Any], lang: str)
                                        "col_episode")]
             + ["r"],
             [[str(moment["number"]), _status(lang, moment), _decision(lang, moment), _step_cell(lang, moment),
-              _lesson(moment), _clock(moment), _episode_cell(lang, moment),
+              _lesson(moment), _clock(moment), _episode_cell(lang, moment, interview["kind"]),
               vsr_text.correlation(moment["correlation"])] for moment in moments],
             numeric=(0, 7),
         ),

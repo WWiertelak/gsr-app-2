@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 05:30+0000\n"
+"POT-Creation-Date: 2026-10-20 05:37+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -1879,8 +1879,12 @@ msgid "From the Analysis of %(time)s:"
 msgstr "Z Analizy z %(time)s:"
 
 #: gsr/templates/gsr/partials/interviews_main.html:8
-msgid "The moments come from the Analysis results."
-msgstr "Momenty pochodzą z wyników Analizy."
+msgid ""
+"The moments come from the Analysis run: each interview's own two signals, "
+"with its settings."
+msgstr ""
+"Momenty pochodzą z przebiegu Analizy: z dwóch sygnałów każdego wywiadu, z "
+"jej ustawieniami."
 
 #: gsr/templates/gsr/partials/interviews_main.html:12
 #: gsr/templates/gsr/partials/run_bar.html:10
@@ -2031,12 +2035,15 @@ msgstr ""
 
 #: gsr/templates/gsr/partials/interviews_main.html:85
 msgid ""
-"“Choose moments” saves the participants and takes the moments from the "
-"Analysis: its episodes are sorted into the steps of the VSR flow chart, the "
-"strongest first."
+"“Choose moments” saves the participants and analyses each interview's two "
+"signals with the Analysis settings: a pair's own, or the teacher's and the "
+"students' average. Their episodes are sorted into the steps of the VSR flow "
+"chart, the strongest first. The Analysis screen shows the whole class."
 msgstr ""
-"„Wybierz momenty” zapisuje uczestników i bierze momenty z Analizy: jej "
-"epizody są przypisywane do kroków schematu VSR, najsilniejsze najpierw."
+"„Wybierz momenty” zapisuje uczestników i analizuje dwa sygnały każdego "
+"wywiadu z ustawieniami Analizy: sygnały pary albo nauczyciela i średnią "
+"uczniów. Ich epizody są przypisywane do kroków schematu VSR, najsilniejsze "
+"najpierw. Ekran Analizy pokazuje całą klasę."
 
 #: gsr/templates/gsr/partials/interviews_main.html:91
 msgid "Moments for the interviews"
@@ -2111,11 +2118,11 @@ msgstr ""
 #: gsr/templates/gsr/partials/interviews_main.html:123
 #, python-format
 msgid ""
-"The Analysis has episodes for only %(count)s of %(target)s moments. Add "
-"moments by hand if you need more."
+"The interview's signals have episodes for only %(count)s of %(target)s "
+"moments. Add moments by hand if you need more."
 msgstr ""
-"Analiza ma epizody tylko dla %(count)s z %(target)s momentów. Jeśli "
-"potrzebujesz więcej, dodaj momenty ręcznie."
+"Sygnały wywiadu mają epizody tylko dla %(count)s z %(target)s momentów. "
+"Jeśli potrzebujesz więcej, dodaj momenty ręcznie."
 
 #: gsr/templates/gsr/partials/interviews_main.html:128
 #, python-format
@@ -2123,8 +2130,8 @@ msgid "average of: %(students)s"
 msgstr "średnia z: %(students)s"
 
 #: gsr/templates/gsr/partials/interviews_main.html:130
-msgid "Analysis episodes per step"
-msgstr "Epizody Analizy w poszczególnych krokach"
+msgid "Episodes per step"
+msgstr "Epizody w poszczególnych krokach"
 
 #: gsr/templates/gsr/partials/interviews_main.html:137
 msgid "Lesson timeline"
@@ -2972,73 +2979,98 @@ msgstr "brak synchronii"
 msgid "Step %(number)s · %(name)s"
 msgstr "Krok %(number)s · %(name)s"
 
-#: gsr/vsr_text.py:63
+#: gsr/vsr_text.py:62
 #, python-format
 msgid "divergent synchrony of the teacher and the students' average, %(times)s"
 msgstr "synchronia rozbieżna nauczyciela i średniej uczniów, %(times)s"
 
-#: gsr/vsr_text.py:65
+#: gsr/vsr_text.py:63
 #, python-format
 msgid "decoupling of the teacher and the students' average, %(times)s"
 msgstr "rozprzężenie nauczyciela i średniej uczniów, %(times)s"
 
-#: gsr/vsr_text.py:67
+#: gsr/vsr_text.py:64
 #, python-format
 msgid "opposite arousal of the teacher and the students' average, %(times)s"
 msgstr "pobudzenie przeciwstawne nauczyciela i średniej uczniów, %(times)s"
 
-#: gsr/vsr_text.py:69
+#: gsr/vsr_text.py:65
 #, python-format
 msgid "co-movement of the teacher and the students' average, %(times)s"
 msgstr "ko-ruch nauczyciela i średniej uczniów, %(times)s"
 
-#: gsr/vsr_text.py:70
+#: gsr/vsr_text.py:66
 #, python-format
 msgid "co-arousal of the teacher and the students' average, %(times)s"
 msgstr "ko-pobudzenie nauczyciela i średniej uczniów, %(times)s"
 
-#: gsr/vsr_text.py:73
+#: gsr/vsr_text.py:68
+#, python-format
+msgid "divergent synchrony of the pair, %(times)s"
+msgstr "synchronia rozbieżna pary, %(times)s"
+
+#: gsr/vsr_text.py:69
+#, python-format
+msgid "decoupling of the pair, %(times)s"
+msgstr "rozprzężenie pary, %(times)s"
+
+#: gsr/vsr_text.py:70
+#, python-format
+msgid "opposite arousal of the pair, %(times)s"
+msgstr "pobudzenie przeciwstawne pary, %(times)s"
+
+#: gsr/vsr_text.py:71
+#, python-format
+msgid "co-movement of the pair, %(times)s"
+msgstr "ko-ruch pary, %(times)s"
+
+#: gsr/vsr_text.py:72
+#, python-format
+msgid "shared arousal of the pair, %(times)s"
+msgstr "wspólne pobudzenie pary, %(times)s"
+
+#: gsr/vsr_text.py:82
 #, python-format
 msgid "divergent synchronization episode D%(number)s, %(times)s"
 msgstr "epizod synchronizacji rozbieżnej D%(number)s, %(times)s"
 
-#: gsr/vsr_text.py:75
+#: gsr/vsr_text.py:84
 #, python-format
 msgid "decoupling stretch U%(number)s, %(times)s"
 msgstr "odcinek rozprzężenia U%(number)s, %(times)s"
 
-#: gsr/vsr_text.py:76
+#: gsr/vsr_text.py:85
 #, python-format
 msgid "synchronization episode E%(number)s, %(times)s"
 msgstr "epizod synchronizacji E%(number)s, %(times)s"
 
-#: gsr/vsr_text.py:78
+#: gsr/vsr_text.py:87
 #, python-format
 msgid "co-movement episode %(number)s of the co-arousal, %(times)s"
 msgstr "epizod ko-ruchu nr %(number)s z Ko-pobudzenia, %(times)s"
 
-#: gsr/vsr_text.py:79
+#: gsr/vsr_text.py:88
 #, python-format
 msgid "co-arousal episode %(number)s, %(times)s"
 msgstr "epizod ko-pobudzenia nr %(number)s, %(times)s"
 
-#: gsr/vsr_text.py:89
+#: gsr/vsr_text.py:98
 msgid "both people in the High state"
 msgstr "obie osoby w stanie Wysokim"
 
-#: gsr/vsr_text.py:89
+#: gsr/vsr_text.py:98
 msgid "both people in the Low state"
 msgstr "obie osoby w stanie Niskim"
 
-#: gsr/vsr_text.py:93
+#: gsr/vsr_text.py:102
 msgid "the teacher and the students' average in the High state"
 msgstr "nauczyciel i średnia uczniów w stanie Wysokim"
 
-#: gsr/vsr_text.py:94
+#: gsr/vsr_text.py:103
 msgid "the teacher and the students' average in the Low state"
 msgstr "nauczyciel i średnia uczniów w stanie Niskim"
 
-#: gsr/vsr_text.py:97
+#: gsr/vsr_text.py:106
 #, python-format
 msgid "the teacher and %(count)s of %(total)s student in the High state"
 msgid_plural ""
@@ -3047,7 +3079,7 @@ msgstr[0] "nauczyciel i %(count)s z %(total)s ucznia w stanie Wysokim"
 msgstr[1] "nauczyciel i %(count)s z %(total)s uczniów w stanie Wysokim"
 msgstr[2] "nauczyciel i %(count)s z %(total)s uczniów w stanie Wysokim"
 
-#: gsr/vsr_text.py:99
+#: gsr/vsr_text.py:108
 #, python-format
 msgid "the teacher and %(count)s of %(total)s student in the Low state"
 msgid_plural "the teacher and %(count)s of %(total)s students in the Low state"
@@ -3055,43 +3087,43 @@ msgstr[0] "nauczyciel i %(count)s z %(total)s ucznia w stanie Niskim"
 msgstr[1] "nauczyciel i %(count)s z %(total)s uczniów w stanie Niskim"
 msgstr[2] "nauczyciel i %(count)s z %(total)s uczniów w stanie Niskim"
 
-#: gsr/vsr_text.py:109
+#: gsr/vsr_text.py:118
 msgid "no shared arousal state"
 msgstr "bez wspólnego stanu pobudzenia"
 
-#: gsr/vsr_text.py:111
+#: gsr/vsr_text.py:120
 msgid "no co-movement"
 msgstr "bez ko-ruchu"
 
-#: gsr/vsr_text.py:113
+#: gsr/vsr_text.py:122
 msgid "the signals moved in opposite directions"
 msgstr "sygnały zmieniały się w przeciwnych kierunkach"
 
-#: gsr/vsr_text.py:115
+#: gsr/vsr_text.py:124
 msgid ""
 "the teacher or the students' average in the High state, the other in the Low "
 "state"
 msgstr ""
 "nauczyciel albo średnia uczniów w stanie Wysokim, drugie w stanie Niskim"
 
-#: gsr/vsr_text.py:116
+#: gsr/vsr_text.py:125
 msgid "one person in the High state, the other in the Low state"
 msgstr "jedna osoba w stanie Wysokim, druga w stanie Niskim"
 
-#: gsr/vsr_text.py:119 gsr/vsr_text.py:122
+#: gsr/vsr_text.py:128 gsr/vsr_text.py:131
 msgid "the signals were not related"
 msgstr "sygnały nie były powiązane"
 
-#: gsr/vsr_text.py:121
+#: gsr/vsr_text.py:130
 msgid "the signals moved in the opposite direction"
 msgstr "sygnały zmieniały się w przeciwnym kierunku"
 
-#: gsr/vsr_text.py:125
+#: gsr/vsr_text.py:134
 #, python-format
 msgid "%(times)s outside the synchronization and co-arousal episodes"
 msgstr "%(times)s poza epizodami synchronizacji i ko-pobudzenia"
 
-#: gsr/vsr_text.py:136
+#: gsr/vsr_text.py:145
 #, python-format
 msgid "VSR flow chart step %(step)s: %(name)s"
 msgstr "Krok %(step)s schematu VSR: %(name)s"

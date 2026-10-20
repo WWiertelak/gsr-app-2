@@ -218,12 +218,14 @@ VSR_MOMENT_COLUMNS = (
 )
 
 
-def _episode_label(episode: dict[str, Any] | None) -> str | None:
-    """The Analysis episode a moment came from, as the Analysis screen numbers it."""
+def _episode_label(episode: dict[str, Any] | None, interview_kind: str) -> str | None:
+    """The episode a moment came from: the interview's own analysis (named by kind), or for moments chosen from the
+    whole-class Analysis, its number on the Analysis screen."""
     if not episode:
         return None
-    if episode["source"] == "aggregate":
-        return "teacher and students' average"
+    if episode["source"] == "own":
+        whose = "teacher and students' average" if interview_kind == "teacher" else "pair"
+        return f"{episode.get('kind') or 'episode'} of the {whose}"
     if episode["source"] == "synchrony":
         prefix = {"divergent": "divergent D", "decoupled": "decoupling U"}.get(episode.get("kind") or "", "E")
         return f"synchronization {prefix}{episode['number']}"
@@ -268,7 +270,7 @@ def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
                 "proposed_end_s": moment["original_end_seconds"],
                 "clock_start": moment["start_clock"],
                 "clock_end": moment["end_clock"],
-                "analysis_episode": _episode_label(moment["episode"]),
+                "analysis_episode": _episode_label(moment["episode"], interview["kind"]),
                 "correlation": moment["correlation"],
                 "shared_state": moment["shared_state"],
                 "in_shared_state": (f"{moment['in_state']}/{moment['people']}"

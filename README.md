@@ -68,11 +68,12 @@ for how the pipeline works and what was carried over.
 The UI is server-rendered Django templates with HTMX and ECharts (no Node build), in
 Polish or English (switch in the left rail). The workflow is
 Projects → 1 Import → 2 Cleaning → 3 Analysis (Synchronization | Co-arousal tabs, one run)
-→ 4 Interviews (VSR interview moments per student pair and for the teacher, chosen from the
-Analysis episodes by the steps of the "VSR Interview Flow Chart" (the teacher's from the Analysis rules
-applied to the teacher and the students' average, as the flow chart asks), each with a preview of the
-signals and a one-sentence justification from the Analysis values; a lesson timeline shows every
-candidate moment the Analysis found, one row per step, and the interview's signals across the whole
+→ 4 Interviews (VSR interview moments per student pair and for the teacher: the Analysis rules and
+settings applied to each interview's own two signals - the pair's two, or the teacher and the students'
+average, as the flow chart asks - so a pair's moments do not depend on who else is in the project; the
+episodes are sorted by the steps of the "VSR Interview Flow Chart", each with a preview of the
+signals and a one-sentence justification; a lesson timeline shows every
+candidate moment, one row per step, and the interview's signals across the whole
 lesson with every candidate shaded on the chart itself (primary moments filled and numbered,
 reserve moments dashed and numbered, other candidates light grey, rejected ones dotted, a key on
 the chart, a click on a band opens it); the researcher accepts, rejects, reorders, retimes or adds
