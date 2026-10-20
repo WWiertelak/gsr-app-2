@@ -78,12 +78,13 @@ CLEANING_FILTERS = (
     ),
     Group(
         "zscore",
-        _("Z-score deviation"),
-        _("Rejects points that are statistical outliers against the full signal."),
+        _("Z-score artifact filter"),
+        _("Rejects points that are statistical outliers against the full signal. A filter, not a normalization: the "
+          "analysis normalizes every signal to z-scores within the analysed period on its own."),
         (Param("clean_filter_zscore_threshold", _("Threshold (SD)")),),
         toggle=Param(
             "clean_filter_zscore",
-            _("Z-score deviation"),
+            _("Z-score artifact filter"),
             _("The farther from the mean (in SD units), the more likely a point is an artifact."),
             kind="bool",
         ),
@@ -148,6 +149,34 @@ SYNCHRONY_ESSENTIAL = (
         _("Synchronization threshold"),
         _("Pairs whose windowed correlation reaches this value count as synchronized in that window."),
     ),
+    Param(
+        "synchrony_divergent_threshold",
+        _("Divergent synchrony threshold (r ≤ −)"),
+        _(
+            "Pairs whose windowed correlation is at or below minus this value move in opposite directions in that "
+            "window: divergent synchrony (Hassan: negative correlations of at least .30)."
+        ),
+    ),
+    Param(
+        "synchrony_decoupled_threshold",
+        _("Decoupling threshold (|r| <)"),
+        _(
+            "A stretch between a pair's synchronization and divergent episodes whose correlation lies within "
+            "plus/minus this value is decoupled: no synchrony (the VSR flow chart: “Asynchronous = below 0.1”). "
+            "The decoupling rule says how the stretch's correlation is judged."
+        ),
+    ),
+    Param(
+        "synchrony_decoupled_rule",
+        _("Decoupling rule"),
+        _(
+            "Every window: every window of the stretch has |r| below the decoupling threshold, for at least the "
+            "minimum episode duration (as in Hassan's script). One correlation over the stretch: a stretch without a "
+            "window at the divergent strength, whose one correlation over its data lies within the threshold."
+        ),
+        kind="choice",
+        choices=(("every_window", _("every window")), ("stretch_correlation", _("one correlation over the stretch"))),
+    ),
     Param("synchrony_window_seconds", _("Window (s)")),
 )
 SYNCHRONY_ADVANCED = (
@@ -172,7 +201,14 @@ SYNCHRONY_ADVANCED = (
     Param("synchrony_surrogate_seed", _("Surrogate seed"), kind="int", step="1"),
     Param("synchrony_episode_min_size", _("Min. people per episode"), kind="int", step="1"),
     Param("synchrony_episode_min_duration_seconds", _("Min. episode duration (s)")),
-    Param("synchrony_episode_max_gap_seconds", _("Max gap (s)")),
+    Param(
+        "synchrony_episode_max_gap_seconds",
+        _("Max gap (s)"),
+        _(
+            "Synchronization and divergent episodes closer than this are joined into one (default 15 s, as in GSRv2). "
+            "A dyad joins none (Dyads: no joining across gaps)."
+        ),
+    ),
     Param("synchrony_cluster_distance_threshold", _("Clustering threshold")),
     Param(
         "downsample_interval_seconds",
@@ -222,6 +258,14 @@ COAROUSAL_ADVANCED = (
         _("Minimum mean pairwise Spearman correlation in a window to count it as co-movement."),
     ),
     Param(
+        "contagion_min_episode_gap_seconds",
+        _("Max gap (s)"),
+        _(
+            "Co-arousal episodes of one kind closer than this are joined into one (default 30 s, as in GSRv2). A dyad "
+            "joins none (Dyads: no joining across gaps)."
+        ),
+    ),
+    Param(
         "contagion_surrogate_count",
         _("Surrogate count"),
         _("Number of random circular shifts for the co-arousal index null distribution. 0 = skip the significance test."),
@@ -237,7 +281,40 @@ COAROUSAL_ADVANCED = (
     ),
 )
 
-ANALYSIS_PARAMS = (*SYNCHRONY_ESSENTIAL, *SYNCHRONY_ADVANCED, *COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED)
+INTERVIEW_ESSENTIAL = (
+    Param(
+        "synchrony_interview_threshold",
+        _("Interview moment correlation (|r| at least)"),
+        _(
+            "The strength of correlation a moment needs to count as synchronous on the Interviews step: STEPS 1–2 "
+            "take a co-movement episode whose r is at least this, STEP 4b a divergent one whose r is at most minus "
+            "this (the VSR flow chart: “Synchronous = above 0.8”)."
+        ),
+    ),
+    Param(
+        "synchrony_dyad_without_gap_joining",
+        _("Dyads: no joining across gaps"),
+        _(
+            "Joining episodes across gaps keeps a subgroup's episode together when the group's membership changes. "
+            "Two people have no subgroups, so a dyad (a two-person project, or an interview's own two signals) joins "
+            "none, as Hassan's dyad script. Off: dyads join gaps like a class (the Max gap settings)."
+        ),
+        kind="bool",
+    ),
+    Param(
+        "synchrony_interview_shared_without_comovement",
+        _("Shared High/Low only without co-movement (STEPS 3–4)"),
+        _(
+            "Off (default, as in Hassan's script, where the categories may overlap): STEPS 3–4 take a whole shared "
+            "High or Low episode, also one with co-movement during it. On: only those without co-movement of the "
+            "interview strength."
+        ),
+        kind="bool",
+    ),
+)
+
+ANALYSIS_PARAMS = (*SYNCHRONY_ESSENTIAL, *SYNCHRONY_ADVANCED, *COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED,
+                   *INTERVIEW_ESSENTIAL)
 
 
 def analysis_window(values: dict[str, Any], duration_seconds: float) -> dict[str, Any]:
@@ -413,7 +490,8 @@ def analysis_summary(values: dict[str, Any], applied: dict[str, Any] | None = No
         ],
         ANALYSIS_PARAMS, values, applied,
         {**{param.name: _("Synchronization") for param in (*SYNCHRONY_ESSENTIAL, *SYNCHRONY_ADVANCED)},
-         **{param.name: _("Co-arousal") for param in (*COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED)}},
+         **{param.name: _("Co-arousal") for param in (*COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED)},
+         **{param.name: _("Interviews") for param in INTERVIEW_ESSENTIAL}},
     )
 
 

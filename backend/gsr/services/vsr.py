@@ -1,9 +1,9 @@
-"""VSR interview moments behind the Interviews screen: choose them from the Analysis, store, check for staleness.
+"""VSR interview moments behind the Interviews screen: choose them from the Analysis run, store, check for staleness.
 
-The moments are the stored analysis run's episodes (``pipeline/vsr.py``), with the
-Analysis settings they were found with and the interview roles and moment counts
-stored on the project, kept as the project's ``AnalysisResult`` of kind ``vsr``. An
-outdated or missing analysis is not worked around: the Analysis has to run first.
+The moments come from the stored analysis run (``pipeline/vsr.py``): its signals, analysed per
+interview with the settings the run used, and the interview roles and moment counts stored on
+the project, kept as the project's ``AnalysisResult`` of kind ``vsr``. An outdated or missing
+analysis is not worked around: the Analysis has to run first.
 """
 
 from __future__ import annotations
@@ -16,12 +16,20 @@ from django.utils import timezone
 from django.utils.translation import gettext
 
 from ..models import AnalysisResult, Project
-from ..pipeline.common import PipelineError
+from ..pipeline.common import PipelineError, clock_start
 from ..pipeline.preprocessing import _signal_quality_level
-from ..pipeline.vsr import DEFAULT_PRIMARY_COUNT, DEFAULT_RESERVE_COUNT, PRIMARY, _clock_start, compute_vsr
+from ..pipeline.vsr import DEFAULT_PRIMARY_COUNT, DEFAULT_RESERVE_COUNT, PRIMARY, compute_vsr
 from .analysis import AnalysisError
-from .interview import SAVED_ASYNCHRONY_THRESHOLD, InterviewRoles, compute_vsr_signature, load_interview_config
-from .results import FALLBACK_SIGNAL_COLOR, get_result, is_stale, signal_colors, stored_pipeline_result
+from .interview import InterviewRoles, compute_vsr_signature, load_interview_config
+from .results import (
+    FALLBACK_SIGNAL_COLOR,
+    RESULTS_VERSION,
+    get_result,
+    is_stale,
+    predates_rules,
+    signal_colors,
+    stored_pipeline_result,
+)
 
 # The signals a moment preview shows on each side of the moment: at least this, or half the moment if it is longer.
 PREVIEW_CONTEXT_SECONDS = 30.0
@@ -87,8 +95,8 @@ def compute_interviews(project: Project) -> AnalysisResult:
         )
     students = interview_students(roles, result.aliases) if roles.teacher_alias is not None else []
     try:
-        payload = compute_vsr(result, analysis.payload, pipeline_config, roles.student_pairs, roles.teacher_alias,
-                              students, config.primary_count, config.reserve_count, config.asynchrony_threshold)
+        payload = compute_vsr(result, pipeline_config, roles.student_pairs, roles.teacher_alias, students,
+                              config.primary_count, config.reserve_count)
     except PipelineError as exc:
         raise AnalysisError.from_pipeline(exc) from exc
 
@@ -104,10 +112,11 @@ def compute_interviews(project: Project) -> AnalysisResult:
         lesson={
             "start_seconds": float(times.min()) * 60.0,
             "end_seconds": float(times.max()) * 60.0,
-            "start_clock": clock_start.isoformat() if (clock_start := _clock_start(result)) else None,
+            "start_clock": start.isoformat() if (start := clock_start(result.alignment)) else None,
         },
         quality=_signal_quality(result, result.aliases),
         analysis_computed_at=analysis.computed_at.isoformat(),
+        results_version=RESULTS_VERSION,
     )
     stored, _ = AnalysisResult.objects.update_or_create(
         project=project,
@@ -161,7 +170,7 @@ def preview(payload: dict[str, Any], interview: dict[str, Any], start: float, en
 
 
 PROPOSAL_FIELDS = (
-    "step", "pass_number", "correlation", "episode", "shared_episode", "shared_state", "in_state", "people",
+    "step", "type", "pass_number", "correlation", "episode", "shared_episode", "shared_state", "in_state", "people",
     "candidate_rank", "candidate_count",
 )
 
@@ -171,7 +180,8 @@ def _report_moment(number: int, role: str, decision: str, source: dict[str, Any]
     base = {field: None for field in PROPOSAL_FIELDS}
     base.update(
         number=number, status=role, decision=decision, source="proposed", time_changed=False, reason="", note="",
-        needs_check=False, original_start_seconds=None, original_end_seconds=None, proposal={},
+        needs_check=False, check_reason=None, original_start_seconds=None, original_end_seconds=None,
+        original_start_clock=None, original_end_clock=None, proposal={},
     )
     return {**base, **source}
 
@@ -187,6 +197,8 @@ def _proposal_moments(interview: dict[str, Any]) -> list[dict[str, Any]]:
 def _curated_moments(items: list[Any]) -> list[dict[str, Any]]:
     """The researcher's list without its rejected moments: roles and numbers from the list order, the researcher's
     times, reasons and notes, and each proposed moment's measurements."""
+    from .curation import check_reason  # curation imports this module
+
     moments = []
     for item in items:
         row = item.row
@@ -205,9 +217,13 @@ def _curated_moments(items: list[Any]) -> list[dict[str, Any]]:
             "time_changed": row.time_changed,
             "original_start_seconds": row.original_start_seconds,
             "original_end_seconds": row.original_end_seconds,
+            # The proposed times on the sensor clock, as the proposal stored them.
+            "original_start_clock": None if row.is_manual else row.proposal.get("start_clock"),
+            "original_end_clock": None if row.is_manual else row.proposal.get("end_clock"),
             "reason": row.reason,
             "note": row.note,
             "needs_check": row.needs_check,
+            "check_reason": check_reason(row),
         }
         moments.append(_report_moment(item.number, item.role, decision, source))
     return moments
@@ -248,7 +264,7 @@ def report_data(project: Project) -> dict[str, Any] | None:
         return None
     payload = vsr.payload
     colors = signal_colors(project)
-    from .curation import curated_interviews, is_decided  # curation imports this module
+    from .curation import curated_interviews, is_decided, lesson_clock_start  # curation imports this module
 
     curated = curated_interviews(project, vsr)
     primary_target, reserve_target = moment_counts(payload)
@@ -270,9 +286,10 @@ def report_data(project: Project) -> dict[str, Any] | None:
         "analysis_settings": payload.get("analysis_settings") or {},
         "analysis_computed_at": payload.get("analysis_computed_at"),
         "counts": {"primary": primary_target, "reserve": reserve_target},
-        "asynchrony_threshold": payload.get("asynchrony_threshold", SAVED_ASYNCHRONY_THRESHOLD),
         "roles": payload["roles"],
         "lesson": payload["lesson"],
+        # The recordings' own clock at lesson time 0 (a datetime), or None.
+        "clock_start": lesson_clock_start(payload),
         "quality": payload["quality"],
         "stats": {
             **payload["stats"],
@@ -282,5 +299,7 @@ def report_data(project: Project) -> dict[str, Any] | None:
         "curated": any(item["curated"] for item in interviews),
         # The moments come from the analysis: an outdated analysis makes them outdated too.
         "stale": is_stale(project, vsr) or is_stale(project, analysis),
+        # Chosen (or the Analysis run) before the VSR flow chart was read by correlation strength.
+        "predates_rules": predates_rules(vsr) or predates_rules(analysis),
         "interviews": interviews,
     }

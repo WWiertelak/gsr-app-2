@@ -1,11 +1,14 @@
 """Joint synchronization: pairwise coupling, rolling-window subgroup episodes and clustering.
 
-Carried over unchanged from GSRv2 ``gsr/pipeline/core.py`` (``compute_synchrony``).
+``compute_synchrony`` is carried over unchanged from GSRv2 ``gsr/pipeline/core.py``.
+``synchrony_types`` adds what GSRv2 did not have, from the same windows and with the same
+episode rules: divergent synchrony and decoupling (Hassan's e-mail; the VSR Interview Flow
+Chart's criteria read as the strength of the correlation).
 """
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -485,4 +488,111 @@ def compute_synchrony(
         "episodes": episodes,
         "clusters": clusters,
         "stats": stats,
+    }
+
+
+def divergent_episodes(synchrony: dict[str, Any], config: PipelineConfig) -> list[dict[str, Any]]:
+    """Divergent synchrony: subgroups whose every pair's windowed r is at or below ``-synchrony_divergent_threshold``.
+
+    The signals move systematically in opposite directions: the same strength of relation as synchrony, with the
+    opposite sign. The episode rules are the synchronization episodes' own (minimum size and duration, bridged
+    gaps); ``mean_strength`` and ``peak_strength`` are the (negative) mean and lowest r. Signed mode only: in the
+    legacy unsigned mode an anti-phase pair already counts as synchronized.
+    """
+    if not bool(config.synchrony_signed):
+        return []
+    windows = synchrony.get("windows") or {}
+    aliases = list(synchrony.get("aliases") or [])
+    index = {alias: position for position, alias in enumerate(aliases)}
+    # Negated, the divergent windows clear the threshold as synchronized ones do.
+    negated = {(index[pair["alias_a"]], index[pair["alias_b"]]): [-value for value in pair["values"]]
+               for pair in windows.get("pairs", [])}
+    rules = config.model_copy(update={"synchrony_threshold": config.synchrony_divergent_threshold})
+    episodes, _active = _detect_sync_episodes(negated, list(windows.get("centers", [])), aliases, rules)
+    return [{**episode, "mean_strength": -episode["mean_strength"], "peak_strength": -episode["peak_strength"]}
+            for episode in episodes]
+
+
+def _decoupled_stretches(centers: Sequence[float], values: Sequence[float], episodes: Sequence[tuple[float, float]],
+                         min_span: float, limit: float) -> list[tuple[int, int]]:
+    """Runs of consecutive windows centred outside ``episodes`` whose every |r| is below ``limit``, at least
+    ``min_span`` long (centre to centre, the episode rule); (first window, last window) each. ``centers``,
+    ``episodes`` and ``min_span`` share one time unit."""
+    centers = np.asarray(centers, dtype=float)
+    quiet = np.abs(np.asarray(values, dtype=float)) < limit
+    for start, end in episodes:
+        quiet &= ~((centers >= start - 1e-9) & (centers <= end + 1e-9))
+    runs = []
+    first = None
+    for index in range(len(centers) + 1):
+        if index < len(centers) and quiet[index]:
+            first = index if first is None else first
+            continue
+        if first is not None and centers[index - 1] - centers[first] + 1e-9 >= min_span:
+            runs.append((first, index - 1))
+        first = None
+    return runs
+
+
+def decoupled_episodes(synchrony: dict[str, Any], config: PipelineConfig,
+                       frame: pd.DataFrame | None = None) -> list[dict[str, Any]]:
+    """Decoupling of every pair, between the synchronization and divergent episodes the pair is in, in time order.
+
+    The flow chart: "Asynchronous = below 0.1", read as strength; Hassan: "the correlation between GSR data within
+    an episode is between -.10 and +.10". ``synchrony_decoupled_rule`` says how a stretch is judged:
+
+    * "every_window" (default, Hassan's script): every window of the stretch has |r| below the decoupling threshold,
+      for at least the minimum episode duration. On the trial data no such stretch exists; his script finds none
+      either. A mean of the windows would not do: windows swinging between -0.98 and +0.98 average to zero.
+    * "stretch_correlation": a stretch with no window at the divergent strength (|r| below the divergent
+      threshold), at least the minimum episode duration, whose one correlation over its data (``frame``: the
+      analysis input, with the Synchronization tab's method) lies within the decoupling threshold
+      (``stretch_r``). Without ``frame`` no stretch is judged.
+
+    ``mean_r`` is the mean of the stretch's windows.
+    """
+    windows = synchrony.get("windows") or {}
+    centers = list(windows.get("centers", []))
+    min_span = float(config.synchrony_episode_min_duration_seconds) / 60.0
+    threshold = float(config.synchrony_decoupled_threshold)
+    whole_stretch = config.synchrony_decoupled_rule == "stretch_correlation"
+    if whole_stretch and frame is None:
+        return []
+    half_window = float(config.synchrony_window_seconds) / 120.0
+    times = frame["time"].to_numpy(dtype=float) if whole_stretch else None
+    found = []
+    for pair in windows.get("pairs", []):
+        members = {pair["alias_a"], pair["alias_b"]}
+        spans = [(episode["start_relative"], episode["end_relative"])
+                 for episode in [*synchrony.get("episodes", []), *synchrony.get("divergent_episodes", [])]
+                 if members.issubset(episode["members"])]
+        limit = float(config.synchrony_divergent_threshold) if whole_stretch else threshold
+        for first, last in _decoupled_stretches(centers, pair["values"], spans, min_span, limit):
+            episode = {"start_relative": centers[first], "end_relative": centers[last],
+                       "members": [pair["alias_a"], pair["alias_b"]], "size": 2,
+                       "mean_r": float(np.mean(pair["values"][first:last + 1]))}
+            if whole_stretch:
+                data = (times >= centers[first] - half_window) & (times <= centers[last] + half_window)
+                episode["stretch_r"] = _window_correlation(
+                    frame[f"microsiemens_{pair['alias_a']}"].to_numpy(dtype=float)[data],
+                    frame[f"microsiemens_{pair['alias_b']}"].to_numpy(dtype=float)[data],
+                    config.synchrony_correlation_method)
+                if abs(episode["stretch_r"]) >= threshold:
+                    continue
+            found.append(episode)
+    found.sort(key=lambda episode: (episode["start_relative"], episode["end_relative"]))
+    return found
+
+
+def synchrony_types(synchrony: dict[str, Any], config: PipelineConfig, frame: pd.DataFrame | None = None) -> dict[str, Any]:
+    """``synchrony`` (``compute_synchrony``'s payload) with the types GSRv2 did not have: ``divergent_episodes`` and
+    ``decoupled_episodes``; ``frame`` is the analysis input the decoupling rule may need (``decoupled_episodes``)."""
+    divergent = divergent_episodes(synchrony, config)
+    decoupled = decoupled_episodes({**synchrony, "divergent_episodes": divergent}, config, frame)
+    return {
+        **synchrony,
+        "divergent_episodes": divergent,
+        "decoupled_episodes": decoupled,
+        "stats": {**synchrony.get("stats", {}), "divergent_episode_count": len(divergent),
+                  "decoupled_episode_count": len(decoupled)},
     }

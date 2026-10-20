@@ -9,6 +9,10 @@ standalone contagion script:
     rest of the group (anti-phase excluded);
   * the co-arousal-index null uses an autocorrelation-preserving circular-
     shift surrogate instead of a per-sample shuffle.
+
+With ``opposite=True`` it also finds what GSRv2 did not have: opposite arousal (Hassan's
+e-mail: "opposite shared arousal (one is high, one is low)"), the complement of a shared
+High or Low state. Without it the result is GSRv2's.
 """
 
 from __future__ import annotations
@@ -80,8 +84,15 @@ def compute_coarousal(
     dataset_aliases: list[str] | None = None,
     config: PipelineConfig | None = None,
     cancel_callback: Callable[[], None] | None = None,
+    opposite: bool = False,
 ) -> dict[str, Any]:
-    """Shared-arousal analysis: High/Low/Co-movement episodes and the co-arousal index."""
+    """Shared-arousal analysis: High/Low/Co-movement episodes and the co-arousal index.
+
+    ``opposite`` adds Opposite episodes: at least one person High while at least one other is Low (and at least the
+    minimum number of participants in the two states together), with the High/Low episode rules (the agreement share of each
+    window, merged across short gaps). Their contributors are the people on either side (``high_contributors``,
+    ``low_contributors``), and on the non-overlapping timeline every other label wins over them.
+    """
     cfg = config if config is not None else PipelineConfig()
     aliases = _resolve_aliases(result.aliases, dataset_aliases)
     frame = result.merged_decimated
@@ -137,6 +148,9 @@ def compute_coarousal(
     raw_high: list[tuple[int, int, float]] = []
     raw_low: list[tuple[int, int, float]] = []
     raw_comov: list[tuple[int, int, float]] = []
+    raw_opposite: list[tuple[int, int, float]] = []
+    n_opposite = np.where((n_high >= 1) & (n_low >= 1) & (n_high + n_low >= min_participants),
+                          np.minimum(n_high, n_low), 0)
     if total >= win and n >= 2:
         for s in range(0, total - win + 1, step):
             if cancel_callback is not None and s % max(step * 100, 1) == 0:
@@ -146,6 +160,8 @@ def compute_coarousal(
                 raw_high.append((s, e, float(n_high[s:e].mean())))
             if (n_low[s:e] >= min_participants).mean() >= agreement:
                 raw_low.append((s, e, float(n_low[s:e].mean())))
+            if opposite and (n_opposite[s:e] >= 1).mean() >= agreement:
+                raw_opposite.append((s, e, float(n_opposite[s:e].mean())))
             mean_rho = _mean_pairwise_spearman(signal_matrix[:, s:e])
             if mean_rho >= comovement_rho:
                 raw_comov.append((s, e, mean_rho))
@@ -153,6 +169,7 @@ def compute_coarousal(
     merged_high = _merge_index_episodes(raw_high, gap_samples)
     merged_low = _merge_index_episodes(raw_low, gap_samples)
     merged_comov = _merge_index_episodes(raw_comov, gap_samples)
+    merged_opposite = _merge_index_episodes(raw_opposite, gap_samples)
 
     member_pct = float(cfg.contagion_member_pct)
     contrib_rho = float(cfg.contagion_contrib_rho)
@@ -160,10 +177,18 @@ def compute_coarousal(
     def summarize(s_idx: int, e_idx: int, direction: str) -> dict[str, Any]:
         s_idx = max(0, s_idx)
         e_idx = min(total, e_idx)
+        sides: dict[str, list[str]] = {}
         if direction in ("High", "Low"):
             code = 1 if direction == "High" else -1
             frac = (state[:, s_idx:e_idx] == code).mean(axis=1)
             contributors = [aliases[i] for i in range(n) if frac[i] >= member_pct]
+        elif direction == "Opposite":
+            high_frac = (state[:, s_idx:e_idx] == 1).mean(axis=1)
+            low_frac = (state[:, s_idx:e_idx] == -1).mean(axis=1)
+            sides = {"high_contributors": [aliases[i] for i in range(n) if high_frac[i] >= member_pct],
+                     "low_contributors": [aliases[i] for i in range(n) if low_frac[i] >= member_pct]}
+            contributors = [alias for alias in aliases
+                            if alias in sides["high_contributors"] or alias in sides["low_contributors"]]
         else:  # Co-movement
             contributors = _leave_one_out_contributors(signal_matrix, aliases, s_idx, e_idx, contrib_rho)
         non = [alias for alias in aliases if alias not in contributors]
@@ -181,6 +206,7 @@ def compute_coarousal(
             "strength": "full" if n_c >= n else "strong" if n_c >= n - 1 else "partial",
             "contributors": contributors,
             "non_contributors": non,
+            **sides,
         }
 
     episodes: list[dict[str, Any]] = []
@@ -190,12 +216,17 @@ def compute_coarousal(
         episodes.append(summarize(s_idx, e_idx, "Low"))
     for s_idx, e_idx, _ in merged_comov:
         episodes.append(summarize(s_idx, e_idx, "Co-movement"))
+    for s_idx, e_idx, _ in merged_opposite:
+        episodes.append(summarize(s_idx, e_idx, "Opposite"))
     episodes.sort(key=lambda ep: ep["start_s"])
 
-    # Primary (non-overlapping) timeline: High/Low win over Co-movement.
+    # Primary (non-overlapping) timeline: High/Low win over Co-movement (and Co-movement over Opposite).
     primary = np.array([""] * total, dtype=object)
     precedence = ["Co-movement", "Low", "High"]  # applied low→high so High overwrites
-    merged_by_direction = {"High": merged_high, "Low": merged_low, "Co-movement": merged_comov}
+    if opposite:
+        precedence = ["Opposite", *precedence]
+    merged_by_direction = {"High": merged_high, "Low": merged_low, "Co-movement": merged_comov,
+                           "Opposite": merged_opposite}
     for direction in precedence:
         for s_idx, e_idx, _ in merged_by_direction[direction]:
             primary[max(0, s_idx):min(total, e_idx)] = direction
@@ -272,6 +303,7 @@ def compute_coarousal(
             "high_episode_count": len(merged_high),
             "low_episode_count": len(merged_low),
             "comovement_episode_count": len(merged_comov),
+            **({"opposite_episode_count": len(merged_opposite)} if opposite else {}),
             "coarousal_significant": (coarousal_p is not None and coarousal_p < 0.05),
         },
     }

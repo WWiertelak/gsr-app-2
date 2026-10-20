@@ -15,7 +15,7 @@
       </a>
       <a href="?tab=coarousal" role="tab" id="tab-coarousal" aria-controls="panel-coarousal" aria-labelledby="tab-coarousal-title" aria-describedby="tab-coarousal-desc" data-tab="coarousal" class="{% if tab == 'coarousal' %}active{% endif %}" aria-selected="{% if tab == 'coarousal' %}true{% else %}false{% endif %}" tabindex="{% if tab == 'coarousal' %}0{% else %}-1{% endif %}">
         <span class="tab-title" id="tab-coarousal-title">{% translate "Co-arousal" %}{% if result and coarousal %} {% include "gsr/partials/episode_count.html" with count=coarousal.stats.episode_count %}{% endif %}</span>
-        <span class="tab-desc" id="tab-coarousal-desc">{% translate "Shared High or Low arousal states and co-movement episodes" %}</span>
+        <span class="tab-desc" id="tab-coarousal-desc">{% translate "Shared High or Low arousal states, opposite states and co-movement episodes" %}</span>
       </a>
     </div>
 
@@ -25,7 +25,11 @@
         <button type="submit" class="lg" form="analysis-settings"{% if analysis_blocked %} disabled{% endif %}>{% translate "Run analysis" %}</button>
       </div>
     {% elif stale %}
-      <div class="alert warning stale-note">{% if stale_from %}{% include "gsr/partials/stale_from.html" %}{% else %}{% translate "Settings or signals changed since this run. Run the analysis again." %}{% endif %}</div>
+      <div class="alert warning stale-note">{% if stale_from %}{% include "gsr/partials/stale_from.html" %}{% elif predates_rules %}{% translate "This run used the earlier rules. The app now reads the VSR flow chart's correlation criteria by strength and also finds divergent synchrony, decoupling and opposite arousal: run the analysis again." %}{% else %}{% translate "Settings or signals changed since this run. Run the analysis again." %}{% endif %}</div>
+    {% endif %}
+
+    {% if result and dyad_without_gaps %}
+      <p class="muted small dyad-note">{% translate "Two people: a dyad analysis. Episodes are not joined across gaps, since joining keeps a subgroup's episode together when its membership changes and a pair has no subgroups (setting: Dyads: no joining across gaps)." %}</p>
     {% endif %}
 
     <div class="result{% if stale %} is-stale{% endif %}" role="tabpanel" id="panel-synchronization" aria-labelledby="tab-synchronization" tabindex="0" data-tab-panel="synchronization"{% if tab != "synchronization" %} hidden{% endif %}>
@@ -46,7 +50,7 @@
           <li class="tile">
             <span class="label">{% translate "Episode count" %}</span>
             <span class="value">{{ synchrony.stats.episode_count }}{% if sync_episodes %} <small>· {% blocktranslate with duration=sync_episode_minutes|mmss %}{{ duration }} min in total{% endblocktranslate %}</small>{% endif %}</span>
-            <span class="sub">{{ sync_episode_rule }}</span>
+            <span class="sub">{{ sync_episode_rule }}{% if divergent_episodes is not None %}<br>{% blocktranslate count counter=divergent_episodes|length %}{{ counter }} divergent episode{% plural %}{{ counter }} divergent episodes{% endblocktranslate %} ({{ divergent_rule }}){% endif %}{% if decoupled_episodes is not None %}<br>{% blocktranslate count counter=decoupled_episodes|length %}{{ counter }} decoupling stretch{% plural %}{{ counter }} decoupling stretches{% endblocktranslate %} ({{ decoupled_rule }}){% endif %}</span>
           </li>
           <li class="tile">
             <span class="label">{% translate "Cluster count" %}</span>
@@ -57,8 +61,23 @@
 
         {% if sync_signals.series %}
           {% translate "We look for fragments where signals begin to synchronize and group them into clusters." as sync_help %}
-          <div class="section-head section-gap"><h3>{% translate "Signals with marked episodes" %}</h3>{% include "gsr/partials/tip.html" with text=sync_help tip_id="tip-sync-signals" %}</div>
+          <div class="section-head section-gap"><h3>{% translate "Signals with marked episodes" %}</h3>{% include "gsr/partials/tip.html" with text=sync_help tip_id="tip-sync-signals" %}
+            <form class="chart-scale" method="post" action="{% url 'gsr:analysis_chart_scale' project.pk %}"
+                  hx-post="{% url 'gsr:analysis_chart_scale' project.pk %}" hx-target="#main" hx-swap="innerHTML" hx-disabled-elt="find button">
+              {% csrf_token %}
+              <span class="muted small" id="chart-scale-label">{% translate "Chart scale" %}</span>
+              <div class="segmented" role="group" aria-labelledby="chart-scale-label">
+                <button type="submit" name="chart_scale" value="zscore" aria-pressed="{% if chart_scale == 'zscore' %}true{% else %}false{% endif %}">{% translate "z-score" %}</button>
+                <button type="submit" name="chart_scale" value="minmax" aria-pressed="{% if chart_scale == 'minmax' %}true{% else %}false{% endif %}">{% translate "min-max (0–1)" %}</button>
+              </div>
+            </form>
+          </div>
           {% include "gsr/partials/chart.html" with label=_("Signals with marked episodes") kind="episodeSignals" data=sync_signals chart_id="sync-signals" name="sync_signals" height=320 %}
+          {% if chart_scale == "minmax" %}
+            <p class="muted small">{% blocktranslate with high=applied.contagion_high_z|display_number low=applied.contagion_low_z|display_number %}The 0–1 scale (min-max) is only for viewing: every result is computed on z-scores or correlations, and the High and Low states use the thresholds z = {{ high }} and z = {{ low }}.{% endblocktranslate %}</p>
+          {% else %}
+            <p class="muted small">{% blocktranslate with high=applied.contagion_high_z|display_number low=applied.contagion_low_z|display_number %}z-scores within the analysed period, the scale the High and Low states are computed on; dashed lines: z = {{ high }} and z = {{ low }}.{% endblocktranslate %}</p>
+          {% endif %}
         {% endif %}
 
         {% translate "Stretches where a subgroup of participants (at least 2) stays synchronized above the threshold." as episodes_help %}
@@ -70,12 +89,13 @@
             {% if sync_episodes %}
               <div class="table-wrap">
                 <table class="data">
-                  <thead><tr><th>#</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Participants" %}</th><th>{% translate "Mean strength" %}</th><th>{% translate "Peak strength" %}</th></tr></thead>
+                  <thead><tr><th>#</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Participants" %}</th><th>{% translate "Mean strength" %}</th><th>{% translate "Peak strength" %}</th></tr></thead>
                   <tbody>
                     {% for episode in sync_episodes %}
                       <tr>
                         <td><strong>E{{ episode.number }}</strong></td>
-                        <td class="left"><span class="when">{% if episode.bar %}<span class="minibar" aria-hidden="true"><i style="left: {{ episode.bar.left }}%; width: {{ episode.bar.width }}%"></i></span>{% endif %}{{ episode.start_relative|mmss }}–{{ episode.end_relative|mmss }}</span></td>
+                        <td class="left"><span class="when">{% if episode.bar %}<span class="minibar" aria-hidden="true"><i style="left: {{ episode.bar.left }}%; width: {{ episode.bar.width }}%"></i></span>{% endif %}{{ episode.start_relative|minutes_clock:clock_start }}–{{ episode.end_relative|minutes_clock:clock_start }}</span></td>
+                        <td class="left">{{ episode.start_relative|mmss }}–{{ episode.end_relative|mmss }}</td>
                         <td>{{ episode.duration|mmss }}</td>
                         <td class="left"><div class="chips">{% for member in episode.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div></td>
                         <td>{{ episode.mean_strength|floatformat:3 }}</td>
@@ -90,6 +110,72 @@
             {% endif %}
           </div>
         </div>
+
+        {% if divergent_episodes is not None %}
+          {% translate "Stretches where a subgroup's signals move in opposite directions: every pair's correlation stays at or below minus the divergent threshold, with the same episode rules as synchronization (D-numbers on the chart)." as divergent_help %}
+          <div class="disclosure">
+            <div class="disclosure-head">
+              <h3><button type="button" class="disclosure-toggle" id="divergent-episodes-toggle" aria-expanded="true" aria-controls="divergent-episodes-body" data-disclosure>{% translate "Divergent synchronization episodes" %} <span class="count">{{ divergent_episodes|length }}</span></button></h3>{% include "gsr/partials/tip.html" with text=divergent_help tip_id="tip-divergent-episodes" %}
+            </div>
+            <div class="disclosure-body" id="divergent-episodes-body">
+              {% if divergent_episodes %}
+                <div class="table-wrap">
+                  <table class="data">
+                    <thead><tr><th>#</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Participants" %}</th><th>{% translate "Mean r" %}</th><th>{% translate "Lowest r" %}</th></tr></thead>
+                    <tbody>
+                      {% for episode in divergent_episodes %}
+                        <tr>
+                          <td><strong>D{{ episode.number }}</strong></td>
+                          <td class="left"><span class="when">{% if episode.bar %}<span class="minibar" aria-hidden="true"><i style="left: {{ episode.bar.left }}%; width: {{ episode.bar.width }}%"></i></span>{% endif %}{{ episode.start_relative|minutes_clock:clock_start }}–{{ episode.end_relative|minutes_clock:clock_start }}</span></td>
+                          <td class="left">{{ episode.start_relative|mmss }}–{{ episode.end_relative|mmss }}</td>
+                          <td>{{ episode.duration|mmss }}</td>
+                          <td class="left"><div class="chips">{% for member in episode.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div></td>
+                          <td>{{ episode.mean_strength|floatformat:3 }}</td>
+                          <td>{{ episode.peak_strength|floatformat:3 }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <p class="muted">{% if synchrony.stats.signed %}{% translate "No divergent synchronization episodes detected." %}{% else %}{% translate "Divergent synchronization needs the signed mode: without it an opposite-direction pair counts as synchronized." %}{% endif %}</p>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if decoupled_episodes is not None %}
+          {% translate "No synchrony: stretches between a pair's synchronization and divergent episodes whose correlation lies within plus/minus the decoupling threshold, judged by the decoupling rule of the Analysis settings (default: every window, as in Hassan's script); U-numbers on the chart." as decoupled_help %}
+          <div class="disclosure">
+            <div class="disclosure-head">
+              <h3><button type="button" class="disclosure-toggle" id="decoupled-episodes-toggle" aria-expanded="true" aria-controls="decoupled-episodes-body" data-disclosure>{% translate "Decoupling (no synchrony)" %} <span class="count">{{ decoupled_episodes|length }}</span></button></h3>{% include "gsr/partials/tip.html" with text=decoupled_help tip_id="tip-decoupled-episodes" %}
+            </div>
+            <div class="disclosure-body" id="decoupled-episodes-body">
+              {% if decoupled_episodes %}
+                <div class="table-wrap">
+                  <table class="data">
+                    <thead><tr><th>#</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Pair" %}</th><th>{% translate "Mean r" %}</th>{% if applied.synchrony_decoupled_rule == "stretch_correlation" %}<th>{% translate "Stretch r" %}</th>{% endif %}</tr></thead>
+                    <tbody>
+                      {% for episode in decoupled_episodes %}
+                        <tr>
+                          <td><strong>U{{ episode.number }}</strong></td>
+                          <td class="left"><span class="when">{% if episode.bar %}<span class="minibar" aria-hidden="true"><i style="left: {{ episode.bar.left }}%; width: {{ episode.bar.width }}%"></i></span>{% endif %}{{ episode.start_relative|minutes_clock:clock_start }}–{{ episode.end_relative|minutes_clock:clock_start }}</span></td>
+                          <td class="left">{{ episode.start_relative|mmss }}–{{ episode.end_relative|mmss }}</td>
+                          <td>{{ episode.duration|mmss }}</td>
+                          <td class="left"><div class="chips">{% for member in episode.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div></td>
+                          <td>{{ episode.mean_r|floatformat:3 }}</td>
+                          {% if applied.synchrony_decoupled_rule == "stretch_correlation" %}<td>{{ episode.stretch_r|floatformat:3 }}</td>{% endif %}
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              {% else %}
+                <p class="muted">{% translate "No decoupling detected." %}</p>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
 
         <div class="disclosure">
           <div class="disclosure-head">
@@ -174,6 +260,7 @@
               <span class="badge high" title="{% translate 'High ↑' %}">↑ {{ coarousal.stats.high_episode_count }}</span>
               <span class="badge low" title="{% translate 'Low ↓' %}">↓ {{ coarousal.stats.low_episode_count }}</span>
               <span class="badge comove" title="{% translate 'Co-move ↔' %}">↔ {{ coarousal.stats.comovement_episode_count }}</span>
+              {% if coarousal.stats.opposite_episode_count is not None %}<span class="badge opposite" title="{% translate 'Opposite ⇅' %}">⇅ {{ coarousal.stats.opposite_episode_count }}</span>{% endif %}
             </span>
           </li>
         </ul>
@@ -188,10 +275,10 @@
           {% include "gsr/partials/chart.html" with label=_("Participant state map over time") kind="coarousalStates" data=coarousal_states chart_id="coarousal-states" name="coarousal_states" height=coarousal_height %}
         {% endif %}
 
-        <div class="grid-2 section-gap">
+        <div class="stack section-gap">
           <div>
-            {% translate "Episodes where ≥ the required number of participants hold a shared state (High/Low), plus co-movement episodes (mean pairwise Spearman in the window ≥ threshold)." as coarousal_episodes_help %}
-            {% translate "Each second gets one label by precedence: High/Low (joint extreme) > Co-movement. Adjacent same-label seconds are merged." as merge_help %}
+            {% translate "Episodes where ≥ the required number of participants hold a shared state (High/Low), opposite episodes (someone High while someone else is Low, the same rules), plus co-movement episodes (mean pairwise Spearman in the window ≥ threshold)." as coarousal_episodes_help %}
+            {% translate "Each second gets one label by precedence: High/Low (joint extreme) > Co-movement > Opposite. Adjacent same-label seconds are merged." as merge_help %}
             <div class="section-head">
               <h3>{% translate "Co-arousal episodes" %}</h3>{% include "gsr/partials/tip.html" with text=coarousal_episodes_help tip_id="tip-coarousal-episodes" %}
               {% if coarousal_episodes %}
@@ -201,15 +288,16 @@
             {% if coarousal_episodes %}
               <div class="table-wrap" id="coarousal-episodes">
                 <table class="data">
-                  <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Contributors" %}</th><th class="left">{% translate "Strength" %}</th></tr></thead>
+                  <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Contributors" %}</th><th class="left">{% translate "Strength" %}</th></tr></thead>
                   <tbody>
                     {% for episode in coarousal_episodes %}
                       <tr>
                         <td>{{ episode.number }}</td>
                         <td class="left">{% include "gsr/partials/direction.html" with direction=episode.direction %}</td>
+                        <td class="left">{{ episode.start_s|seconds_clock:clock_start }}–{{ episode.end_s|seconds_clock:clock_start }}</td>
                         <td class="left">{{ episode.start_s|seconds_mmss }}–{{ episode.end_s|seconds_mmss }}</td>
                         <td>{{ episode.duration_s|seconds_mmss }}</td>
-                        <td class="left"><div class="chips">{% for member in episode.contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% empty %}—{% endfor %}</div></td>
+                        <td class="left"><div class="chips">{% if episode.direction == "Opposite" %}{% for member in episode.high_contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }} ↑</span>{% endfor %}{% for member in episode.low_contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }} ↓</span>{% endfor %}{% else %}{% for member in episode.contributors %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% empty %}—{% endfor %}{% endif %}</div></td>
                         <td class="left">{% if episode.strength == "full" %}{% translate "full" %}{% elif episode.strength == "strong" %}{% translate "strong" %}{% else %}{% translate "partial" %}{% endif %}</td>
                       </tr>
                     {% endfor %}
@@ -218,12 +306,13 @@
               </div>
               <div class="table-wrap" id="coarousal-merged" hidden>
                 <table class="data">
-                  <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Time (min)" %}</th><th>{% translate "Duration" %}</th></tr></thead>
+                  <thead><tr><th>#</th><th class="left">{% translate "Type" %}</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th></tr></thead>
                   <tbody>
                     {% for segment in coarousal.primary_timeline %}
                       <tr>
                         <td>{{ forloop.counter }}</td>
                         <td class="left">{% include "gsr/partials/direction.html" with direction=segment.label %}</td>
+                        <td class="left">{{ segment.start_min|minutes_clock:clock_start }}–{{ segment.end_min|minutes_clock:clock_start }}</td>
                         <td class="left">{{ segment.start_min|mmss }}–{{ segment.end_min|mmss }}</td>
                         <td>{{ segment.duration_s|seconds_mmss }}</td>
                       </tr>

@@ -31,16 +31,16 @@ from django.views.decorators.http import require_POST
 from . import charts, params, vsr_text
 from .errors import UserError, describe, no_overlap_message
 from .models import AnalysisResult, Dataset, InterviewMoment, Project
+from .pipeline.common import clock_seconds_of_day, clock_start
 from .pipeline.config import PipelineConfig
-from .pipeline.vsr import DEFAULT_ASYNCHRONY_THRESHOLD, PRIMARY, RESERVE
+from .pipeline.vsr import PRIMARY, RESERVE, STEP_NUMBERS, step_label
 from .reporting.report import render_report_pdf, report_text, resolve_lang
 from .reporting.vsr_charts import AVERAGE_COLOR, lesson_ticks
 from .services import curation, exports
 from .services.analysis import AnalysisError
 from .services.datasets import add_dataset, normalize_alias
+from .services.display import chart_scale, set_chart_scale
 from .services.interview import (
-    ASYNCHRONY_KEY,
-    ASYNCHRONY_LIMITS,
     COUNT_LIMITS,
     InterviewConfig,
     InterviewRoles,
@@ -57,6 +57,7 @@ from .services.results import (
     get_result,
     included_datasets,
     is_stale,
+    predates_rules,
     recording_overview,
     signal_colors,
 )
@@ -673,10 +674,12 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         "coarousal_essential": params.field_rows(params.COAROUSAL_ESSENTIAL, values),
         "coarousal_advanced": coarousal_advanced,
         "coarousal_advanced_changed": any(row["modified"] for row in coarousal_advanced),
+        "interview_essential": params.field_rows(params.INTERVIEW_ESSENTIAL, values),
         "settings_summary": params.analysis_summary(values, _applied_values(result)),
         "result": result,
         "stale": is_stale(project, result),
         "stale_from": _stale_before(project, "analysis"),
+        "predates_rules": predates_rules(result),
         "error": error,
         "analysis_blocked": analysis_blocked,
         "colors": colors,
@@ -687,17 +690,24 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         coarousal = payload.get("coarousal", {})
         config = PipelineConfig.from_dict(result.config)
         span = charts.timeline_span(synchrony)
-        coarousal_chart = charts.coarousal_states(coarousal)
-        sync_episodes = [
-            {**episode, "number": index + 1,
-             "duration": episode["end_relative"] - episode["start_relative"],
-             "bar": _mini_bar(episode["start_relative"], episode["end_relative"], span)}
-            for index, episode in enumerate(synchrony.get("episodes", []))
-        ]
+        coarousal_chart = charts.coarousal_states(coarousal, charts.preview_clock(payload.get("preview", {})))
+        def numbered(episodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            return [{**episode, "number": index + 1, "duration": episode["end_relative"] - episode["start_relative"],
+                     "bar": _mini_bar(episode["start_relative"], episode["end_relative"], span)}
+                    for index, episode in enumerate(episodes)]
+
+        sync_episodes = numbered(synchrony.get("episodes", []))
+        divergent_episodes = numbered(synchrony.get("divergent_episodes", []))
+        decoupled_episodes = numbered(synchrony.get("decoupled_episodes", []))
+        scale = chart_scale(project)
         context.update(
             synchrony=synchrony,
             coarousal=coarousal,
-            sync_signals=charts.sync_signals(synchrony, payload.get("preview", {}), colors),
+            # The recordings' own clock at lesson time 0: every table shows it next to the lesson time.
+            clock_start=clock_start(payload.get("preview", {}).get("alignment")),
+            chart_scale=scale,
+            applied=config.model_dump(),
+            sync_signals=charts.sync_signals(synchrony, payload.get("preview", {}), colors, scale, config.model_dump()),
             sync_matrix=charts.sync_matrix(synchrony),
             coarousal_states=coarousal_chart,
             sync_episodes=sync_episodes,
@@ -705,6 +715,17 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
             sync_episode_rule=_("subgroups of ≥ %(size)s people above %(threshold)s") % {
                 "size": config.synchrony_episode_min_size,
                 "threshold": params.display_number(config.synchrony_threshold)},
+            # A two-person project is a dyad and joins no episodes across gaps (PipelineConfig.for_people): say so.
+            dyad_without_gaps=len(payload.get("preview", {}).get("aliases") or []) == 2
+            and config.synchrony_dyad_without_gap_joining,
+            # Results stored before divergent synchrony was found have none to show (None), not zero.
+            divergent_episodes=divergent_episodes if "divergent_episodes" in synchrony else None,
+            divergent_rule=_("r ≤ −%(threshold)s in every window") % {
+                "threshold": params.display_number(config.synchrony_divergent_threshold)},
+            decoupled_episodes=decoupled_episodes if "decoupled_episodes" in synchrony else None,
+            decoupled_rule=(_("|r| < %(threshold)s in every window") if config.synchrony_decoupled_rule == "every_window"
+                            else _("one correlation |r| < %(threshold)s over the stretch")) % {
+                "threshold": params.display_number(config.synchrony_decoupled_threshold)},
             cluster_members=" | ".join(" · ".join(cluster["members"])
                                        for cluster in synchrony.get("clusters", {}).get("clusters", [])),
             pairs=[{**pair, "significant": _significant(pair.get("p_value"))} for pair in synchrony.get("pairs", [])],
@@ -751,11 +772,27 @@ def analysis(request: HttpRequest, pk: Any) -> HttpResponse:
 
 
 @require_POST
+def analysis_chart_scale(request: HttpRequest, pk: Any) -> HttpResponse:
+    """Show the signals chart, the PDF report and the merged CSV on z-scores or min-max (0–1); nothing is rerun."""
+    project = _project(pk)
+    error = None
+    try:
+        set_chart_scale(project, request.POST.get("chart_scale", ""))
+    except ValueError as exc:
+        error = UserError(str(exc))
+    if not _is_htmx(request):
+        if error:
+            messages.error(request, error.message)
+        return redirect(f"{reverse('gsr:analysis', args=[project.pk])}?tab={ANALYSIS_TABS[0]}")
+    return _page(request, project, "analysis", "gsr/partials/analysis_main.html",
+                 _analysis_context(project, ANALYSIS_TABS[0], error))
+
+
+@require_POST
 def analysis_reset(request: HttpRequest, pk: Any) -> HttpResponse:
     project = _project(pk)
     project.pipeline_config = params.reset_analysis(project.pipeline_config)
-    project.interview_config = {**(project.interview_config or {}), ASYNCHRONY_KEY: DEFAULT_ASYNCHRONY_THRESHOLD}
-    project.save(update_fields=["pipeline_config", "interview_config", "updated_at"])
+    project.save(update_fields=["pipeline_config", "updated_at"])
     return _analysis_after_settings(request, project)
 
 
@@ -792,9 +829,7 @@ def _role_form(project: Project, roles: dict[str, Any]) -> dict[str, Any]:
         "pairs": [{"number": index + 1, "left": left, "right": right} for index, (left, right) in enumerate(pairs)],
         "primary_moment_count": roles.get("primary_moment_count"),
         "reserve_moment_count": roles.get("reserve_moment_count"),
-        "asynchrony_threshold": roles.get(ASYNCHRONY_KEY),
         "limits": COUNT_LIMITS,
-        "asynchrony_limits": ASYNCHRONY_LIMITS,
     }
 
 
@@ -806,7 +841,7 @@ def _posted_roles(request: HttpRequest) -> dict[str, Any]:
         "teacher_alias": (request.POST.get("teacher_alias") or "").strip() or None,
         "student_pairs": pairs,
     }
-    for name in (*COUNT_LIMITS, ASYNCHRONY_KEY):
+    for name in COUNT_LIMITS:
         if name in request.POST:
             roles[name] = request.POST[name]
     return roles
@@ -837,13 +872,15 @@ def _moment_chart(payload: dict[str, Any], interview: dict[str, Any], row: Inter
         for name, color, values in zip(_signal_names(interview), colors, (window["a"], window["b"]))
     ]
     shared = row.proposal.get("shared_state") if not row.is_manual else None
+    opposite = not row.is_manual and row.proposal.get("type") == "opposite"
     return {
         "series": series,
         "moment": {"start": window["start"] / 60.0, "end": window["end"] / 60.0, "label": str(number or "×")},
         "range": {"min": window["low"] / 60.0, "max": window["high"] / 60.0},
-        # The Co-arousal thresholds, drawn when the moment is about a shared state.
-        "high": settings.get("contagion_high_z") if shared == "HIGH" else None,
-        "low": settings.get("contagion_low_z") if shared == "LOW" else None,
+        "clock_start": clock_seconds_of_day(curation.lesson_clock_start(payload)),
+        # The Co-arousal thresholds, drawn when the moment is about a shared state (both for opposite arousal).
+        "high": settings.get("contagion_high_z") if shared == "HIGH" or opposite else None,
+        "low": settings.get("contagion_low_z") if shared == "LOW" or opposite else None,
     }
 
 
@@ -863,6 +900,7 @@ def _moment_view(item: curation.CuratedMoment, interview: dict[str, Any], payloa
         "accepted": row.status == InterviewMoment.STATUS_ACCEPTED,
         "manual": row.is_manual,
         "time_changed": row.time_changed,
+        "check_reason": curation.check_reason(row),
         # A proposed reserve moment that moved up, or a primary one that moved down, says what the engine proposed.
         "proposed_role": item.proposed_role if item.role and item.proposed_role not in (None, item.role) else None,
         "start_seconds": row.start_seconds,
@@ -870,13 +908,17 @@ def _moment_view(item: curation.CuratedMoment, interview: dict[str, Any], payloa
         "duration_seconds": duration,
         "start_clock": item.start_clock,
         "end_clock": item.end_clock,
+        # The proposed times on the sensor clock, for a retimed moment's "Proposed as".
+        "proposed_start_clock": None if row.is_manual else row.proposal.get("start_clock"),
+        "proposed_end_clock": None if row.is_manual else row.proposal.get("end_clock"),
         "bar": _bar(row.start_seconds, row.end_seconds, lesson),
         "from_timeline": not row.is_manual and bool(row.proposal.get(curation.FROM_TIMELINE)),
         "chart": _moment_chart(payload, interview, row, colors, item.number),
         "chart_height": MOMENT_CHART_HEIGHT,
     }
-    if not row.is_manual and row.proposal.get("step") in range(1, 6):
-        view.update(step=row.proposal["step"], step_title=vsr_text.step_title(row.proposal["step"]),
+    step = row.proposal.get("step")
+    if not row.is_manual and step is not None and step_label(step) in STEP_NUMBERS:
+        view.update(step=step_label(step), step_title=vsr_text.step_title(step),
                     sentence=vsr_text.justification(row.proposal, interview["kind"]))
     return view
 
@@ -905,7 +947,7 @@ def _candidate_views(interview: dict[str, Any], lesson: dict[str, Any],
             state, number, moment_id = CANDIDATE_OTHER, None, None
         else:
             state, number, moment_id = item.role or CANDIDATE_REJECTED, item.number, str(item.row.pk)
-        step, rank = candidate["step"], candidate["candidate_rank"]
+        step, rank = step_label(candidate["step"]), candidate["candidate_rank"]
         views.append({
             "id": f"{tab}-c{step}-{rank}",
             "step": step,
@@ -945,6 +987,7 @@ def _lesson_chart(payload: dict[str, Any], interview: dict[str, Any], colors: li
             for item in candidates
         ],
         "range": {"min": minutes[0], "max": minutes[-1]},
+        "clock_start": clock_seconds_of_day(curation.lesson_clock_start(payload)),
     }
 
 
@@ -972,6 +1015,8 @@ def _interview_view(index: int, interview: dict[str, Any], payload: dict[str, An
         "kept_count": sum(1 for item in curated if item.role is not None),
         "stats": interview["stats"],
         "ticks": lesson_ticks(lesson["start_seconds"], lesson["end_seconds"]),
+        # The recordings' own clock at lesson time 0: the timeline shows it under the lesson time.
+        "clock_start": curation.lesson_clock_start(payload),
         # Moments chosen before every candidate was stored have none: choosing again adds them.
         "has_candidates": "candidates" in interview,
         "candidate_lanes": [
@@ -1003,8 +1048,14 @@ def _interviews_context(project: Project, tab: str | None = None, error: UserErr
         "analysis": analysis,
         "analysis_stale": analysis_stale,
         "analysis_ready": analysis is not None and not analysis_stale,
+        # Chosen (or the Analysis run) before the VSR flow chart was read by correlation strength.
+        "predates_rules": predates_rules(result) or predates_rules(analysis),
         "stale_from": _stale_before(project, "interviews"),
         "analysis_settings": params.analysis_summary(_applied_values(analysis) or {}) if analysis else [],
+        # The correlation strengths the steps use, from the Analysis run the moments come from.
+        "thresholds": {"interview": applied["synchrony_interview_threshold"],
+                       "decoupled": applied["synchrony_decoupled_threshold"]}
+        if (applied := _applied_values(analysis)) else None,
         "error": error,
         "step_names": vsr_text.steps(),
         # The card form the last action came from, reopened with its values and its error.
@@ -1111,6 +1162,9 @@ def interview_moment(request: HttpRequest, pk: Any, moment_pk: Any) -> HttpRespo
     try:
         if action in MOMENT_STATUS_ACTIONS:
             curation.set_status(moment, MOMENT_STATUS_ACTIONS[action])
+        elif action == "keep":
+            # The researcher confirms a decision marked for checking.
+            curation.set_status(moment, moment.status)
         elif action in MOMENT_MOVES:
             curation.move(moment, MOMENT_MOVES[action])
         elif action == "time":
@@ -1152,10 +1206,13 @@ def interview_candidate_add(request: HttpRequest, pk: Any) -> HttpResponse:
     project = _project(pk)
     result = _vsr_result_or_404(project)
     key = request.POST.get("interview", "")
+    step = request.POST.get("step", "")
     try:
-        step, rank = int(request.POST.get("step", "")), int(request.POST.get("rank", ""))
+        rank = int(request.POST.get("rank", ""))
     except ValueError:
         raise Http404("Unknown candidate.") from None
+    if step not in STEP_NUMBERS:
+        raise Http404("Unknown candidate.")
     form = {"id": f"candidate-{key}", "action": "candidate"}
     try:
         moment = curation.add_candidate(project, result, key, step, rank)
@@ -1172,6 +1229,8 @@ EXPORT_FILES = {
     "run_settings_and_results.json": "json",
     **{name: "table" for name in (
         "synchrony_episodes.csv",
+        "synchrony_divergent_episodes.csv",
+        "synchrony_decoupled_episodes.csv",
         "synchrony_pairs.csv",
         "synchrony_windows.csv",
         "coarousal_episodes.csv",
@@ -1207,6 +1266,9 @@ def _stale_causes(project: Project, result: AnalysisResult) -> list[str]:
         causes = []
     before = dict(zip(result.dataset_ids, (row["alias"] for row in result.payload.get("datasets", []))))
     now = {str(dataset.id): dataset.alias for dataset in included_datasets(project)}
+    if predates_rules(result):
+        causes.insert(0, _("the app now reads the VSR flow chart by correlation strength and finds divergent synchrony, "
+                           "decoupling and opposite arousal"))
     added = [alias for key, alias in now.items() if key not in before]
     removed = [alias for key, alias in before.items() if key not in now]
     if added:
@@ -1233,12 +1295,16 @@ def _export_groups(project: Project, chart_count: int, vsr: dict[str, Any] | Non
                     _("per interview: step, lesson and sensor clock times, correlation, justification"), "CSV",
                     [_export_file(project, "vsr_moments.csv")], vsr["stale"])] if vsr is not None else []
     return [
-        row(_("Cleaned signals"), _("per participant, relative time, full resolution"), "CSV",
+        row(_("Cleaned signals"), _("per participant, sensor clock and lesson time, full resolution"), "CSV",
             [_export_file(project, "clean_signals.csv")]),
-        row(_("Analysis-ready merged file"), _("scaled, downsampled, shared time axis"), "CSV",
+        row(_("Analysis-ready merged file"),
+            _("z-scores, downsampled, sensor clock and lesson time") if chart_scale(project) != "minmax"
+            else _("min-max (0–1), downsampled, sensor clock and lesson time"), "CSV",
             [_export_file(project, "analysis_input_merged.csv")]),
-        row(_("Synchronization"), _("episodes, pairs, windows"), "CSV×3", [
+        row(_("Synchronization"), _("episodes, divergent episodes, decoupling, pairs, windows"), "CSV×5", [
             _export_file(project, "synchrony_episodes.csv", _("episodes")),
+            _export_file(project, "synchrony_divergent_episodes.csv", _("divergent episodes")),
+            _export_file(project, "synchrony_decoupled_episodes.csv", _("decoupling")),
             _export_file(project, "synchrony_pairs.csv", _("pairs")),
             _export_file(project, "synchrony_windows.csv", _("windows")),
         ]),
@@ -1304,7 +1370,7 @@ def _export_context(project: Project, error: UserError | None = None) -> dict[st
     context: dict[str, Any] = {"result": result, "stale": stale, "error": error}
     if result is not None:
         values = PipelineConfig.from_dict(result.config).model_dump()
-        report_charts = charts.report_charts(result.payload, signal_colors(project), values)
+        report_charts = charts.report_charts(result.payload, signal_colors(project), values, chart_scale(project))
         languages = _report_languages(project, result)
         vsr = vsr_report_data(project)
         context.update(
@@ -1396,9 +1462,11 @@ def report_payload(project: Project, result: AnalysisResult, chart_images: dict[
         "generated_at": timezone.localtime().strftime("%Y-%m-%d %H:%M"),
         "computed_at": timezone.localtime(result.computed_at).strftime("%Y-%m-%d %H:%M"),
         "stale": export_is_stale(project),
+        "predates_rules": predates_rules(result),
         "dataset_aliases": [row["alias"] for row in payload.get("datasets", [])],
         "datasets": payload.get("datasets", []),
         "config": PipelineConfig.from_dict(result.config).model_dump(),
+        "chart_scale": chart_scale(project),
         "preview": payload.get("preview", {}),
         "synchrony": payload.get("synchrony"),
         "coarousal": payload.get("coarousal"),

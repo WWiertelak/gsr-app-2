@@ -6,6 +6,7 @@ import html
 import io
 import re
 import zlib
+from datetime import datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
@@ -119,6 +120,58 @@ def test_english_report_and_methodology_follow_language(payload) -> None:
     assert "Raport analizy GSR" not in texts
 
 
+def test_episode_tables_give_the_sensor_clock_next_to_the_lesson_time(payload) -> None:
+    start = datetime.fromisoformat(payload["preview"]["alignment"]["start"])
+
+    def clock(seconds: float) -> str:
+        return (start + timedelta(seconds=seconds)).strftime("%H:%M:%S")
+
+    for lang, clock_label, lesson_label in (("en", "Sensor clock", "Lesson time (m:ss)"),
+                                            ("pl", "Zegar czujnika", "Czas lekcji (m:ss)")):
+        texts = _texts(render_report_html({**payload, "lang": lang}))
+        assert texts.count(clock_label) >= 2 and texts.count(lesson_label) >= 2
+        assert "Time (min)" not in texts and "Czas (min)" not in texts
+        for episode in payload["coarousal"]["episodes"]:
+            assert f"{clock(episode['start_s'])}–{clock(episode['end_s'])}" in texts
+        for episode in payload["synchrony"]["episodes"]:
+            assert f"{clock(episode['start_relative'] * 60)}–{clock(episode['end_relative'] * 60)}" in texts
+
+
+def test_report_lists_divergent_synchronization_episodes(payload) -> None:
+    divergent = payload["synchrony"]["divergent_episodes"]
+    texts = _texts(render_report_html({**payload, "lang": "en"}))
+    assert "Divergent synchronization episodes" in texts
+    assert texts[texts.index("Divergent episodes") + 1] == str(len(divergent))
+    if divergent:
+        assert "Lowest r" in texts
+    else:
+        assert "No divergent synchronization episodes detected." in texts
+    polish = _texts(render_report_html({**payload, "lang": "pl"}))
+    assert "Epizody synchronizacji rozbieżnej" in polish and "Rozprzężenie (brak synchronii)" in polish
+
+
+def test_report_lists_decoupling(payload) -> None:
+    decoupled = payload["synchrony"]["decoupled_episodes"]
+    texts = _texts(render_report_html({**payload, "lang": "en"}))
+    assert "Decoupling (no synchrony)" in texts
+    assert texts[texts.index("Decoupling stretches") + 1] == str(len(decoupled))
+    assert ("Pair" in texts) if decoupled else ("No decoupling detected." in texts)
+
+
+def test_report_states_the_normalization_and_the_chart_scale(payload) -> None:
+    texts = _texts(render_report_html({**payload, "lang": "en", "chart_images": {"sync_signals": _png()}}))
+    # The z-score cleaning option is an artifact filter, not a normalization; the analysis always uses z-scores.
+    assert texts[texts.index("Z-score artifact filter") + 1] == "yes (> 5 SD)"
+    assert texts[texts.index("Signal normalization for the analysis") + 1] == "z-score within the analysed window (fixed)"
+    assert texts[texts.index("Signals chart scale") + 1] == "z-score"
+    assert any(text.startswith("Signals as z-scores within the analysed window") for text in texts)
+    texts = _texts(render_report_html({**payload, "lang": "pl", "chart_scale": "minmax",
+                                       "chart_images": {"sync_signals": _png()}}))
+    assert texts[texts.index("Skala wykresu sygnałów") + 1] == "min-max (0–1)"
+    assert any(text.startswith("Skala 0–1 (min-max) służy tylko do podglądu") for text in texts)
+    assert texts[texts.index("Filtr artefaktów z-score") + 1] == "tak (> 5 SD)"
+
+
 def test_report_translates_setting_values(payload) -> None:
     payload = {**payload, "config": {**payload["config"], "synchrony_surrogate_enabled": True,
                                      "clean_filter_iqr": False}}
@@ -218,7 +271,9 @@ def test_render_report_pdf_embeds_plex_fonts_and_charts(payload) -> None:
     fonts = set(re.findall(rb"/BaseFont\s*/[A-Z]{6}\+([\w-]+)", _pdf_objects(pdf)))
     # The app's IBM Plex; Polish letters come from the Latin Extended file, which needs its own family name.
     assert pdf.startswith(b"%PDF") and {b"Plex-Sans-Latin", b"Plex-Sans-Latin-Semi-Bold", b"Plex-Sans-Ext"} <= fonts
+    # Muted notes are italic; Plex ships no italic file, so the PDF carries a slanted (Oblique) copy of the regular.
     assert fonts <= {b"Plex-Sans-Latin", b"Plex-Sans-Latin-Semi-Bold", b"Plex-Sans-Ext", b"Plex-Sans-Ext-Semi-Bold",
+                     b"Plex-Sans-Latin-Oblique", b"Plex-Sans-Ext-Oblique",
                      b"Plex-Mono-Latin", b"Plex-Mono-Ext", b"DejaVu-Sans", b"DejaVu-Sans-Bold"}
     with_chart = render_report_pdf({**payload, "lang": "pl", "chart_images": {"sync_signals": _png()}})
     assert b"/Subtype /Image" in _pdf_objects(with_chart) and b"/Subtype /Image" not in _pdf_objects(pdf)

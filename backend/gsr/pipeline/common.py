@@ -1,6 +1,9 @@
-"""Signal helpers shared by preprocessing, synchrony and co-arousal."""
+"""Signal and time helpers shared by preprocessing, synchrony, co-arousal and the interview moments."""
 
 from __future__ import annotations
+
+from datetime import datetime, timedelta
+from typing import Any
 
 import numpy as np
 
@@ -19,6 +22,35 @@ class PipelineError(ValueError):
         self.code = code
         self.alias = alias
         self.details = details or {}
+
+
+def clock_start(alignment: dict[str, Any] | None) -> datetime | None:
+    """The recordings' own clock at lesson time 0 (their common start, ``PipelineResult.alignment``), or None.
+
+    Lesson time counts from the common start, so the clock of any lesson time t is this plus t.
+    """
+    try:
+        return datetime.fromisoformat(str((alignment or {})["start"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def clock_at(start: datetime | None, seconds: float | None, *, milliseconds: bool = False) -> str | None:
+    """The clock ``seconds`` of lesson time after ``start`` as HH:MM:SS (HH:MM:SS.fff with ``milliseconds``).
+
+    Whole seconds are cut, not rounded, as everywhere the app has shown the sensor clock.
+    """
+    if start is None or seconds is None:
+        return None
+    moment = start + timedelta(seconds=float(seconds))
+    return moment.strftime("%H:%M:%S.%f")[:-3] if milliseconds else moment.strftime("%H:%M:%S")
+
+
+def clock_seconds_of_day(start: datetime | None) -> float | None:
+    """``start`` as seconds after midnight, the origin the charts put the clock axis on."""
+    if start is None:
+        return None
+    return (start - start.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds()
 
 
 def _estimate_step_seconds(time_minutes: np.ndarray) -> float:

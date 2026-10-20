@@ -18,6 +18,7 @@ from django.utils.formats import number_format
 from django.utils.safestring import SafeString
 
 from .. import params, vsr_text
+from ..pipeline.config import VSR_DOCUMENT_SETTINGS
 from ..pipeline.vsr import HIGH, LOW, PRIMARY
 from ..templatetags.gsr_tags import seconds_mmss
 from .vsr_charts import lesson_timeline_svg, moment_chart_svg
@@ -26,7 +27,7 @@ _TEXT: dict[str, dict[str, str]] = {
     "pl": {
         "title": "Momenty do wywiadów VSR",
         "lead": "Momenty do omówienia w wywiadach VSR, wybrane z wyników Analizy: epizody synchronizacji i "
-                "ko-pobudzenia danej pary (lub nauczyciela z uczniami) przypisano do kroków 1–5 schematu "
+                "ko-pobudzenia danej pary (lub nauczyciela ze średnią uczniów) przypisano do kroków schematu "
                 "„VSR Interview Flow Chart”, najsilniejsze najpierw, aż wybrano momenty główne i rezerwowe. To "
                 "propozycja dla badacza, nie wynik analizy: o tym, co omówić, decyduje badacz.",
         "stale": "Uczestnicy wywiadów, liczba momentów lub Analiza zmieniły się po wybraniu tych momentów. "
@@ -35,9 +36,10 @@ _TEXT: dict[str, dict[str, str]] = {
         "source_heading": "Źródło: Analiza",
         "parameter": "Ustawienie",
         "value": "Wartość",
+        "yes": "tak",
+        "no": "nie",
         "analysis_run": "Przebieg Analizy",
         "moment_counts": "Momenty na wywiad",
-        "asynchrony": "Krok 5: korelacja poniżej",
         "moment_counts_value": "{primary} głównych + {reserve} rezerwowych",
         "times_note": "Czas lekcji liczy się od wspólnego początku nagrań, jak w Analizie; zegar czujnika to zegar "
                       "zapisany w nagraniach GSR, według którego badacz odnajduje moment.",
@@ -58,14 +60,24 @@ _TEXT: dict[str, dict[str, str]] = {
         "col_status": "Status",
         "col_lesson": "Czas lekcji",
         "col_clock": "Zegar czujnika",
-        "col_episode": "Epizod Analizy",
+        "col_episode": "Epizod",
         "decision": "Decyzja",
         "accepted": "zaakceptowany",
         "undecided": "bez decyzji",
         "manual": "dodany ręcznie",
         "time_changed": "czas zmieniony",
         "synchrony_episode": "synchronizacja E{number}",
+        "divergent_episode": "rozbieżna D{number}",
+        "decoupled_episode": "rozprzężenie U{number}",
         "coarousal_episode": "ko-pobudzenie {number}",
+        "own_whose_dyad": "pary",
+        "own_whose_teacher": "nauczyciela i średniej uczniów",
+        "own_synchronization": "synchronizacja",
+        "own_co-movement": "ko-ruch",
+        "own_state": "wspólny stan",
+        "own_divergent": "synchronia rozbieżna",
+        "own_decoupled": "rozprzężenie",
+        "own_opposite": "pobudzenie przeciwstawne",
         "curated_note": "Lista momentów to lista badacza z kroku 4 Wywiady: kolejność decyduje o roli (pierwsze "
                         "momenty niewykluczone są główne, reszta rezerwowa), a uwzględnione są zaakceptowane, "
                         "przesunięte i dodane ręcznie momenty wraz z powodami i notatkami. Momenty odrzucone "
@@ -73,6 +85,13 @@ _TEXT: dict[str, dict[str, str]] = {
         "rejected": "Odrzucone przez badacza i pominięte w raporcie: {count}.",
         "added_by": "Dodany przez badacza:",
         "retimed": "Zaproponowano {start}–{end}; czas zmieniony przez badacza:",
+        "retimed_clock": "Zaproponowano {start}–{end} (zegar czujnika {clock_start}–{clock_end}); czas zmieniony "
+                         "przez badacza:",
+        "needs_check_rules": "Decyzję podjęto, gdy momenty wybrano według wcześniejszych reguł; aplikacja czyta teraz "
+                             "schemat VSR według siły korelacji. Decyzja badacza została zachowana. Sprawdź ją.",
+        "stale_rules": "Te momenty wybrano według wcześniejszych reguł. Aplikacja czyta teraz kryteria korelacji "
+                       "schematu VSR według siły (krok 4b synchronia rozbieżna; krok 5 pobudzenie przeciwstawne i "
+                       "rozprzężenie). Decyzje badacza zostaną zachowane i oznaczone do sprawdzenia.",
         "needs_check": "Ostatni wybór momentów już nie zawiera tego momentu; decyzja badacza została zachowana. "
                        "Sprawdź go.",
         "note_label": "Notatka:",
@@ -81,10 +100,10 @@ _TEXT: dict[str, dict[str, str]] = {
         "reserve": "rezerwowy",
         "cards_heading": "Podgląd i uzasadnienie każdego momentu",
         "lesson": "Lekcja",
-        "chart_note": "Sygnały (z-score) wokół momentu (zacieniony), jak na kroku Wywiady.",
+        "chart_note": "Sygnały (z-score) wokół momentu (zacieniony) na zegarze czujnika, jak na kroku Wywiady.",
         "chart_label": "Sygnały wokół momentu {number}",
         "no_moments": "Brak momentów na liście.",
-        "incomplete": "Analiza ma epizody tylko dla {count} z {target} momentów głównych.",
+        "incomplete": "Sygnały wywiadu mają epizody tylko dla {count} z {target} momentów głównych.",
         "poor_signal": "Sygnał GSR {alias} ma słabą jakość ({pct}% próbek odrzucono przy czyszczeniu). Sprawdź "
                        "nagranie przed omówieniem tych momentów.",
         "warning": "Uwaga",
@@ -93,29 +112,47 @@ _TEXT: dict[str, dict[str, str]] = {
         "summary_interviews": "wywiadów: {count}",
         "summary_stale": "momenty nieaktualne",
         "method_title": "8. Momenty do wywiadów VSR",
-        "method_selection": "Momenty pochodzą z wyników Analizy, z tymi samymi ustawieniami; krok Wywiady dodaje tylko"
-                            " próg asynchronii kroku 5. Epizod należy do pary, gdy obaj uczniowie są w nim (członkowie"
-                            " podgrupy synchronizacji lub uczestnicy epizodu ko-pobudzenia), a do wywiadu z "
-                            "nauczycielem, gdy jest w nim nauczyciel i co najmniej jeden uczeń. Kroki schematu VSR: 1 "
-                            "to epizod ko-ruchu (synchronizacji lub ko-ruchu z zakładki Ko-pobudzenie) nakładający się"
-                            " na wspólny stan Wysoki lub Niski, 2 epizod ko-ruchu bez wspólnego stanu, 3 i 4 epizod "
-                            "wspólnego stanu Wysokiego lub Niskiego bez ko-ruchu, 5 epizod ko-ruchu, którego r jest "
-                            "poniżej progu asynchronii (schemat VSR: poniżej 0,1; poniżej zera sygnały zmieniały się w"
-                            " przeciwnym kierunku, od zera nie były powiązane), albo odcinek poza tymi epizodami, w "
-                            "którym korelacja w oknach Analizy pozostaje poniżej tego progu co najmniej przez "
-                            "minimalny czas epizodu.",
+        "method_selection": "Momenty każdego wywiadu pochodzą z analizy jego własnych dwóch sygnałów: tymi samymi "
+                            "funkcjami i ustawieniami co przebieg Analizy, {gaps}, zastosowanymi tylko do sygnałów pary "
+                            "(schemat VSR: momenty na podstawie danych GSR diady) albo "
+                            "nauczyciela i średniej sygnałów uczniów (schemat VSR: momenty na podstawie zagregowanych "
+                            "danych nauczyciela i uczniów). Momenty pary nie zależą więc od tego, kto jeszcze jest w "
+                            "projekcie; ekran Analizy pokazuje całą klasę. Kryteria schematu VSR („Synchronous = above "
+                            "0.8”, „Asynchronous = below 0.1”) czytane są jako siła korelacji, czyli jej wartość "
+                            "bezwzględna. Kroki: 1 to epizod ko-ruchu (synchronizacji lub ko-ruchu z zakładki "
+                            "Ko-pobudzenie), którego r osiąga próg momentu wywiadu ({interview}), nakładający się na wspólny "
+                            "stan Wysoki lub Niski; 2 taki epizod ko-ruchu bez wspólnego stanu; 3 i 4 {shared}; 4b, przechodzony po kroku 5, żeby pierwsze pięć "
+                            "momentów zachowało „4 synchronous, 1 not synchronous” schematu, to epizod synchronizacji "
+                            "rozbieżnej (sygnały zmieniają się w przeciwnych kierunkach), którego r jest równe lub "
+                            "niższe od minus progu momentu wywiadu (za prośbą zespołu Hassana, „ideally above .80 for "
+                            "the interviews”); 5 brak synchronii: najpierw pobudzenie przeciwstawne (zakładka Ko-pobudzenie: jedna "
+                            "osoba w stanie Wysokim, druga w Niskim), potem odcinek rozprzężenia między epizodami "
+                            "synchronizacji i rozbieżności pary, {decoupling} (reguła rozprzężenia z ustawień Analizy).",
+        "decoupling_every_window": "w którym każde okno ma |r| < {threshold} przez co najmniej minimalny czas epizodu",
+        "shared_whole": "cały epizod wspólnego stanu Wysokiego lub Niskiego, także z ko-ruchem w jego trakcie (jak w "
+                        "skrypcie zespołu Hassana: kategorie mogą się nakładać)",
+        "shared_without_comovement": "epizod wspólnego stanu Wysokiego lub Niskiego bez takiego ko-ruchu",
+        "gaps_dyad": "jako diada: bez łączenia epizodów przez przerwy (łączenie trzyma razem epizod podgrupy, gdy "
+                     "zmienia się jej skład, a dwie osoby nie mają podgrup; tak liczy skrypt zespołu Hassana)",
+        "gaps_class": "z łączeniem epizodów przez przerwy jak w klasie",
+        "decoupling_stretch_correlation": "bez okna o sile rozbieżności (|r| ≥ {divergent}), trwający co najmniej "
+                                          "minimalny czas epizodu, którego jedna korelacja danych mieści się w "
+                                          "±{threshold}",
         "method_choice": "Korelacja r momentu to średnia z okien zakładki Synchronizacja (to samo okno, krok i "
                          "metoda) dla sygnałów pary albo nauczyciela i średniej uczniów (każdy uczeń w z-score, "
-                         "potem średnia ponownie w z-score). Gdy kilka epizodów spełnia ten sam krok, pierwszy jest "
-                         "najsilniejszy: najwyższe r w krokach 1–2, najwięcej osób we wspólnym stanie w krokach "
-                         "3–4, najniższe r w kroku 5, potem dłuższy. Kroki 1–5 przechodzi się od początku (krok 6), "
+                         "potem średnia ponownie w z-score), ze wszystkich okien momentu; „Śr. siła” i „Śr. r” w "
+                         "tabelach synchronizacji i rozbieżności Analizy to średnie tylko z okien powyżej progu, "
+                         "więc mogą być silniejsze niż r momentu. Gdy kilka epizodów spełnia ten sam krok, pierwszy "
+                         "jest najsilniejszy: najwyższe r w krokach 1–2, najniższe r w kroku 4b; w kroku 5 pobudzenie "
+                         "przeciwstawne przed rozprzężeniem, a z odcinków rozprzężenia r najbliższe zera "
+                         "(najwyraźniejszy brak związku); potem dłuższy. Kroki przechodzi się od początku (krok 6), "
                          "aż wybrano momenty główne, potem rezerwowe. Momenty nie mogą się nakładać.",
     },
     "en": {
         "title": "Moments for VSR interviews",
         "lead": "Moments to discuss in the VSR interviews, chosen from the Analysis results: the synchronization "
-                "and co-arousal episodes of each pair (or of the teacher with the students) were sorted into "
-                "STEPS 1–5 of the “VSR Interview Flow Chart”, the strongest first, until the primary and reserve "
+                "and co-arousal episodes of each pair (or of the teacher with the students' average) were sorted into "
+                "the steps of the “VSR Interview Flow Chart”, the strongest first, until the primary and reserve "
                 "moments were chosen. This is a proposal for the researcher, not an analysis result: the "
                 "researcher decides what to discuss.",
         "stale": "The interview participants, the number of moments or the Analysis changed after these moments "
@@ -124,9 +161,10 @@ _TEXT: dict[str, dict[str, str]] = {
         "source_heading": "Source: the Analysis",
         "parameter": "Setting",
         "value": "Value",
+        "yes": "yes",
+        "no": "no",
         "analysis_run": "Analysis run",
         "moment_counts": "Moments per interview",
-        "asynchrony": "Step 5: correlation below",
         "moment_counts_value": "{primary} primary + {reserve} reserve",
         "times_note": "Lesson time counts from the recordings' common start, as in the Analysis; the sensor clock is "
                       "the clock stored in the GSR recordings, used by the researcher to locate the moment.",
@@ -147,14 +185,24 @@ _TEXT: dict[str, dict[str, str]] = {
         "col_status": "Status",
         "col_lesson": "Lesson time",
         "col_clock": "Sensor clock",
-        "col_episode": "Analysis episode",
+        "col_episode": "Episode",
         "decision": "Decision",
         "accepted": "accepted",
         "undecided": "undecided",
         "manual": "added manually",
         "time_changed": "time changed",
         "synchrony_episode": "synchronization E{number}",
+        "divergent_episode": "divergent D{number}",
+        "decoupled_episode": "decoupling U{number}",
         "coarousal_episode": "co-arousal {number}",
+        "own_whose_dyad": "of the pair",
+        "own_whose_teacher": "of the teacher and students' average",
+        "own_synchronization": "synchronization",
+        "own_co-movement": "co-movement",
+        "own_state": "shared state",
+        "own_divergent": "divergent synchrony",
+        "own_decoupled": "decoupling",
+        "own_opposite": "opposite arousal",
         "curated_note": "The list of moments is the researcher's list from the Interviews step: its order decides "
                         "the role (the first moments not rejected are primary, the rest reserve), and it holds the "
                         "accepted, retimed and manually added moments with their reasons and notes. Moments the "
@@ -162,6 +210,14 @@ _TEXT: dict[str, dict[str, str]] = {
         "rejected": "Rejected by the researcher and left out of the report: {count}.",
         "added_by": "Added by the researcher:",
         "retimed": "Proposed as {start}–{end}; time changed by the researcher:",
+        "retimed_clock": "Proposed as {start}–{end} (sensor clock {clock_start}–{clock_end}); time changed by the "
+                         "researcher:",
+        "needs_check_rules": "The decision was made when the moments were chosen under the earlier rules; the app now "
+                             "reads the VSR flow chart by correlation strength. The researcher's decision was kept. "
+                             "Check it.",
+        "stale_rules": "These moments were chosen under the earlier rules. The app now reads the VSR flow chart's "
+                       "correlation criteria by strength (step 4b divergent synchrony; step 5 opposite arousal and "
+                       "decoupling). The researcher's decisions will be kept and marked for checking.",
         "needs_check": "The last choice of moments no longer includes this moment; the researcher's decision was "
                        "kept. Check it.",
         "note_label": "Note:",
@@ -170,10 +226,10 @@ _TEXT: dict[str, dict[str, str]] = {
         "reserve": "reserve",
         "cards_heading": "Preview and justification of each moment",
         "lesson": "Lesson",
-        "chart_note": "Signals (z-scores) around the moment (shaded), as on the Interviews step.",
+        "chart_note": "Signals (z-scores) around the moment (shaded) on the sensor clock, as on the Interviews step.",
         "chart_label": "Signals around moment {number}",
         "no_moments": "There are no moments on the list.",
-        "incomplete": "The Analysis has episodes for only {count} of {target} primary moments.",
+        "incomplete": "The interview's signals have episodes for only {count} of {target} primary moments.",
         "poor_signal": "The GSR signal of {alias} has poor quality ({pct}% of its samples were rejected on the "
                        "Cleaning step). Check the recording before discussing these moments.",
         "warning": "Note",
@@ -182,33 +238,55 @@ _TEXT: dict[str, dict[str, str]] = {
         "summary_interviews": "interviews: {count}",
         "summary_stale": "moments outdated",
         "method_title": "8. Moments for VSR interviews",
-        "method_selection": "The moments come from the Analysis results, with the same settings; the Interviews step "
-                            "adds only the asynchrony threshold of step 5. An episode belongs to a pair when both "
-                            "students are in it (members of a synchronization subgroup or contributors of a co-arousal"
-                            " episode), and to the teacher interview when the teacher and at least one student are. "
-                            "The steps of the VSR flow chart: 1 is a co-movement episode (synchronization, or "
-                            "co-movement on the Co-arousal tab) overlapping a shared High or Low state, 2 a "
-                            "co-movement episode without a shared state, 3 and 4 a shared High or Low episode without "
-                            "co-movement, 5 a co-movement episode whose r is below the asynchrony threshold (the VSR "
-                            "flow chart: below 0.1; below zero the signals moved in the opposite direction, from zero "
-                            "up they were not related), or a stretch outside those episodes where the correlation in "
-                            "the Analysis windows stays below that threshold for at least the minimum episode "
-                            "duration.",
+        "method_selection": "Every interview's moments come from the analysis of its own two signals: the same "
+                            "functions and settings as the Analysis run, {gaps}, applied to the pair's two signals alone (the "
+                            "VSR flow chart: moments based on the dyad's GSR data) or to "
+                            "the teacher and the students' average signal (the VSR flow chart: moments based on the "
+                            "teacher and student aggregated data). A pair's moments therefore do not depend on who "
+                            "else is in the project; the Analysis screen shows the whole class. The VSR flow chart's "
+                            "criteria (“Synchronous = above 0.8”, “Asynchronous = below 0.1”) are read as the strength "
+                            "of the correlation, its absolute value. The steps: 1 is a co-movement episode (synchronization, or "
+                            "co-movement on the Co-arousal tab) whose r reaches the interview moment threshold ({interview}) "
+                            "overlapping a shared High or Low state; 2 such a co-movement episode without a shared "
+                            "state; 3 and 4 {shared}; 4b, walked after step "
+                            "5 so the first five moments keep the flow chart's “4 synchronous, 1 not synchronous”, a "
+                            "divergent synchronization episode (the signals move in opposite directions) whose r is at "
+                            "or below minus the interview moment threshold (as Hassan's team asked, “ideally above .80 "
+                            "for the interviews”); 5 no synchrony: opposite arousal first (Co-arousal tab: one person in the "
+                            "High state while the other is in the Low state), then a decoupling stretch between the "
+                            "pair's synchronization and divergent episodes {decoupling} (the decoupling rule of the Analysis "
+                            "settings).",
+        "decoupling_every_window": "in which every window has |r| < {threshold} for at least the minimum episode "
+                                   "duration",
+        "shared_whole": "a whole shared High or Low episode, also one with co-movement during it (as in Hassan's "
+                        "team's script: the categories may overlap)",
+        "shared_without_comovement": "a shared High or Low episode without such co-movement",
+        "gaps_dyad": "as a dyad: episodes are not joined across gaps (joining keeps a subgroup's episode together when "
+                     "its membership changes, and two people have no subgroups; Hassan's team's script does the same)",
+        "gaps_class": "with episodes joined across gaps as in a class",
+        "decoupling_stretch_correlation": "without a window at the divergent strength (|r| ≥ {divergent}), at least "
+                                          "the minimum episode duration long, whose one correlation over its data "
+                                          "lies within ±{threshold}",
         "method_choice": "A moment's correlation r is the mean over the Synchronization tab's windows (same window, "
                          "step and method) of the pair's signals, or of the teacher and the students' average (each "
-                         "student z-scored, then the average z-scored again). When several episodes answer the "
-                         "same step, the strongest comes first: the highest r in steps 1–2, the most people in the "
-                         "shared state in steps 3–4, the lowest r in step 5, then the longer one. Steps 1–5 are "
-                         "walked again (step 6) until the primary moments are chosen, then the reserve. Moments "
-                         "may not overlap.",
+                         "student z-scored, then the average z-scored again), over all the moment's windows; the "
+                         "Analysis synchronization and divergent tables' “Mean strength” and “Mean r” average only "
+                         "the windows past the threshold, "
+                         "so they can be stronger than the moment's r. When several episodes answer the "
+                         "same step, the strongest comes first: the highest r in steps 1–2, the lowest r in step 4b; "
+                         "in step 5 opposite arousal before decoupling, and of the decoupling stretches the r closest "
+                         "to zero (the clearest absence of a relation); then the longer one. "
+                         "The steps are walked again (step 6) until the primary moments are chosen, then the reserve. "
+                         "Moments may not overlap.",
     },
 }
 
 # The Analysis settings the section states, in the Analysis' own labels.
 _SETTINGS = (
-    "synchrony_threshold", "synchrony_window_seconds", "synchrony_step_seconds",
-    "synchrony_episode_min_duration_seconds", "synchrony_episode_max_gap_seconds", "contagion_high_z",
-    "contagion_low_z",
+    "synchrony_threshold", "synchrony_window_seconds", "synchrony_step_seconds", "synchrony_correlation_method",
+    "synchrony_episode_min_duration_seconds", "synchrony_episode_max_gap_seconds",
+    "synchrony_interview_threshold", "synchrony_divergent_threshold", "synchrony_decoupled_threshold",
+    "synchrony_decoupled_rule", "contagion_high_z", "contagion_low_z",
 )
 
 
@@ -254,18 +332,37 @@ def _step_cell(lang: str, moment: dict[str, Any]) -> str:
     return "—" if not moment["step"] else f"{_t(lang, 'step')} {moment['step']}"
 
 
-def _episode_cell(lang: str, moment: dict[str, Any]) -> str:
+def _episode_cell(lang: str, moment: dict[str, Any], interview_kind: str) -> str:
+    """The episode a moment is: of the interview's own analysis, or (moments chosen from the whole-class Analysis)
+    its number on the Analysis screen."""
     episode = moment["episode"]
     if not episode:
         return "—"
+    if episode["source"] == "own":
+        whose = _t(lang, f"own_whose_{'teacher' if interview_kind == 'teacher' else 'dyad'}")
+        return f"{_t(lang, 'own_' + (episode.get('kind') or 'synchronization'))} {whose}"
     key = "synchrony_episode" if episode["source"] == "synchrony" else "coarousal_episode"
+    if episode["source"] == "synchrony" and episode.get("kind") in ("divergent", "decoupled"):
+        key = f"{episode['kind']}_episode"
     return _t(lang, key, number=episode["number"])
 
 
+def _setting_text(lang: str, name: str, value: Any) -> str:
+    if isinstance(value, bool):
+        return _t(lang, "yes" if value else "no")
+    return str(params.choice_label(name, value)) if isinstance(value, str) else params.display_number(value)
+
+
 def _source_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
+    """The settings table; an interview's own analysis is a dyad, so where dyads join no gaps the class Max gap is
+    replaced by that setting."""
     settings = vsr["analysis_settings"]
     labels = {param.name: str(param.label) for param in params.ANALYSIS_PARAMS}
-    rows = [[labels.get(name, name), params.display_number(settings[name])] for name in _SETTINGS if name in settings]
+    names = _SETTINGS
+    if settings.get("synchrony_dyad_without_gap_joining"):
+        names = tuple("synchrony_dyad_without_gap_joining" if name == "synchrony_episode_max_gap_seconds" else name
+                      for name in _SETTINGS)
+    rows = [[labels.get(name, name), _setting_text(lang, name, settings[name])] for name in names if name in settings]
     computed = (vsr.get("analysis_computed_at") or "")[:16].replace("T", " ")
     counts = vsr["counts"]
     rows = [
@@ -273,7 +370,6 @@ def _source_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
         *rows,
         [_t(lang, "moment_counts"), _t(lang, "moment_counts_value", primary=counts["primary"],
                                        reserve=counts["reserve"])],
-        [_t(lang, "asynchrony"), params.display_number(vsr["asynchrony_threshold"])],
     ]
     return [
         {"type": "h2", "text": _t(lang, "source_heading")},
@@ -320,8 +416,12 @@ def _change(lang: str, moment: dict[str, Any]) -> list[str]:
     """What the researcher changed about a proposed moment's time, and why."""
     if not moment["time_changed"]:
         return []
-    proposed = _t(lang, "retimed", start=seconds_mmss(moment["original_start_seconds"]),
-                  end=seconds_mmss(moment["original_end_seconds"]))
+    times = {"start": seconds_mmss(moment["original_start_seconds"]), "end": seconds_mmss(moment["original_end_seconds"])}
+    if moment.get("original_start_clock") and moment.get("original_end_clock"):
+        proposed = _t(lang, "retimed_clock", **times, clock_start=moment["original_start_clock"],
+                      clock_end=moment["original_end_clock"])
+    else:
+        proposed = _t(lang, "retimed", **times)
     return [f"{proposed} {moment['reason']}"]
 
 
@@ -330,11 +430,13 @@ def _chart(vsr: dict[str, Any], interview: dict[str, Any], moment: dict[str, Any
         return None
     settings = vsr["analysis_settings"]
     state = moment["shared_state"] if moment["source"] != "manual" else None
+    opposite = moment["source"] != "manual" and moment.get("type") == "opposite"
     svg = moment_chart_svg(
         moment["preview"], _names(interview, lang), interview["colors"],
         _t(lang, "chart_label", number=moment["number"]), moment["number"],
-        high=settings.get("contagion_high_z") if state == HIGH else None,
-        low=settings.get("contagion_low_z") if state == LOW else None,
+        high=settings.get("contagion_high_z") if state == HIGH or opposite else None,
+        low=settings.get("contagion_low_z") if state == LOW or opposite else None,
+        clock=vsr.get("clock_start"),
     )
     return SafeString(svg) if svg else None
 
@@ -349,7 +451,8 @@ def _moment_cards(interview: dict[str, Any], vsr: dict[str, Any], lang: str) -> 
             "status": _status(lang, moment),
             "step": _t(lang, "manual_heading") if manual else vsr_text.step_title(moment["step"]),
             "decision": _decision(lang, moment),
-            "check": _t(lang, "needs_check") if moment["needs_check"] else "",
+            "check": "" if not moment["needs_check"] else _t(
+                lang, "needs_check_rules" if moment["check_reason"] == "rules" else "needs_check"),
             "times": [
                 (_t(lang, "lesson"), _lesson(moment)),
                 (_t(lang, "col_clock"), _clock(moment)),
@@ -380,14 +483,15 @@ def _interview_blocks(interview: dict[str, Any], vsr: dict[str, Any], lang: str)
     blocks += [
         {"type": "h3", "text": _t(lang, "timeline_heading")},
         {"type": "svg", "markup": SafeString(lesson_timeline_svg(
-            moments, lesson["start_seconds"], lesson["end_seconds"], _t(lang, "timeline_label")))},
+            moments, lesson["start_seconds"], lesson["end_seconds"], _t(lang, "timeline_label"),
+            vsr.get("clock_start")))},
         {"type": "h3", "text": _t(lang, "moments_heading")},
         _table(
             [_t(lang, key) for key in ("col_number", "col_status", "decision", "col_step", "col_lesson", "col_clock",
                                        "col_episode")]
             + ["r"],
             [[str(moment["number"]), _status(lang, moment), _decision(lang, moment), _step_cell(lang, moment),
-              _lesson(moment), _clock(moment), _episode_cell(lang, moment),
+              _lesson(moment), _clock(moment), _episode_cell(lang, moment, interview["kind"]),
               vsr_text.correlation(moment["correlation"])] for moment in moments],
             numeric=(0, 7),
         ),
@@ -404,7 +508,8 @@ def build_section(vsr: dict[str, Any] | None, lang: str) -> dict[str, Any] | Non
     with translation.override(lang):
         blocks: list[dict[str, Any]] = []
         if vsr["stale"]:
-            blocks.append({"type": "note", "label": _t(lang, "warning"), "text": _t(lang, "stale"), "style": "warning"})
+            blocks.append({"type": "note", "label": _t(lang, "warning"), "style": "warning",
+                           "text": _t(lang, "stale_rules" if vsr.get("predates_rules") else "stale")})
         blocks += [
             _p(_t(lang, "lead"), style="lead"),
             *([_p(_t(lang, "curated_note"))] if vsr["curated"] else []),
@@ -436,10 +541,21 @@ def summary_kpi(vsr: dict[str, Any] | None, lang: str) -> dict[str, Any] | None:
     return {"label": _t(lang, "summary_label"), "value": value, "unit": _t(lang, "summary_unit"), "details": details}
 
 
-def methodology_blocks(lang: str) -> list[dict[str, Any]]:
-    """The short note on how the moments are chosen, appended to the Methodology."""
+def methodology_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
+    """The short note on how the moments are chosen, appended to the Methodology, with the settings they were
+    chosen with (stored without a decoupling rule: every window)."""
+    settings = {**VSR_DOCUMENT_SETTINGS, **vsr["analysis_settings"]}
+    with translation.override(lang):
+        threshold = params.display_number(settings["synchrony_decoupled_threshold"])
+        decoupling = _t(lang, f"decoupling_{settings['synchrony_decoupled_rule']}", threshold=threshold,
+                        divergent=params.display_number(settings["synchrony_divergent_threshold"]))
+        shared = _t(lang, "shared_without_comovement" if settings["synchrony_interview_shared_without_comovement"]
+                    else "shared_whole")
+        selection = _t(lang, "method_selection", decoupling=decoupling, shared=shared,
+                       interview=params.display_number(settings["synchrony_interview_threshold"]),
+                       gaps=_t(lang, "gaps_dyad" if settings["synchrony_dyad_without_gap_joining"] else "gaps_class"))
     return [
         {"type": "h2", "text": _t(lang, "method_title")},
-        _p(_t(lang, "method_selection")),
+        _p(selection),
         _p(_t(lang, "method_choice")),
     ]

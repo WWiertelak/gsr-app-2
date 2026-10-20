@@ -44,6 +44,12 @@ PARTICIPANT_PALETTE = ("#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#55901c", "#
 RESERVED_SCIENCE_COLORS = {"high": "#b2182b", "low": "#2166ac", "comove": "#3f4b57", "threshold": "#9f1239"}
 FALLBACK_SIGNAL_COLOR = "#617080"
 
+# The rules the stored Analysis and interview results follow; a result computed under earlier rules carries none (1).
+# 2: the VSR flow chart's correlation criteria read as strength, with divergent synchrony, decoupling and opposite
+# arousal (2026-10). Such results are outdated anyway (their settings signature lacks the new settings); the version
+# lets the screens say why, and marks the researcher's decisions on moments chosen under the earlier rules.
+RESULTS_VERSION = 2
+
 ANALYSIS_FIELD_PREFIXES = ("synchrony_", "contagion_")
 CONFIG_FIELDS = tuple(field.name for field in dataclasses.fields(PipelineConfig))
 CLEANING_FIELDS = tuple(name for name in CONFIG_FIELDS if not name.startswith(ANALYSIS_FIELD_PREFIXES))
@@ -109,6 +115,12 @@ def current_signature(project: Project, kind: str) -> str | None:
 
 def get_result(project: Project, kind: str) -> AnalysisResult | None:
     return project.results.filter(kind=kind).first()
+
+
+def predates_rules(result: AnalysisResult | None) -> bool:
+    """Whether a stored Analysis or interview result was computed under earlier rules (``RESULTS_VERSION``)."""
+    return result is not None and result.kind != AnalysisResult.KIND_CLEANING and int(
+        result.payload.get("results_version", 1)) < RESULTS_VERSION
 
 
 def is_stale(project: Project, result: AnalysisResult | None) -> bool:
@@ -218,6 +230,7 @@ def compute_analysis(project: Project) -> AnalysisResult:
     config = run_config(project)
     result, payload = analyze_files_with_result(_dataset_files(datasets), config, ANALYSES, None, PREVIEW_MAX_POINTS)
     payload["datasets"] = _dataset_summary(result, datasets)
+    payload["results_version"] = RESULTS_VERSION
     return _store(project, AnalysisResult.KIND_ANALYSIS, datasets, config, payload, started)
 
 

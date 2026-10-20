@@ -9,7 +9,6 @@ from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
 from .pipeline.config import VSR_DOCUMENT_SETTINGS
-from .pipeline.vsr import DEFAULT_ASYNCHRONY_THRESHOLD
 
 SAFE_FILENAME = re.compile(r"[^a-zA-Z0-9._-]+")
 
@@ -33,8 +32,8 @@ def default_pipeline_config() -> dict:
 
 
 def default_interview_config() -> dict:
-    """A new project's interview settings: STEP 5 below the VSR Interview Flow Chart's 0.1."""
-    return {"asynchrony_threshold": DEFAULT_ASYNCHRONY_THRESHOLD}
+    """A new project's interview settings: none stored (no roles yet, the default numbers of moments)."""
+    return {}
 
 
 class Project(models.Model):
@@ -44,10 +43,12 @@ class Project(models.Model):
     # Stored PipelineConfig overrides (gsr.pipeline.config field names); projects saved before the VSR document
     # values became the defaults keep their stored (possibly empty) overrides, i.e. GSRv2's defaults.
     pipeline_config = models.JSONField(default=default_pipeline_config, blank=True)
-    # Interview roles (teacher, student pairs), the number of interview moments and the asynchrony threshold;
-    # projects saved before it existed keep STEP 5 at r < 0. Outside pipeline_config so role changes do not
-    # invalidate analysis results.
+    # Interview roles (teacher, student pairs) and the number of interview moments. Outside pipeline_config so role
+    # changes do not invalidate analysis results.
     interview_config = models.JSONField(default=default_interview_config, blank=True)
+    # How the screens, the PDF report and the exports show the signals (the chart scale); never part of a result's
+    # signature, so changing it leaves every computed result up to date (services/display.py).
+    display_settings = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

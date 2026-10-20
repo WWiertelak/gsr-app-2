@@ -97,7 +97,8 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                           "(SCR). Usunięte punkty są interpolowane liniowo. Filtry działają niezależnie:"),
                     ("params", [
                         ("Zakres fizjologiczny", "wartości poza [min, max] traktowane jako rozłączenie/nasycenie czujnika."),
-                        ("Z-score", "punkty odległe od średniej o > K·SD jako artefakty (próg konserwatywny)."),
+                        ("Filtr artefaktów z-score", "punkty odległe od średniej o > K·SD jako artefakty (próg "
+                                                     "konserwatywny); to filtr, nie normalizacja sygnału."),
                         ("Skok próbka-do-próbki", "nagłe skoki amplitudy (ruch/dotknięcie elektrody)."),
                         ("Reguła IQR", "odrzuca wartości poza [Q1 − 1.5·IQR, Q3 + 1.5·IQR]."),
                         ("Butterworth", "dolnoprzepustowy (domyślnie 0.05 Hz), dwukierunkowo (filtfilt, bez przesunięcia fazy)."),
@@ -114,13 +115,23 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                 ],
             },
             {
-                "title": "4. Skalowanie i decymacja",
+                "title": "4. Normalizacja i decymacja",
                 "blocks": [
-                    ("p", "Sygnały są normalizowane (Min-Max do 0–1), potem decymowane na wspólną siatkę (domyślnie 1 Hz)."),
-                    ("formula", "x_norm = (x − min(x)) / (max(x) − min(x))"),
-                    ("note", "Po ludzku", "Po skalowaniu 0 to najniższy, a 1 najwyższy poziom danej osoby w analizowanym "
-                                           "zakresie. Porównujemy kształt zmian, a nie bezwzględny poziom między osobami."),
-                    ("note", "Nie oznacza", "0,8 u jednej osoby nie musi oznaczać większego pobudzenia niż 0,6 u innej."),
+                    ("p", "Analiza działa na z-score: każdy sygnał jest standaryzowany w obrębie analizowanego okna "
+                          "(stany Wysoki i Niski, sygnały wywiadów VSR) albo porównywany korelacją, której żadne "
+                          "liniowe przeskalowanie nie zmienia (synchronizacja, ko-ruch). Sygnały decymowane są na "
+                          "wspólną siatkę (domyślnie 1 Hz)."),
+                    ("formula", "z = (x − średnia(x)) / SD(x)"),
+                    ("p", "Przed decymacją sygnały przechodzą wewnętrzne skalowanie min-max do 0–1. Jest to liniowe "
+                          "przekształcenie każdego sygnału osobno, więc nie zmienia żadnej korelacji, żadnego z-score "
+                          "ani żadnego wyniku. Skala 0–1 jest dostępna tylko do podglądu: na wykresie sygnałów z "
+                          "zaznaczonymi epizodami i w pliku analysis_input_merged.csv można wybrać z-score "
+                          "(domyślnie) albo min-max (0–1)."),
+                    ("note", "Po ludzku", "z = 0 to przeciętny poziom danej osoby w analizowanym zakresie, z = 1 to "
+                                           "jedno odchylenie standardowe powyżej. Porównujemy kształt zmian, a nie "
+                                           "bezwzględny poziom między osobami."),
+                    ("note", "Nie oznacza", "z = 1 u jednej osoby nie musi oznaczać większego pobudzenia w µS niż "
+                                            "z = 0,5 u innej."),
                 ],
             },
             {
@@ -128,9 +139,27 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                 "blocks": [
                     ("p", "Oknowa korelacja krzyżowa par (z opóźnieniem do maks. lagu), koherencja, opcjonalnie DTW. "
                           "Podgrupy utrzymujące synchronizację powyżej progu tworzą epizody; sygnały są klastrowane."),
+                    ("p", "Epizody rozdzielone krótką przerwą (domyślnie do 15 s, w ko-pobudzeniu do 30 s) łączy się, "
+                          "żeby epizod podgrupy nie rozpadał się przy zmianie jej składu; w projekcie dwuosobowym, "
+                          "czyli analizie diady, podgrup nie ma, więc epizodów nie łączy się, tak jak w skrypcie "
+                          "zespołu Hassana (także we własnej analizie dwóch sygnałów każdego wywiadu)."),
                     ("p", "Istotność: test surogatowy zachowujący autokorelację (przesunięcie kołowe / randomizacja fazy) "
                           "niszczy tylko synchronizację między osobami. Synchronizacja liczona ze znakiem — antyfaza nie jest "
                           "mylona z synchronizacją."),
+                    ("p", "Synchronizacja rozbieżna: podgrupy, w których r każdej pary w oknie jest równe lub "
+                          "niższe od minus progu rozbieżności (domyślnie −0,30, za prośbą zespołu Hassana), z tymi "
+                          "samymi regułami epizodu. Sygnały zmieniają się wtedy systematycznie w przeciwnych "
+                          "kierunkach: to związek o tej samej sile co synchronizacja, z przeciwnym znakiem. Kryteria "
+                          "schematu VSR („Synchronous = above 0.8”, „Asynchronous = below 0.1”) czytane są jako siła "
+                          "korelacji, czyli jej wartość bezwzględna."),
+                    ("p", "Rozprzężenie (brak synchronii): odcinek między epizodami synchronizacji i rozbieżności pary, "
+                          "w którym każde okno 30 s ma |r| poniżej progu rozprzężenia (domyślnie 0,1) przez co "
+                          "najmniej minimalny czas epizodu, jak w skrypcie zespołu Hassana. Średnia z okien nie "
+                          "wystarcza: okna przeskakujące między −0,98 a +0,98 dają średnią bliską zera mimo silnego "
+                          "związku. Po filtrze 0,05 Hz okna 30 s wahają się między −1 a +1, więc na wielu danych "
+                          "takiego odcinka nie ma (na danych zespołu Hassana 0, tak jak w jego skrypcie). Ustawienie "
+                          "„reguła rozprzężenia” pozwala zamiast tego liczyć jedną korelację danych odcinka, który "
+                          "nie ma okna o sile rozbieżności."),
                     ("note", "Po ludzku", "Synchronizacja pyta, czy osoby zmieniały się podobnie w tym samym czasie "
                                            "albo z niewielkim opóźnieniem. Epizod pokazuje kiedy i w jakiej podgrupie."),
                     ("note", "Opóźnienie", "Lag 5 s oznacza najlepsze dopasowanie po przesunięciu jednego sygnału o "
@@ -146,6 +175,9 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                           "Wysoki (z > próg), Niski (z < próg), Neutralny. Wykrywamy epizody High/Low (wspólny stan skrajny) "
                           "oraz ko-ruch (średnia parowa korelacja Spearmana w oknie ≥ próg)."),
                     ("formula", "Indeks ko-pobudzenia = średnia po czasie z max( liczba osób High , liczba osób Low ); zakres 0–N"),
+                    ("p", "Pobudzenie przeciwstawne (za prośbą zespołu Hassana, dopełnienie wspólnego stanu Wysokiego i "
+                          "Niskiego): ktoś jest w stanie Wysokim, gdy ktoś inny jest w stanie Niskim, z tymi samymi "
+                          "progami z i regułami epizodu co High/Low. To brak synchronii w kroku 5 wywiadów VSR."),
                     ("p", "Kontrybutorzy: dla High/Low uczestnik utrzymuje stan przez ≥ ułamek epizodu; dla ko-ruchu musi "
                           "być dodatnio skorelowany z resztą grupy (leave-one-out), co wyklucza osoby płaskie/w przeciwfazie."),
                     ("p", "Istotność: indeks porównany z rozkładem zerowym z przesunięcia kołowego każdego sygnału "
@@ -259,7 +291,8 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                           "points are linearly interpolated. Filters are independent:"),
                     ("params", [
                         ("Physiological range", "values outside [min, max] treated as sensor disconnect/rail."),
-                        ("Z-score", "points > K·SD from the mean flagged as artifacts (conservative threshold)."),
+                        ("Z-score artifact filter", "points > K·SD from the mean flagged as artifacts "
+                                                    "(conservative threshold); a filter, not a normalization."),
                         ("Sample-to-sample jump", "sudden amplitude jumps (motion/electrode tap)."),
                         ("IQR rule", "rejects values outside [Q1 − 1.5·IQR, Q3 + 1.5·IQR]."),
                         ("Butterworth", "low-pass (default 0.05 Hz), forward-backward (filtfilt, zero phase shift)."),
@@ -277,13 +310,22 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                 ],
             },
             {
-                "title": "4. Scaling & decimation",
+                "title": "4. Normalization & decimation",
                 "blocks": [
-                    ("p", "Signals are normalized (Min-Max to 0–1), then decimated onto a common grid (default 1 Hz)."),
-                    ("formula", "x_norm = (x − min(x)) / (max(x) − min(x))"),
-                    ("note", "In plain language", "After scaling, 0 is a person's lowest and 1 their highest level in "
-                                                   "the analyzed range. We compare change shape, not absolute level."),
-                    ("note", "Does not mean", "0.8 for one person need not be greater absolute arousal than 0.6 for another."),
+                    ("p", "The analysis works on z-scores: each signal is standardized within the analysed window "
+                          "(the High and Low states, the VSR interview signals) or compared by a correlation, which "
+                          "no linear rescaling changes (synchrony, co-movement). Signals are decimated onto a common "
+                          "grid (default 1 Hz)."),
+                    ("formula", "z = (x − mean(x)) / SD(x)"),
+                    ("p", "Before decimation the signals go through an internal min-max scaling to 0–1. It is a "
+                          "linear transform of each signal on its own, so it changes no correlation, no z-score and "
+                          "no result. The 0–1 scale is available for viewing only: the signals chart with marked "
+                          "episodes and analysis_input_merged.csv show z-scores (the default) or min-max (0–1)."),
+                    ("note", "In plain language", "z = 0 is a person's average level in the analysed range, z = 1 one "
+                                                   "standard deviation above it. We compare change shape, not absolute "
+                                                   "level."),
+                    ("note", "Does not mean", "z = 1 for one person need not be greater arousal in µS than z = 0.5 for "
+                                              "another."),
                 ],
             },
             {
@@ -291,8 +333,26 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                 "blocks": [
                     ("p", "Windowed cross-correlation of pairs (with lag up to a max), coherence, optionally DTW. Subgroups "
                           "staying synchronized above threshold form episodes; signals are clustered."),
+                    ("p", "Episodes separated by a short gap (by default up to 15 s, 30 s in co-arousal) are joined so "
+                          "that a subgroup's episode does not fall apart when its membership changes; a two-person "
+                          "project, a dyad analysis, has no subgroups, so its episodes are not joined, as in Hassan's "
+                          "team's script (and in every interview's own analysis of two signals)."),
                     ("p", "Significance: an autocorrelation-preserving surrogate test (circular shift / phase randomization) "
                           "destroys only between-person synchrony. Synchrony is signed — anti-phase is not mistaken for synchrony."),
+                    ("p", "Divergent synchrony: subgroups in which every pair's windowed r is at or below minus the "
+                          "divergent threshold (default −0.30, as Hassan's team asked), with the same episode rules. "
+                          "The signals then move systematically in opposite directions: a relation as strong as "
+                          "synchrony, with the opposite sign. The VSR flow chart's criteria (“Synchronous = above "
+                          "0.8”, “Asynchronous = below 0.1”) are read as the strength of the correlation, its "
+                          "absolute value."),
+                    ("p", "Decoupling (no synchrony): a stretch between a pair's synchronization and divergent "
+                          "episodes in which every 30 s window has |r| below the decoupling threshold (default 0.1) "
+                          "for at least the minimum episode duration, as in Hassan's team's script. A mean of the "
+                          "windows would not do: windows swinging between −0.98 and +0.98 average to about zero "
+                          "despite a strong relation. After the 0.05 Hz filter 30 s windows swing between −1 and +1, "
+                          "so many recordings have no such stretch (Hassan's team's data: 0, as in their script). The "
+                          "“decoupling rule” setting can instead take one correlation over the data of a stretch "
+                          "without a window at the divergent strength."),
                     ("note", "In plain language", "Synchrony asks whether people changed similarly at the same time or "
                                                    "with a small delay. An episode shows when and which subgroup."),
                     ("note", "Lag", "A 5 s lag means the best fit appeared after shifting one signal by five seconds. "
@@ -308,6 +368,9 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                           "Low (z < threshold), Neutral. We detect High/Low episodes (shared extreme state) and co-movement "
                           "(mean pairwise Spearman in the window ≥ threshold)."),
                     ("formula", "Co-arousal index = time-average of max( people High , people Low ); range 0–N"),
+                    ("p", "Opposite arousal (as Hassan's team asked, the complement of a shared High and Low state): "
+                          "someone is High while someone else is Low, with the same z thresholds and episode rules as "
+                          "High/Low. It is no synchrony in step 5 of the VSR interviews."),
                     ("p", "Contributors: for High/Low a participant holds the state for ≥ a fraction of the episode; for "
                           "co-movement they must be positively correlated with the rest of the group (leave-one-out), "
                           "excluding flat/anti-phase participants."),

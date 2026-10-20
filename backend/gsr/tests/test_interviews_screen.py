@@ -13,6 +13,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import translation
 
 from gsr.models import AnalysisResult, Project
+from gsr.pipeline.vsr import STEP_NUMBERS
 from gsr.services.datasets import add_dataset
 from gsr.services.interview import apply_interview_config
 from gsr.services.results import compute_analysis, get_result, is_stale
@@ -158,22 +159,21 @@ def test_the_number_of_moments_is_the_interview_settings_only(client, lesson) ->
 
 
 @pytest.mark.django_db
-def test_the_asynchrony_threshold_is_set_next_to_the_number_of_moments(client, lesson) -> None:
+def test_the_step_thresholds_are_analysis_settings_stated_on_the_interviews_step(client, lesson) -> None:
     compute_analysis(lesson)
-    page = client.get(reverse("gsr:interviews", args=[lesson.pk])).content.decode()
-    assert 'name="asynchrony_threshold" value="0.1"' in page and "Krok 5: korelacja poniżej" in page
+    with translation.override("en"):
+        page = client.get(reverse("gsr:interviews", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
+    assert 'name="asynchrony_threshold"' not in page
+    assert ("synchronous and divergent moments need |r| of at least 0.8, no synchrony |r| below 0.1. They are "
+            "Analysis settings.") in page
 
+    # A signed "correlation below" of an older form is no longer read or stored.
     client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles(asynchrony_threshold="0,2"), **HTMX)
     lesson.refresh_from_db()
-    assert lesson.interview_config["asynchrony_threshold"] == 0.2
-    assert get_result(lesson, AnalysisResult.KIND_VSR).payload["asynchrony_threshold"] == 0.2
-
-    with translation.override("en"):
-        html = client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles(asynchrony_threshold="2"),
-                           HTTP_ACCEPT_LANGUAGE="en", **HTMX).content.decode()
-    assert "The asynchrony threshold must be a number from -1.0 to 1.0." in html
-    lesson.refresh_from_db()
-    assert lesson.interview_config["asynchrony_threshold"] == 0.2
+    assert "asynchrony_threshold" not in lesson.interview_config
+    assert "asynchrony_threshold" not in get_result(lesson, AnalysisResult.KIND_VSR).payload
+    assert get_result(lesson, AnalysisResult.KIND_VSR).payload["analysis_settings"][
+        "synchrony_decoupled_threshold"] == 0.1
 
 
 @pytest.mark.django_db
@@ -435,8 +435,8 @@ def test_the_timeline_shows_every_candidate_and_the_whole_lesson_signals(client,
     for interview in interviews:
         # Every candidate of every step is stored, selected or not; the selected moments are among them.
         steps = [candidate["step"] for candidate in interview["candidates"]]
-        assert steps == sorted(steps)
-        assert {str(step): steps.count(step) for step in range(1, 6)} == interview["candidate_counts"]
+        assert [STEP_NUMBERS.index(step) for step in steps] == sorted(STEP_NUMBERS.index(step) for step in steps)
+        assert {step: steps.count(step) for step in STEP_NUMBERS} == interview["candidate_counts"]
         spans = {(item["step"], item["start_seconds"], item["end_seconds"]) for item in interview["candidates"]}
         assert all((moment["step"], moment["start_seconds"], moment["end_seconds"]) in spans
                    for moment in interview["moments"])
@@ -450,7 +450,7 @@ def test_the_timeline_shows_every_candidate_and_the_whole_lesson_signals(client,
     assert html.count('class="lt-candidate other"') == html.count('class="candidate-detail other"') > 0
     assert html.count('class="lt-candidate primary"') + html.count('class="lt-candidate reserve"') == sum(
         len(interview["moments"]) for interview in interviews)
-    assert html.count('class="lt-lane-label" title=') == 5 * len(interviews)
+    assert html.count('class="lt-lane-label" title=') == len(STEP_NUMBERS) * len(interviews)
     assert html.count('name="step"') == html.count('class="candidate-detail other"') + html.count(
         'class="candidate-detail rejected"')
     assert html.count('data-chart="lessonSignals"') == len(interviews)
@@ -482,3 +482,36 @@ def test_moments_chosen_before_the_candidates_were_kept_ask_to_choose_again(clie
         html = client.get(reverse("gsr:interviews", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
     assert "Choose again to see all the moments the Analysis found." in html
     assert 'class="lt-candidate' not in html and 'class="lt-moment' in html
+
+
+@pytest.mark.django_db
+def test_results_from_the_earlier_rules_say_why_they_are_outdated_and_decisions_can_be_confirmed(client, lesson) -> None:
+    from gsr.models import InterviewMoment
+    from gsr.services.results import RESULTS_VERSION
+
+    compute_analysis(lesson)
+    client.post(reverse("gsr:interviews", args=[lesson.pk]), _roles())
+    analysis, vsr = get_result(lesson, AnalysisResult.KIND_ANALYSIS), get_result(lesson, AnalysisResult.KIND_VSR)
+    assert analysis.payload["results_version"] == vsr.payload["results_version"] == RESULTS_VERSION
+    # As stored before this version: no version, and a signature computed without the new settings.
+    for result in (analysis, vsr):
+        del result.payload["results_version"]
+        result.signature = "computed-under-the-earlier-rules"
+        result.save()
+    moment = lesson.interview_moments.first()
+    moment.status, moment.needs_check = InterviewMoment.STATUS_ACCEPTED, True
+    moment.proposal = {key: value for key, value in moment.proposal.items() if key != "type"}
+    moment.save()
+
+    with translation.override("en"):
+        pages = {screen: client.get(reverse(f"gsr:{screen}", args=[lesson.pk]), HTTP_ACCEPT_LANGUAGE="en")
+                 .content.decode() for screen in ("analysis", "interviews", "export")}
+    assert "This run used the earlier rules." in pages["analysis"]
+    assert "These moments were chosen under the earlier rules." in pages["interviews"]
+    assert "You decided on this moment when the moments were chosen under the earlier rules" in pages["interviews"]
+    assert 'name="action" value="keep"' in pages["interviews"] and "Keep it accepted" in pages["interviews"]
+    assert "the app now reads the VSR flow chart by correlation strength" in pages["export"]
+
+    client.post(reverse("gsr:interview_moment", args=[lesson.pk, moment.pk]), {"action": "keep"}, **HTMX)
+    moment.refresh_from_db()
+    assert not moment.needs_check and moment.status == InterviewMoment.STATUS_ACCEPTED

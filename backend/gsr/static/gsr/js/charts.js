@@ -102,6 +102,77 @@
     return Math.floor(total / 60) + ":" + (seconds < 10 ? "0" : "") + seconds;
   }
 
+  function pad(value) {
+    return (value < 10 ? "0" : "") + value;
+  }
+
+  // ── Lesson time on the recordings' own clock ──
+  // data.clock_start (gsr/charts.py preview_clock) is the clock at lesson time 0 in seconds after midnight. The
+  // builders get x values in lesson minutes and draw them at minutes after midnight, so the axis ticks fall on whole
+  // clock times; the tooltips give the lesson time next to the clock. Without a clock (results stored before it was
+  // kept) the axis stays in lesson minutes.
+  function clockScale(data) {
+    var origin = data && typeof data.clock_start === "number" ? data.clock_start / 60 : null;
+    return {
+      on: origin !== null,
+      x: function (minutes) {
+        return origin === null || typeof minutes !== "number" ? minutes : origin + minutes;
+      },
+      lesson: function (x) {
+        return origin === null ? x : x - origin;
+      },
+      points: function (points) {
+        return origin === null ? points || [] : (points || []).map(function (point) {
+          return [origin + point[0], point[1]];
+        });
+      }
+    };
+  }
+
+  // Minutes after midnight as HH:MM, with :SS when not on a whole minute or when `seconds` asks for it. Seconds are
+  // cut, not rounded, as in the tables (pipeline/common.py clock_at).
+  function clockText(minutes, seconds) {
+    var total = Math.floor(minutes * 60 + 1e-6);
+    total = ((total % 86400) + 86400) % 86400;
+    var text = pad(Math.floor(total / 3600)) + ":" + pad(Math.floor((total % 3600) / 60));
+    return seconds || total % 60 ? text + ":" + pad(total % 60) : text;
+  }
+
+  // A moment of a lesson-time chart for the tooltip: "10:24:46 · lesson 16:20" (lesson time alone without a clock).
+  function timeLabel(scale, labels, x) {
+    return scale.on ? clockText(x, true) + " · " + (labels.lesson || "lesson") + " " + mmss(scale.lesson(x)) : mmss(x);
+  }
+
+  // The x axis of a lesson-time chart: the recordings' clock, or lesson minutes without one; it spans the data.
+  function lessonAxis(scale, labels, extra) {
+    return valueAxis(Object.assign({
+      min: "dataMin",
+      max: "dataMax",
+      name: scale.on ? labels.clock || "" : labels.minutes || "min",
+      nameLocation: "middle",
+      nameGap: 26,
+      axisLabel: { formatter: scale.on ? function (value) { return clockText(value); } : fixed() }
+    }, extra || {}));
+  }
+
+  // The tooltip of a lesson-time chart: the time (clock and lesson) above every series' value.
+  function lessonTooltip(scale, labels, digits) {
+    return {
+      trigger: "axis",
+      formatter: function (params) {
+        if (!params || !params.length) {
+          return "";
+        }
+        var rows = params.map(function (item) {
+          // A clipped raw sample (cleanVsRaw) carries its true value third.
+          var value = Array.isArray(item.value) ? item.value[item.value.length > 2 ? 2 : 1] : item.value;
+          return item.marker + escapeHtml(item.seriesName) + ": " + formatNumber(value, digits);
+        });
+        return [escapeHtml(timeLabel(scale, labels, params[0].axisValue))].concat(rows).join("<br/>");
+      }
+    };
+  }
+
   function escapeHtml(value) {
     return String(value)
       .replace(/&/g, "&amp;")
@@ -133,10 +204,6 @@
     return Object.assign({ type: "value", axisLabel: { formatter: fixed() } }, extra || {});
   }
 
-  function minutesAxis(labels) {
-    return valueAxis({ name: labels.minutes || "min", nameLocation: "middle", nameGap: 26, scale: true });
-  }
-
   // Clock time as HH:mm (seconds only when the axis zooms below a minute); hideOverlap drops
   // labels that would run together.
   function clockAxis() {
@@ -157,17 +224,17 @@
     };
   }
 
-  // Dashed vertical lines at the configured time window (cleaning range), if set.
-  function windowMarkLine(window, labels) {
+  // Dashed vertical lines at the configured time window (cleaning range, lesson minutes), if set.
+  function windowMarkLine(window, labels, scale) {
     if (!window) {
       return undefined;
     }
     var lines = [];
     if (typeof window.from === "number") {
-      lines.push({ xAxis: window.from });
+      lines.push({ xAxis: scale.x(window.from) });
     }
     if (typeof window.to === "number") {
-      lines.push({ xAxis: window.to });
+      lines.push({ xAxis: scale.x(window.to) });
     }
     if (!lines.length) {
       return undefined;
@@ -204,6 +271,7 @@
 
   function overlay(data, labels, opts) {
     var timeAxis = data.axis === "time";
+    var scale = clockScale(timeAxis ? null : data);
     var seen = {};
     var series = (data.series || []).map(function (entry, index) {
       return {
@@ -213,17 +281,17 @@
         sampling: "none",
         lineStyle: { color: entry.color, width: timeAxis ? 1.8 : 2, type: participantLineType(entry.color, seen) },
         itemStyle: { color: entry.color },
-        data: entry.points,
-        markLine: index === 0 && !timeAxis ? windowMarkLine(data.window, labels) : undefined
+        data: timeAxis ? entry.points : scale.points(entry.points),
+        markLine: index === 0 && !timeAxis ? windowMarkLine(data.window, labels, scale) : undefined
       };
     });
     return {
       animation: false,
       toolbox: toolbox(labels, opts),
-      tooltip: { trigger: "axis", valueFormatter: fixed(4) },
+      tooltip: timeAxis ? { trigger: "axis", valueFormatter: fixed(4) } : lessonTooltip(scale, labels, 4),
       legend: { type: "scroll", top: 4, left: 10, right: 60 },
       grid: { left: 58, right: 22, top: 62, bottom: 42 },
-      xAxis: timeAxis ? clockAxis() : minutesAxis(labels),
+      xAxis: timeAxis ? clockAxis() : lessonAxis(scale, labels, { scale: true }),
       yAxis: valueAxis({ name: data.unit === "scaled" ? labels.scaled : labels.microsiemens || "µS", scale: true }),
       series: series
     };
@@ -313,7 +381,8 @@
   // The y axis fits the cleaned signal, so large raw artifacts don't flatten it (they are clipped at the
   // plot edge, with a triangle marking where).
   function cleanVsRaw(data, labels, opts) {
-    var raw = data.raw || [];
+    var scale = clockScale(data);
+    var raw = scale.points(data.raw);
     var range = cleanRange(data.clean || []);
     var yAxis = valueAxis({ name: labels.microsiemens || "µS", scale: true });
     var clipped = { above: [], below: [] };
@@ -339,8 +408,8 @@
         sampling: "none",
         lineStyle: { color: data.color, width: 2.1 },
         itemStyle: { color: data.color },
-        data: data.clean || [],
-        markLine: windowMarkLine(data.window, labels)
+        data: scale.points(data.clean),
+        markLine: windowMarkLine(data.window, labels, scale)
       }
     ];
     var clippedName = labels.clipped || "clipped";
@@ -353,10 +422,10 @@
     return {
       animation: false,
       toolbox: toolbox(labels, opts),
-      tooltip: { trigger: "axis", valueFormatter: fixed(4) },
+      tooltip: lessonTooltip(scale, labels, 4),
       legend: { type: "scroll", top: 4, left: 10, width: "80%" },
       grid: { left: 54, right: 22, top: 58, bottom: 40 },
-      xAxis: minutesAxis(labels),
+      xAxis: lessonAxis(scale, labels, { scale: true }),
       yAxis: yAxis,
       series: series
     };
@@ -376,7 +445,12 @@
     });
   }
 
-  // Without a `span` the bands are drawn unlabelled.
+  // Divergent synchronization episodes: the same band as a synchronization episode, outlined dashed in the Low blue.
+  var DIVERGENT_STYLE = { color: "rgba(33,102,172,0.06)", borderColor: LOW, borderWidth: 1, borderType: "dashed" };
+  // Decoupling (no synchrony): unshaded, outlined dotted in grey.
+  var DECOUPLED_STYLE = { color: "rgba(0,0,0,0)", borderColor: T.ink3, borderWidth: 1, borderType: "dotted" };
+
+  // Bands for episodes ({start, end, name, style}, in time order); without a `span` they are drawn unlabelled.
   function episodeMarkArea(episodes, span) {
     if (!episodes || !episodes.length) {
       return undefined;
@@ -391,21 +465,21 @@
         ? { show: true, position: "insideTop", distance: 4, color: T.ink2, fontSize: 11, fontWeight: 600 }
         : { show: false },
       data: episodes.map(function (episode, index) {
-        return rows
-          ? [
-              {
-                xAxis: episode.start,
-                name: "E" + (index + 1),
-                label: { offset: [0, rows[index] * LABEL_ROW_HEIGHT] }
-              },
-              { xAxis: episode.end }
-            ]
-          : [{ xAxis: episode.start }, { xAxis: episode.end }];
+        var first = { xAxis: episode.start };
+        if (episode.style) {
+          first.itemStyle = episode.style;
+        }
+        if (rows) {
+          first.name = episode.name;
+          first.label = { offset: [0, rows[index] * LABEL_ROW_HEIGHT] };
+        }
+        return [first, { xAxis: episode.end }];
       })
     };
   }
 
   function episodeSignals(data, labels, opts) {
+    var scale = clockScale(data);
     var seen = {};
     var series = (data.series || [])
       .filter(function (entry) {
@@ -419,28 +493,63 @@
           sampling: "lttb",
           lineStyle: { width: 1.5, color: entry.color, type: participantLineType(entry.color, seen) },
           itemStyle: { color: entry.color },
-          data: entry.points
+          data: scale.points(entry.points)
         };
       });
     if (!series.length) {
       return null;
     }
-    series[0].markArea = episodeMarkArea(data.episodes, xSpan(series[0].data));
+    // Synchronization episodes E1…, divergent ones D1… and decoupling U1…, numbered as in their tables.
+    function marked(list, prefix, style) {
+      return (list || []).map(function (episode, index) {
+        return { start: scale.x(episode.start), end: scale.x(episode.end), name: prefix + (index + 1), style: style };
+      });
+    }
+    var episodes = marked(data.episodes, "E", null).concat(marked(data.divergent, "D", DIVERGENT_STYLE),
+                                                           marked(data.decoupled, "U", DECOUPLED_STYLE))
+      .sort(function (a, b) {
+        return a.start - b.start;
+      });
+    series[0].markArea = episodeMarkArea(episodes, xSpan(series[0].data));
+    // On the z-score scale, the co-arousal High / Low thresholds the states are computed with.
+    series[0].markLine = thresholdLines(data, labels);
     return {
       animation: false,
       toolbox: toolbox(labels, opts),
-      tooltip: { trigger: "axis", valueFormatter: fixed(4) },
+      tooltip: lessonTooltip(scale, labels, 4),
       legend: { type: "scroll", top: 6, left: 10, right: 60 },
       grid: { left: 52, right: 22, top: 60, bottom: 48 },
-      xAxis: valueAxis({ name: labels.minutes || "min", nameLocation: "middle", nameGap: 28 }),
-      yAxis: valueAxis({ name: labels.scaled }),
+      xAxis: lessonAxis(scale, labels, { nameGap: 28, scale: true }),
+      yAxis: valueAxis({
+        name: data.scale === "minmax" ? labels.minmaxScale : data.scale === "zscore" ? labels.zscoreScale : labels.scaled,
+        scale: data.scale === "zscore"
+      }),
       series: series
     };
+  }
+
+  // Dashed High / Low threshold lines (data.high, data.low: z values), or undefined when there are none.
+  function thresholdLines(data, labels) {
+    var lines = [];
+    if (typeof data.high === "number") {
+      lines.push({ yAxis: data.high, lineStyle: { color: HIGH }, label: { formatter: labels.high || "", color: HIGH } });
+    }
+    if (typeof data.low === "number") {
+      lines.push({ yAxis: data.low, lineStyle: { color: LOW }, label: { formatter: labels.low || "", color: LOW } });
+    }
+    return lines.length ? {
+      silent: true,
+      symbol: "none",
+      lineStyle: { type: "dashed", width: 1 },
+      label: { position: "insideEndTop", fontSize: 10 },
+      data: lines
+    } : undefined;
   }
 
   // A VSR interview moment: the interview's two z-scored signals zoomed to the moment, the moment shaded like an
   // Analysis episode, and the Co-arousal High/Low threshold when the moment is about a shared state.
   function momentSignals(data, labels, opts) {
+    var scale = clockScale(data);
     var seen = {};
     var series = (data.series || []).map(function (entry) {
       return {
@@ -450,7 +559,7 @@
         sampling: "lttb",
         lineStyle: { width: 1.8, color: entry.color, type: participantLineType(entry.color, seen) },
         itemStyle: { color: entry.color },
-        data: entry.points
+        data: scale.points(entry.points)
       };
     });
     if (!series.length) {
@@ -461,26 +570,11 @@
       silent: true,
       itemStyle: { color: T.episode, borderColor: T.episodeEdge, borderWidth: 1 },
       label: { show: true, position: "insideTop", distance: 4, color: T.ink2, fontSize: 11, fontWeight: 600 },
-      data: [[{ xAxis: moment.start, name: moment.label || "" }, { xAxis: moment.end }]]
+      data: [[{ xAxis: scale.x(moment.start), name: moment.label || "" }, { xAxis: scale.x(moment.end) }]]
     };
-    var lines = [];
-    if (typeof data.high === "number") {
-      lines.push({ yAxis: data.high, lineStyle: { color: HIGH }, label: { formatter: labels.high || "", color: HIGH } });
-    }
-    if (typeof data.low === "number") {
-      lines.push({ yAxis: data.low, lineStyle: { color: LOW }, label: { formatter: labels.low || "", color: LOW } });
-    }
-    if (lines.length) {
-      series[0].markLine = {
-        silent: true,
-        symbol: "none",
-        lineStyle: { type: "dashed", width: 1 },
-        label: { position: "insideEndTop", fontSize: 10 },
-        data: lines
-      };
-    }
-    // Whole ticks (5 s … 30 min) across the shown range, so the m:ss labels read evenly.
-    var range = data.range || {};
+    series[0].markLine = thresholdLines(data, labels);
+    // Whole ticks (5 s … 30 min) across the shown range, so the clock labels read evenly.
+    var range = { min: scale.x((data.range || {}).min), max: scale.x((data.range || {}).max) };
     var span = (range.max - range.min) || 1;
     var step = [1 / 12, 1 / 6, 0.25, 0.5, 1, 2, 5, 10, 15, 30].filter(function (candidate) {
       return span / candidate <= 7;
@@ -488,23 +582,14 @@
     return {
       animation: false,
       toolbox: toolbox(labels, opts),
-      tooltip: {
-        trigger: "axis",
-        formatter: function (params) {
-          var rows = (params || []).map(function (item) {
-            var value = Array.isArray(item.value) ? item.value[1] : item.value;
-            return item.marker + escapeHtml(item.seriesName) + ": " + formatNumber(value, 2);
-          });
-          return params && params.length ? [mmss(params[0].axisValue)].concat(rows).join("<br/>") : "";
-        }
-      },
+      tooltip: lessonTooltip(scale, labels, 2),
       legend: { type: "scroll", top: 2, left: 52, right: 40, itemHeight: 8, textStyle: { fontSize: 11 } },
       grid: { left: 40, right: 14, top: 32, bottom: 26 },
       xAxis: valueAxis({
         min: Math.floor(range.min / step) * step,
         max: Math.ceil(range.max / step) * step,
         interval: step,
-        axisLabel: { formatter: mmss }
+        axisLabel: { formatter: scale.on ? function (value) { return clockText(value, true); } : mmss }
       }),
       yAxis: valueAxis({ name: labels.zscore || "z", nameGap: 10, scale: true }),
       series: series
@@ -582,6 +667,7 @@
   // An interview's two z-scored signals over the whole analysed period, every candidate moment shaded by where it
   // stands on the interview's list (moments on the list labelled with their number); zoom with the wheel or slider.
   function lessonSignals(data, labels, opts) {
+    var scale = clockScale(data);
     var seen = {};
     var series = (data.series || []).map(function (entry) {
       return {
@@ -591,7 +677,7 @@
         sampling: "lttb",
         lineStyle: { width: 1.4, color: entry.color, type: participantLineType(entry.color, seen) },
         itemStyle: { color: entry.color },
-        data: entry.points
+        data: scale.points(entry.points)
       };
     });
     if (!series.length) {
@@ -620,38 +706,31 @@
           var style = CANDIDATE_STYLES[candidate.state] || CANDIDATE_STYLES.other;
           return [
             {
-              xAxis: candidate.start,
+              xAxis: scale.x(candidate.start),
               name: candidate.id,
               itemStyle: style,
               label: candidateLabel(candidate, rows[candidate.id] || 0)
             },
-            { xAxis: candidate.end }
+            { xAxis: scale.x(candidate.end) }
           ];
         })
       };
     }
     var range = data.range || {};
+    var tick = scale.on ? function (value) { return clockText(value); } : mmss;
     return {
       animation: false,
       toolbox: toolbox(labels, opts),
-      tooltip: {
-        trigger: "axis",
-        formatter: function (params) {
-          var rows = (params || []).map(function (item) {
-            var value = Array.isArray(item.value) ? item.value[1] : item.value;
-            return item.marker + escapeHtml(item.seriesName) + ": " + formatNumber(value, 2);
-          });
-          return params && params.length ? [mmss(params[0].axisValue)].concat(rows).join("<br/>") : "";
-        }
-      },
+      tooltip: lessonTooltip(scale, labels, 2),
       legend: { type: "scroll", top: 2, left: 52, right: legend ? legend.width + 56 : 40, itemHeight: 8, textStyle: { fontSize: 11 } },
       graphic: legend ? [legend.element] : undefined,
       grid: { left: 44, right: 18, top: 34, bottom: 64 },
       dataZoom: [
         { type: "inside", xAxisIndex: 0, filterMode: "none" },
-        { type: "slider", xAxisIndex: 0, filterMode: "none", height: 18, bottom: 8, labelFormatter: mmss }
+        { type: "slider", xAxisIndex: 0, filterMode: "none", height: 18, bottom: 8,
+          labelFormatter: scale.on ? function (value) { return clockText(value, true); } : mmss }
       ],
-      xAxis: valueAxis({ min: range.min, max: range.max, axisLabel: { formatter: mmss } }),
+      xAxis: valueAxis({ min: scale.x(range.min), max: scale.x(range.max), axisLabel: { formatter: tick } }),
       yAxis: valueAxis({
         name: labels.zscore || "z",
         nameGap: 10,
@@ -673,12 +752,13 @@
     if (!candidate) {
       return;
     }
+    var scale = clockScale(data);
     var range = data.range || {};
     var context = Math.max(0.5, (candidate.end - candidate.start) / 2);
     chart.dispatchAction({
       type: "dataZoom",
-      startValue: Math.max(range.min, candidate.start - context),
-      endValue: Math.min(range.max, candidate.end + context)
+      startValue: scale.x(Math.max(range.min, candidate.start - context)),
+      endValue: scale.x(Math.min(range.max, candidate.end + context))
     });
   }
 
@@ -783,6 +863,9 @@
   }
 
   function episodeLabel(direction, labels) {
+    if (direction === "Opposite") {
+      return labels.opposite;
+    }
     return direction === "High" ? labels.high : direction === "Low" ? labels.low : labels.comove;
   }
 
@@ -795,13 +878,22 @@
       var height = api.size([0, 1])[1] * 0.78;
       var width = Math.max(end[0] - start[0], 2);
       var text = episodeLabel(episode.direction, labels) || "";
-      var children = [
-        {
-          type: "rect",
-          shape: { x: start[0], y: start[1] - height / 2, width: width, height: height, r: 3 },
-          style: { fill: episodeColor(episode.direction) }
-        }
-      ];
+      var top = start[1] - height / 2;
+      // Opposite arousal: someone High (top half) while someone else is Low (bottom half).
+      var children = episode.direction === "Opposite"
+        ? [
+            { type: "rect", shape: { x: start[0], y: top, width: width, height: height / 2, r: [3, 3, 0, 0] },
+              style: { fill: HIGH } },
+            { type: "rect", shape: { x: start[0], y: top + height / 2, width: width, height: height / 2, r: [0, 0, 3, 3] },
+              style: { fill: LOW } }
+          ]
+        : [
+            {
+              type: "rect",
+              shape: { x: start[0], y: top, width: width, height: height, r: 3 },
+              style: { fill: episodeColor(episode.direction) }
+            }
+          ];
       // About 6.5 px per character at 11 px.
       if (text && width > text.length * 6.5 + 10) {
         children.push({
@@ -825,6 +917,7 @@
   // The state map (1-minute bins per participant) with the co-arousal episodes on a track above it (G5). The heatmap
   // needs category axes, so both panels also get a value axis in minutes spanning the same bins.
   function coarousalStates(data, labels, opts) {
+    var scale = clockScale(data);
     var rows = data.rows || [];
     var times = data.times || [];
     if (!rows.length || !times.length) {
@@ -842,7 +935,7 @@
     var episodes = data.episodes || [];
     var lanes = data.lanes || 0;
     var binWidth = times.length > 1 ? (times[times.length - 1] - times[0]) / (times.length - 1) : 1;
-    var minutes = { min: times[0], max: times[0] + binWidth * times.length };
+    var minutes = { min: scale.x(times[0]), max: scale.x(times[0] + binWidth * times.length) };
     var trackHeight = lanes * TRACK_LANE_HEIGHT;
     var mapTop = 36 + (lanes ? trackHeight + 12 : 0);
     var laneNames = [];
@@ -859,9 +952,9 @@
           if (!value) {
             return "";
           }
-          var time = times[value[0]];
+          var time = scale.x(times[value[0]]);
           return (
-            escapeHtml(aliases[value[1]]) + " · " + formatNumber(time, 1) + " min<br/>" +
+            escapeHtml(aliases[value[1]]) + " · " + escapeHtml(timeLabel(scale, labels, time)) + "<br/>" +
             escapeHtml(labels.state || "") + ": " + formatNumber(Number(value[2]), 2)
           );
         }
@@ -872,14 +965,14 @@
         valueAxis(Object.assign({
           gridIndex: 0,
           position: "bottom",
-          name: labels.timeMin,
+          name: scale.on ? labels.clock : labels.minutes,
           nameLocation: "middle",
           nameGap: 30,
           splitLine: { show: false },
           axisLine: { show: true, lineStyle: { color: T.line } },
           // The bins rarely start on a whole minute: label only the whole-minute ticks.
           axisLabel: {
-            formatter: fixed(),
+            formatter: scale.on ? function (value) { return clockText(value); } : fixed(),
             showMinLabel: isWhole(minutes.min),
             showMaxLabel: isWhole(minutes.max)
           }
@@ -935,15 +1028,18 @@
         tooltip: {
           formatter: function (params) {
             var episode = episodes[params.dataIndex];
+            var span = scale.on
+              ? clockText(scale.x(episode.start), true) + "–" + clockText(scale.x(episode.end), true) + " · " +
+                (labels.lesson || "lesson") + " " + mmss(episode.start) + "–" + mmss(episode.end)
+              : mmss(episode.start) + "–" + mmss(episode.end);
             return (
-              escapeHtml(episodeLabel(episode.direction, labels) || "") + " · " +
-              mmss(episode.start) + "–" + mmss(episode.end) +
+              escapeHtml(episodeLabel(episode.direction, labels) || "") + " · " + escapeHtml(span) +
               (episode.contributors.length ? "<br/>" + escapeHtml(episode.contributors.join(", ")) : "")
             );
           }
         },
         data: episodes.map(function (episode) {
-          return [episode.start, episode.end, String(episode.lane)];
+          return [scale.x(episode.start), scale.x(episode.end), String(episode.lane)];
         })
       });
     }

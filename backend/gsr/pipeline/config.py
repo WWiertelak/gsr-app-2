@@ -53,6 +53,12 @@ _FIELD_RULES: dict[str, tuple[Any, ...]] = {
     "synchrony_episode_min_size": (_INT, 2, 50),
     "synchrony_episode_min_duration_seconds": (_FLOAT, 0.0, 3600.0),
     "synchrony_episode_max_gap_seconds": (_FLOAT, 0.0, 600.0),
+    "synchrony_interview_threshold": (_FLOAT, 0.0, 1.0),
+    "synchrony_divergent_threshold": (_FLOAT, 0.0, 1.0),
+    "synchrony_decoupled_threshold": (_FLOAT, 0.0, 1.0),
+    "synchrony_decoupled_rule": (_CHOICE, ("every_window", "stretch_correlation")),
+    "synchrony_dyad_without_gap_joining": (_BOOL,),
+    "synchrony_interview_shared_without_comovement": (_BOOL,),
     "contagion_high_z": (_FLOAT, 0.0, 10.0),
     "contagion_low_z": (_FLOAT, -10.0, 0.0),
     "contagion_window_seconds": (_FLOAT, 1.0, 600.0),
@@ -68,12 +74,43 @@ _FIELD_RULES: dict[str, tuple[Any, ...]] = {
 }
 _NULLABLE = {"time_range_from", "time_range_to"}
 
-# The Analysis values the "VSR Interview Flow Chart" suggests (page 1, GSR participants: "Correlation criteria for
-# types of synchrony ... Synchronous = above 0.8"): both co-movement thresholds behind its steps 1-2. New projects
-# start with them; ``PipelineConfig`` keeps GSRv2's defaults, so the pipeline and saved projects are unchanged.
+# The Analysis values for the "VSR Interview Flow Chart" (page 1, GSR participants: "Correlation criteria for
+# types of synchrony ... Synchronous = above 0.8", read as the strength of the correlation), and where the flow chart
+# is silent, the values of Hassan's script (gsr_dyad.py, read from its printout). New projects start with them and
+# "Reset defaults" restores them; ``PipelineConfig`` keeps GSRv2's defaults for GSRv2's own settings, so saved
+# projects keep theirs, and takes the settings GSRv2 did not have from here, so each is one value to change.
 VSR_DOCUMENT_SETTINGS: dict[str, Any] = {
-    "synchrony_threshold": 0.8,
-    "contagion_comovement_rho": 0.8,
+    # Detecting co-movement episodes (synchronization and co-arousal co-movement): Hassan's script finds them at
+    # rho >= 0.3 and keeps 0.8 for the interviews, as divergent synchrony below (detection -0.3, interviews -0.8).
+    "synchrony_threshold": 0.3,
+    "contagion_comovement_rho": 0.3,
+    # The windowed correlation: Hassan's script uses Spearman (the flow chart names none).
+    "synchrony_correlation_method": "spearman",
+    # A dyad joins no episodes across gaps (``PipelineConfig.for_people``): a two-person project's Analysis and every
+    # interview's own two signals, as Hassan's dyad script (his printout keeps episodes 9 s and 11 s apart separate:
+    # shared Low 10:08:41-10:10:05 / 10:10:14-10:10:46, divergent 10:17:22-10:18:08 / 10:18:19-10:18:53). A class
+    # keeps GSRv2's joining (15 s synchronization, 30 s co-arousal).
+    "synchrony_dyad_without_gap_joining": True,
+    # STEPS 1-2 take a moment whose r is at least this; Hassan's e-mail: "ideally above .80 for the interviews".
+    "synchrony_interview_threshold": 0.8,
+    # Divergent synchrony: windows whose r is at or below minus this (Hassan's e-mail: "negative correlations
+    # above > .30"); the flow chart has no number for its detection.
+    "synchrony_divergent_threshold": 0.3,
+    # Decoupling: a stretch whose correlation lies within plus/minus this ("Asynchronous = below 0.1"; Hassan:
+    # "between -.10 and +.10").
+    "synchrony_decoupled_threshold": 0.1,
+    # How a stretch's correlation is judged against it: every 30 s window within it, for at least the minimum episode
+    # duration (Hassan's script; on his data no such stretch exists, as his script reports), or one correlation over
+    # a stretch without a single window at the divergent strength ("stretch_correlation").
+    "synchrony_decoupled_rule": "every_window",
+    # STEPS 3-4 take every shared High and Low episode, also one with co-movement during it, as Hassan's script does
+    # ("categories may overlap": its Shared HIGH 11:31:00-11:35:17 holds co-movement AND shared arousal episodes);
+    # True keeps only those without co-movement of the interview strength.
+    "synchrony_interview_shared_without_comovement": False,
+    # The High and Low states (shared High/Low, and opposite arousal: one High while another is Low), as GSRv2's
+    # defaults; Hassan's script uses the same.
+    "contagion_high_z": 1.0,
+    "contagion_low_z": -1.0,
 }
 
 
@@ -169,6 +206,19 @@ class PipelineConfig:
     # window aren't independently resolvable, so this filters transient blips.
     synchrony_episode_min_duration_seconds: float = 30.0
     synchrony_episode_max_gap_seconds: float = 15.0
+    # VSR interview moments (not in GSRv2): the correlation strength a moment needs to count as synchronous.
+    synchrony_interview_threshold: float = VSR_DOCUMENT_SETTINGS["synchrony_interview_threshold"]
+    # Divergent synchrony (not in GSRv2): subgroup episodes of windows whose r is at or below minus this strength.
+    synchrony_divergent_threshold: float = VSR_DOCUMENT_SETTINGS["synchrony_divergent_threshold"]
+    # Decoupling (not in GSRv2): stretches between a pair's synchronization and divergent episodes whose correlation
+    # lies within plus/minus this strength, judged by ``synchrony_decoupled_rule``.
+    synchrony_decoupled_threshold: float = VSR_DOCUMENT_SETTINGS["synchrony_decoupled_threshold"]
+    synchrony_decoupled_rule: str = VSR_DOCUMENT_SETTINGS["synchrony_decoupled_rule"]
+    # Not in GSRv2: a dyad (two signals) joins no episodes across gaps (``for_people``); False joins them like a class.
+    synchrony_dyad_without_gap_joining: bool = VSR_DOCUMENT_SETTINGS["synchrony_dyad_without_gap_joining"]
+    # VSR STEPS 3-4 (not in GSRv2): leave out shared High/Low episodes with co-movement of the interview strength.
+    synchrony_interview_shared_without_comovement: bool = VSR_DOCUMENT_SETTINGS[
+        "synchrony_interview_shared_without_comovement"]
     # Co-arousal (shared arousal, "contagion" in GSRv2). The ``contagion_*`` names
     # are kept so GSRv2 configs load unchanged. z-scoring is computed WITHIN the
     # analysis window, contributors require positive (in-phase) correlation, and
@@ -223,3 +273,16 @@ class PipelineConfig:
         payload = payload or {}
         known = {f.name for f in dataclasses.fields(cls)}
         return cls(**{key: value for key, value in payload.items() if key in known})
+
+    def for_people(self, count: int) -> "PipelineConfig":
+        """The settings an analysis of ``count`` people runs with.
+
+        Joining episodes across gaps exists so that a subgroup's episode does not fall apart when the group's
+        membership changes. Two people have no subgroups - there is one possible pair - so that reason does not
+        arise: a dyad (a two-person project, or an interview's own two signals) joins no episodes across gaps, which
+        is the dyad analysis Hassan's script does. ``synchrony_dyad_without_gap_joining`` False joins them like a class.
+        """
+        if count != 2 or not self.synchrony_dyad_without_gap_joining:
+            return self
+        return self.model_copy(update={"synchrony_episode_max_gap_seconds": 0.0,
+                                       "contagion_min_episode_gap_seconds": 0.0})

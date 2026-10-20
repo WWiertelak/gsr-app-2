@@ -10,6 +10,7 @@ import re
 import zipfile
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -23,8 +24,10 @@ from gsr.pipeline.config import VSR_DOCUMENT_SETTINGS, PipelineConfig
 from gsr.pipeline.preprocessing import build_stage_export_frame, run_pipeline, serialize_preview
 from gsr.services.analysis import analyze_files
 from gsr.services.datasets import add_dataset
+from gsr.services.results import is_stale
 
 from .sample_data import Participant, RecordingFormat, write_group
+from .test_report import _pdf_objects
 
 FAST = {"synchrony_surrogate_count": 20, "contagion_surrogate_count": 20}
 HTMX = {"HTTP_HX_REQUEST": "true"}
@@ -638,7 +641,7 @@ def test_outdated_cleaning_preview_is_dimmed_with_a_stale_notice(client, project
     assert f'<li class="changed">Signals: 2/3{marker}' in run_bar
     assert "<li>Window: full range</li>" in run_bar and "<li>Filters: " in run_bar
     assert f'<li class="changed">Median: 7{marker}' in run_bar
-    assert f'<li class="changed">Z-score deviation · Threshold (SD): 4{marker}' in run_bar
+    assert f'<li class="changed">Z-score artifact filter · Threshold (SD): 4{marker}' in run_bar
     assert run_bar.count('class="changed"') == 3
 
 
@@ -658,7 +661,7 @@ def test_analysis_run_stores_both_results_in_two_tabs(client, project) -> None:
     assert 'hx-swap-oob="true"' in fragment and "run-status fresh" in fragment
 
     stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
-    assert set(stored.payload) == {"preview", "synchrony", "coarousal", "datasets"}
+    assert set(stored.payload) == {"preview", "synchrony", "coarousal", "datasets", "results_version"}
     assert stored.config["scaling_enabled"] is True
 
     page = client.get(reverse("gsr:analysis", args=[project.pk]) + "?tab=coarousal").content.decode()
@@ -710,7 +713,8 @@ def test_analysis_settings_live_in_the_drawer_with_run_and_apply_buttons(client,
     form = _settings_form(page)
     assert '<form class="drawer-form" id="analysis-settings"' in form and "Analysis settings</h2>" in form
     assert '<input type="hidden" name="tab" value="synchronization" data-tab-input>' in form
-    # The fixture keeps GSRv2's thresholds, like a project saved before the VSR document values became the defaults.
+    # The fixture keeps GSRv2's values, like a project saved before the VSR document values became the defaults:
+    # the synchronization threshold and correlation method differ from the defaults, and both surrogate counts.
     assert ("<li>Threshold: 0.6</li><li>Window: 30 s</li><li>High/Low z: 1/-1</li><li>Min. participants: 2</li>"
             "<li>4 changed</li>") in _run_bar(page)
     assert 'class="hint"' not in form and 'role="tooltip" id="tip-contagion_surrogate_count"' in form
@@ -755,6 +759,32 @@ def test_analysis_settings_live_in_the_drawer_with_run_and_apply_buttons(client,
 
 
 @pytest.mark.django_db
+def test_a_two_person_project_is_analysed_as_a_dyad_and_says_so(client, recordings) -> None:
+    # Two people have no subgroups, so a dyad joins no episodes across gaps (Hassan's dyad script; test_vsr shows the
+    # episodes): the class gap settings do not change its results, and the Analysis screen says why.
+    project = Project.objects.create(name="Para", pipeline_config=dict(FAST))
+    for alias in ("A", "B"):
+        add_dataset(project, _upload(recordings[alias]), alias=alias)
+    note = "Two people: a dyad analysis. Episodes are not joined across gaps"
+
+    def analysed(**overrides: object) -> tuple[dict, str]:
+        client.post(reverse("gsr:analysis", args=[project.pk]), _analysis_form(project, **overrides), **HTMX)
+        stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
+        with translation.override("en"):
+            page = client.get(reverse("gsr:analysis", args=[project.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
+        return stored.payload, page
+
+    wide, page = analysed(synchrony_episode_max_gap_seconds=600, contagion_min_episode_gap_seconds=600)
+    none, _page = analysed(synchrony_episode_max_gap_seconds=0, contagion_min_episode_gap_seconds=0)
+
+    assert wide["synchrony"]["episodes"] == none["synchrony"]["episodes"]
+    assert wide["coarousal"]["episodes"] == none["coarousal"]["episodes"]
+    assert note in page
+    _payload, page = analysed(synchrony_dyad_without_gap_joining=False)
+    assert note not in page
+
+
+@pytest.mark.django_db
 def test_polish_screens_use_polish_numbers_and_labels(client, project) -> None:
     project.pipeline_config = {**project.pipeline_config, "time_range_to": 2.5, "synchrony_threshold": 0.75}
     project.save()
@@ -762,7 +792,7 @@ def test_polish_screens_use_polish_numbers_and_labels(client, project) -> None:
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
     assert "Próg: 0,75" in _run_bar(page) and "Próg wysoki/niski z: 1/-1" in _run_bar(page)
     form = _settings_form(page)
-    assert "zmienione (domyślnie 0,8)" in form
+    assert "zmienione (domyślnie 0,3)" in form
     # The input fields keep dot decimals: that is what <input type="number"> accepts.
     assert 'name="synchrony_threshold" step="any" value="0.75"' in form
     fragment = _run_analysis(client, project).content.decode()
@@ -835,6 +865,38 @@ def test_analysis_results_interpret_figures_and_place_episodes_in_time(client, p
     for number, _episode in enumerate(synchrony["episodes"], start=1):
         assert f"<strong>E{number}</strong>" in fragment
     assert fragment.count('class="minibar"') == len(synchrony["episodes"])
+
+    # Every episode table gives the recordings' own clock first, then the lesson time; the charts draw lesson time
+    # on the same clock (the clock at lesson time 0 in seconds after midnight).
+    start = pd.Timestamp(payload["preview"]["alignment"]["start"])
+    assert fragment.count('<th class="left">Sensor clock</th><th class="left">Lesson time (m:ss)</th>') == 3
+    assert "Time (min)" not in fragment
+    for episode in synchrony["episodes"]:
+        assert (f"{(start + pd.Timedelta(minutes=episode['start_relative'])).strftime('%H:%M:%S')}–"
+                f"{(start + pd.Timedelta(minutes=episode['end_relative'])).strftime('%H:%M:%S')}") in fragment
+    for episode in coarousal["episodes"]:
+        assert (f"{(start + pd.Timedelta(seconds=episode['start_s'])).strftime('%H:%M:%S')}–"
+                f"{(start + pd.Timedelta(seconds=episode['end_s'])).strftime('%H:%M:%S')}") in fragment
+    # Divergent synchronization: its own table (D-numbers) and dashed bands on the same chart.
+    divergent = synchrony["divergent_episodes"]
+    assert re.search(r'aria-controls="divergent-episodes-body" data-disclosure>Divergent synchronization episodes '
+                     rf'<span class="count">{len(divergent)}</span>', fragment)
+    for number, _episode in enumerate(divergent, start=1):
+        assert f"<strong>D{number}</strong>" in fragment
+    assert f"{synchrony['stats']['divergent_episode_count']} divergent episode" in fragment
+    # Decoupling (no synchrony): its own table (U-numbers).
+    decoupled = synchrony["decoupled_episodes"]
+    assert re.search(r'aria-controls="decoupled-episodes-body" data-disclosure>Decoupling \(no synchrony\) '
+                     rf'<span class="count">{len(decoupled)}</span>', fragment)
+    for number, _episode in enumerate(decoupled, start=1):
+        assert f"<strong>U{number}</strong>" in fragment
+    assert all(abs(episode["mean_r"]) < 0.1 for episode in decoupled)
+    seconds_of_day = (start - start.normalize()).total_seconds()
+    for chart in ("sync-signals", "coarousal-states"):
+        data = json.loads(re.search(rf'id="{chart}-data" type="application/json">(.*?)</script>', fragment).group(1))
+        assert data["clock_start"] == pytest.approx(seconds_of_day)
+        if chart == "sync-signals":
+            assert len(data["divergent"]) == len(divergent) and len(data["decoupled"]) == len(decoupled)
 
     # Significant pairs are bold, the rest recede.
     significant = sum(pair["p_value"] < 0.05 for pair in synchrony["pairs"])
@@ -965,21 +1027,47 @@ def test_export_csv_files(client, project) -> None:
     config = PipelineConfig.from_dict(stored.config)
     expected_clean = build_stage_export_frame(run_pipeline(files, config), "clean", config)
     clean = pd.read_csv(io.BytesIO(download("clean_signals.csv")))
-    assert list(clean.columns) == list(expected_clean.columns) and len(clean) == len(expected_clean)
+    # Each participant's own clock (HH:MM:SS.fff) follows its full timestamp.
+    expected_columns = [name for column in expected_clean.columns
+                        for name in (column, *([column.replace("timestamp_", "clock_")]
+                                               if column.startswith("timestamp_") else []))]
+    assert list(clean.columns) == expected_columns and len(clean) == len(expected_clean)
+    assert clean["clock_A"].iloc[0] == pd.Timestamp(clean["timestamp_A"].iloc[0]).strftime("%H:%M:%S.%f")[:-3]
 
     merged = _csv_rows(download("analysis_input_merged.csv"))
-    assert set(merged[0]) == {"relative_time_minutes", "marker", "microsiemens_A", "microsiemens_B", "microsiemens_C"}
+    # The analysis input on the default chart scale, z-scores, named by it.
+    assert set(merged[0]) == {"clock", "relative_time_minutes", "marker", "A_z", "B_z", "C_z"}
+    z_values = np.array([float(row["A_z"]) for row in merged])
+    assert abs(z_values.mean()) < 1e-6 and z_values.std() == pytest.approx(1.0)
+    alignment = stored.payload["preview"]["alignment"]
+    assert merged[0]["clock"] == (pd.Timestamp(alignment["start"])
+                                  + pd.Timedelta(minutes=float(merged[0]["relative_time_minutes"]))
+                                  ).strftime("%H:%M:%S.%f")[:-3]
 
     pairs = _csv_rows(download("synchrony_pairs.csv"))
     assert [(row["alias_a"], row["alias_b"]) for row in pairs] == [("A", "B"), ("A", "C"), ("B", "C")]
     episodes = _csv_rows(download("synchrony_episodes.csv"))
     assert len(episodes) == len(stored.payload["synchrony"]["episodes"])
+    first = stored.payload["synchrony"]["episodes"][0]
+    assert episodes[0]["clock_start"] == (pd.Timestamp(alignment["start"])
+                                          + pd.Timedelta(minutes=first["start_relative"])).strftime("%H:%M:%S")
+    divergent = _csv_rows(download("synchrony_divergent_episodes.csv"))
+    assert len(divergent) == len(stored.payload["synchrony"]["divergent_episodes"])
+    assert all(float(row["mean_strength"]) <= -0.3 for row in divergent)
+    decoupled = _csv_rows(download("synchrony_decoupled_episodes.csv"))
+    assert len(decoupled) == len(stored.payload["synchrony"]["decoupled_episodes"])
+    assert all(abs(float(row["mean_r"])) < 0.1 and row["clock_start"] for row in decoupled)
     windows = _csv_rows(download("synchrony_windows.csv"))
     assert len(windows) == len(stored.payload["synchrony"]["windows"]["centers"]) and "A__B" in windows[0]
+    assert windows[0]["center_clock"]
 
-    assert len(_csv_rows(download("coarousal_episodes.csv"))) == len(stored.payload["coarousal"]["episodes"])
+    coarousal_episodes = _csv_rows(download("coarousal_episodes.csv"))
+    assert len(coarousal_episodes) == len(stored.payload["coarousal"]["episodes"])
+    assert coarousal_episodes[0]["clock_start"] == (
+        pd.Timestamp(alignment["start"]) + pd.Timedelta(seconds=stored.payload["coarousal"]["episodes"][0]["start_s"])
+    ).strftime("%H:%M:%S")
     states = _csv_rows(download("coarousal_state_timeline.csv"))
-    assert set(states[0]) == {"minute", "A", "B", "C"}
+    assert set(states[0]) == {"clock", "minute", "A", "B", "C"}
     percentages = _csv_rows(download("coarousal_state_percentages.csv"))
     assert [row["alias"] for row in percentages] == ["A", "B", "C"]
     assert client.get(reverse("gsr:export_file", args=[project.pk, "coarousal_primary_timeline.csv"])).status_code == 404
@@ -993,6 +1081,47 @@ def test_export_csv_files(client, project) -> None:
 
 
 @pytest.mark.django_db
+def test_chart_scale_switches_the_signals_chart_and_merged_csv_without_a_rerun(client, project) -> None:
+    client.post(reverse("set_language"), {"language": "en", "next": "/"})
+    fragment = _run_analysis(client, project).content.decode()
+    stored = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
+
+    def signals(page: str) -> dict:
+        return json.loads(re.search(r'id="sync-signals-data" type="application/json">(.*?)</script>', page).group(1))
+
+    # z-scores by default, with the run's High / Low thresholds drawn.
+    data = signals(fragment)
+    assert data["scale"] == "zscore" and (data["high"], data["low"]) == (1.0, -1.0)
+    assert 'value="zscore" aria-pressed="true"' in fragment and 'value="minmax" aria-pressed="false"' in fragment
+    assert min(point[1] for series in data["series"] for point in series["points"]) < 0
+
+    url = reverse("gsr:analysis_chart_scale", args=[project.pk])
+    fragment = client.post(url, {"chart_scale": "minmax"}, **HTMX).content.decode()
+    project.refresh_from_db()
+    assert project.display_settings == {"chart_scale": "minmax"}
+    data = signals(fragment)
+    assert data["scale"] == "minmax" and data["high"] is None and data["low"] is None
+    values = [point[1] for series in data["series"] for point in series["points"]]
+    assert min(values) >= 0.0 and max(values) <= 1.0
+    assert "The 0–1 scale (min-max) is only for viewing" in fragment
+    # Nothing is recomputed and nothing goes stale: the scale is not a setting of the run.
+    assert AnalysisResult.objects.get(pk=stored.pk).computed_at == stored.computed_at
+    assert "Settings or signals changed since this run" not in fragment and not is_stale(project, stored)
+
+    merged = _csv_rows(client.get(reverse("gsr:export_file", args=[project.pk, "analysis_input_merged.csv"])).content)
+    assert {"A_minmax", "B_minmax", "C_minmax"} <= set(merged[0]) and "A_z" not in merged[0]
+    document = json.loads(client.get(reverse("gsr:export_file",
+                                             args=[project.pk, "run_settings_and_results.json"])).content)
+    assert document["display"] == {"chart_scale": "minmax"}
+    assert document["analysis_normalization"] == "z-score within the analysed window"
+
+    error = client.post(url, {"chart_scale": "log"}, **HTMX).content.decode()
+    project.refresh_from_db()
+    assert "Choose the z-score or the min-max (0–1) chart scale." in error
+    assert project.display_settings == {"chart_scale": "minmax"}
+
+
+@pytest.mark.django_db
 def test_export_json_records_settings_versions_and_inputs(client, project) -> None:
     _run_analysis(client, project)
     response = client.get(reverse("gsr:export_file", args=[project.pk, "run_settings_and_results.json"]))
@@ -1003,6 +1132,22 @@ def test_export_json_records_settings_versions_and_inputs(client, project) -> No
     hashes = {row["alias"]: row["sha256"] for row in document["datasets"]}
     assert hashes == {dataset.alias: dataset.file_sha256 for dataset in project.datasets.all()}
     assert document["synchrony"]["stats"] and document["coarousal"]["stats"]
+    # The clock at lesson time 0, and each episode's own clock next to its lesson time.
+    start = pd.Timestamp(document["alignment"]["start"])
+    assert document["lesson_clock_start"] == start.strftime("%H:%M:%S.%f")[:-3]
+    for episode in document["coarousal"]["episodes"]:
+        assert episode["start_clock"] == (start + pd.Timedelta(seconds=episode["start_s"])).strftime("%H:%M:%S")
+    for segment in document["coarousal"]["primary_timeline"]:
+        assert segment["end_clock"] == (start + pd.Timedelta(minutes=segment["end_min"])).strftime("%H:%M:%S")
+    for episode in document["synchrony"]["episodes"]:
+        assert episode["start_clock"] == (start + pd.Timedelta(minutes=episode["start_relative"])).strftime("%H:%M:%S")
+    # The synchronization windows and the state map on the sensor clock too.
+    windows = document["synchrony"]["windows"]
+    assert len(windows["center_clocks"]) == len(windows["centers"]) > 0
+    assert windows["center_clocks"][-1] == (start + pd.Timedelta(minutes=windows["centers"][-1])).strftime("%H:%M:%S")
+    states = document["coarousal"]["state_timeline"]
+    assert len(states["clocks"]) == len(states["times_min"]) > 0
+    assert states["clocks"][1] == (start + pd.Timedelta(minutes=states["times_min"][1])).strftime("%H:%M:%S")
 
 
 @pytest.mark.django_db
@@ -1034,8 +1179,8 @@ def test_export_zip_bundles_tables_json_and_posted_chart_pngs(client, project) -
     archive = zipfile.ZipFile(io.BytesIO(response.content))
     names = set(archive.namelist())
     assert {
-        "clean_signals.csv", "analysis_input_merged.csv", "synchrony_episodes.csv", "synchrony_pairs.csv",
-        "synchrony_windows.csv", "coarousal_episodes.csv", "coarousal_state_timeline.csv",
+        "clean_signals.csv", "analysis_input_merged.csv", "synchrony_episodes.csv", "synchrony_divergent_episodes.csv",
+        "synchrony_decoupled_episodes.csv", "synchrony_pairs.csv", "synchrony_windows.csv", "coarousal_episodes.csv", "coarousal_state_timeline.csv",
         "coarousal_state_percentages.csv", "run_settings_and_results.json",
         "charts/sync_signals.png",
     } == names
@@ -1052,7 +1197,8 @@ def test_export_pdf_follows_ui_language_and_embeds_charts(client, project) -> No
     assert without_charts.content.startswith(b"%PDF") and "report_pl.pdf" in without_charts["Content-Disposition"]
 
     with_charts = client.post(url, {"chart_sync_signals": _png_data_url(), "chart_coarousal_states": _png_data_url()})
-    assert with_charts.content.startswith(b"%PDF") and len(with_charts.content) > len(without_charts.content)
+    assert with_charts.content.startswith(b"%PDF") and b"/Subtype /Image" in _pdf_objects(with_charts.content)
+    assert b"/Subtype /Image" not in _pdf_objects(without_charts.content)
 
     client.post(reverse("set_language"), {"language": "en", "next": "/"})
     english = client.get(url)
@@ -1206,7 +1352,7 @@ def test_changed_settings_name_each_change_with_old_and_new_values() -> None:
         changes = params.changed_settings(before, after)
     assert changes == [
         "Time window · To (min): — → 9.5",
-        "Z-score deviation · Threshold (SD): 5 → 4",
+        "Z-score artifact filter · Threshold (SD): 5 → 4",
         "Interquartile range (IQR): off → on",
         "Surrogate method: circular shift → phase randomization",
     ]

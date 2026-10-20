@@ -68,10 +68,12 @@ for how the pipeline works and what was carried over.
 The UI is server-rendered Django templates with HTMX and ECharts (no Node build), in
 Polish or English (switch in the left rail). The workflow is
 Projects → 1 Import → 2 Cleaning → 3 Analysis (Synchronization | Co-arousal tabs, one run)
-→ 4 Interviews (VSR interview moments per student pair and for the teacher, chosen from the
-Analysis episodes by the steps of the "VSR Interview Flow Chart", each with a preview of the
-signals and a one-sentence justification from the Analysis values; a lesson timeline shows every
-candidate moment the Analysis found, one row per step, and the interview's signals across the whole
+→ 4 Interviews (VSR interview moments per student pair and for the teacher: the Analysis rules and
+settings applied to each interview's own two signals - the pair's two, or the teacher and the students'
+average, as the flow chart asks - so a pair's moments do not depend on who else is in the project; the
+episodes are sorted by the steps of the "VSR Interview Flow Chart", each with a preview of the
+signals and a one-sentence justification; a lesson timeline shows every
+candidate moment, one row per step, and the interview's signals across the whole
 lesson with every candidate shaded on the chart itself (primary moments filled and numbered,
 reserve moments dashed and numbered, other candidates light grey, rejected ones dotted, a key on
 the chart, a click on a band opens it); the researcher accepts, rejects, reorders, retimes or adds
@@ -79,16 +81,36 @@ moments, also straight from the timeline, and choosing again keeps those decisio
 for other researchers, with the interview moments and their justifications as its own
 section; CSV tables including `vsr_moments.csv`, a run settings + results JSON, chart PNGs, or
 all of it as a ZIP). Re-running or changing an earlier step marks later saved results
-outdated until each is refreshed in order. New projects start with the values the VSR Interview Flow
-Chart suggests (co-movement correlation above 0.8 for the synchronization and co-movement thresholds,
-5 moments per interview plus 3 in reserve, and step 5 "no synchrony" for a correlation below 0.1, set
-on the Interviews step); projects saved earlier keep their thresholds (step 5 below 0) until "Reset
-defaults" in the Analysis settings sets the 0.8 thresholds and the step 5 threshold of 0.1. The 5 + 3
-moment counts are the existing defaults; the reset does not change them, they are edited on the Interviews
-step. Interview pairs can be added and removed
+outdated until each is refreshed in order. The flow chart's correlation criteria ("Synchronous = above
+0.8", "Asynchronous = below 0.1") are read as the strength of the correlation, its absolute value, and
+Hassan's team's e-mail adds the types the chart leaves out. The steps are 1 co-movement and a shared state,
+2 co-movement only (both with a moment r of at least 0.8), 3 shared High, 4 shared Low (whole episodes, as
+in Hassan's script), 5 no synchrony
+(opposite arousal, one person High while the other is Low, then a decoupling stretch, every 30 s window
+|r| < 0.1 for at least the minimum episode duration as in Hassan's script, closest to zero first; the
+decoupling rule is an Analysis setting) and then 4b divergent synchrony (signals moving in opposite directions,
+moment r at most -0.8), walked after step 5 so the five primary moments keep the chart's "4 synchronous,
+1 not synchronous"; their order lives in one tuple (`pipeline/vsr.py` `PROTOCOL`). The Analysis finds
+divergent synchronization episodes (r <= -0.3 in every window), decoupling stretches and opposite-arousal
+episodes (z above +1 while another is below -1) as its own types. New projects start with the values
+the VSR Interview Flow Chart and the e-mail suggest and, where the chart is silent, the values of Hassan's
+script (`VSR_DOCUMENT_SETTINGS`: 0.8 for the interview moments; from the script, Spearman correlation,
+co-movement detected from 0.3, as divergent synchrony is detected from -0.3, and a dyad - a two-person
+project or an interview's own two signals - joins no episodes across gaps, since joining exists to keep a
+subgroup's episode together when its membership changes and two people have no subgroups (his script is such a
+dyad analysis); a class keeps GSRv2's 15 s / 30 s joining; 0.1 decoupling, High/Low at
+z = +/-1, shared High/Low episodes whole even with co-movement during them; 5 moments per interview plus 3 in
+reserve); projects saved earlier keep GSRv2's synchronization and co-movement settings until "Reset
+defaults" in the Analysis settings sets these. The 5 + 3 moment counts are the existing defaults;
+the reset does not change them, they are edited on the Interviews step. Interview pairs can be added and removed
 with the form buttons; removed pairs retain curated decisions for restoration when
-the same pair is added again. Moments show lesson time and the GSR sensor clock,
-which the researcher uses to locate the moment.
+the same pair is added again. Every table, chart axis, CSV/JSON export and the PDF report give the
+GSR recordings' own clock (the sensor clock, which the researcher uses to locate a moment in the
+lesson's other data) next to the lesson time; lesson time is written m:ss and counts from the
+recordings' common start. Every result is computed on z-scores within the analysed period (or on
+correlations, which no rescaling changes); the "Signals with marked episodes" chart, the PDF and
+`analysis_input_merged.csv` show the signals as z-scores (default, with the High/Low thresholds) or as
+0-1 min-max, switched next to the chart without rerunning anything.
 
 ## Layout
 

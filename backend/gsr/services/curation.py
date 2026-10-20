@@ -4,7 +4,10 @@ Every moment on an interview's list is an ``InterviewMoment`` row. Proposing the
 moments again (``sync_interview_moments``) keeps every decision: a proposal the
 engine returns again keeps its row, with the decision, the changed time, the note
 and the place on the list; a decided moment the engine no longer proposes stays
-and is marked for checking; only proposals nobody touched are replaced.
+and is marked for checking; only proposals nobody touched are replaced. A decided
+moment proposed under the earlier rules (before the VSR flow chart was read by
+correlation strength) is marked for checking too, even when the engine proposes it
+again, until the researcher confirms or changes the decision.
 
 The list order decides the roles: the first moments that are not rejected are
 the primary ones (5 by default, as the VSR Interview Flow Chart asks) and the
@@ -22,7 +25,8 @@ from django.db import transaction
 from django.utils.translation import gettext
 
 from ..models import AnalysisResult, InterviewMoment, Project
-from ..pipeline.vsr import PRIMARY, RESERVE
+from ..pipeline.common import clock_at
+from ..pipeline.vsr import PRIMARY, RESERVE, step_label
 from .vsr import moment_counts
 
 MAX_REASON_LENGTH = 1000
@@ -32,6 +36,11 @@ TIME_TOLERANCE = 0.5
 
 # Set on the proposal of a candidate the researcher added from the lesson timeline (not selected by the steps).
 FROM_TIMELINE = "added_from_timeline"
+# Set on the proposal of a decided moment the engine proposes again after the rules changed: it stays marked for
+# checking until the researcher acts on it.
+REVIEW_AFTER_UPDATE = "review_after_rules_update"
+# Set on the proposal of a moment from the earlier rules once the researcher confirmed or changed its decision.
+RULES_CONFIRMED = "rules_confirmed"
 
 _LESSON_TIME = re.compile(r"^(?:(\d+):)?(\d+):(\d{1,2}(?:[.,]\d+)?)$")
 
@@ -58,12 +67,12 @@ def _rounded(seconds: Any) -> float:
     return round(float(seconds), 1)
 
 
-def _identity(step: Any, start: Any, end: Any) -> tuple[int, float, float]:
+def _identity(step: Any, start: Any, end: Any) -> tuple[str, float, float]:
     """What makes two proposals the same moment: the step it answers and its proposed times."""
-    return int(step), _rounded(start), _rounded(end)
+    return step_label(step), _rounded(start), _rounded(end)
 
 
-def _row_identity(row: InterviewMoment) -> tuple[int, float, float] | None:
+def _row_identity(row: InterviewMoment) -> tuple[str, float, float] | None:
     if row.is_manual or row.original_start_seconds is None or row.original_end_seconds is None:
         return None
     return _identity(row.proposal.get("step", 0), row.original_start_seconds, row.original_end_seconds)
@@ -71,6 +80,24 @@ def _row_identity(row: InterviewMoment) -> tuple[int, float, float] | None:
 
 def is_decided(row: InterviewMoment) -> bool:
     return row.status != InterviewMoment.STATUS_PENDING or bool(row.note.strip()) or row.time_changed
+
+
+def _under_earlier_rules(row: InterviewMoment) -> bool:
+    """A proposed moment chosen before the VSR flow chart was read by correlation strength (its proposal has no
+    moment type) and not confirmed by the researcher since."""
+    return not row.is_manual and not row.proposal.get("type") and not row.proposal.get(RULES_CONFIRMED)
+
+
+def check_reason(row: InterviewMoment) -> str | None:
+    """Why a moment is marked for checking: "rules" (chosen under the earlier rules), "dropped" (no longer proposed),
+    or None when it is not marked."""
+    if not row.needs_check:
+        return None
+    return "rules" if row.proposal.get(REVIEW_AFTER_UPDATE) or _under_earlier_rules(row) else "dropped"
+
+
+def _timeline_proposal(candidate: dict[str, Any]) -> dict[str, Any]:
+    return {**candidate, "number": None, "status": None, "pass_number": None, FROM_TIMELINE: True}
 
 
 def _new_proposed_row(project: Project, key: str, moment: dict[str, Any]) -> InterviewMoment:
@@ -115,7 +142,7 @@ def sync_interview_moments(project: Project, result: AnalysisResult) -> None:
     """
     proposals = {interview["key"]: interview["moments"] for interview in result.payload.get("interviews", [])}
     candidates = {
-        interview["key"]: {_identity(item["step"], item["start_seconds"], item["end_seconds"])
+        interview["key"]: {_identity(item["step"], item["start_seconds"], item["end_seconds"]): item
                            for item in interview.get("candidates", [])}
         for interview in result.payload.get("interviews", [])
     }
@@ -136,17 +163,29 @@ def sync_interview_moments(project: Project, result: AnalysisResult) -> None:
                 continue
             matched.add(id(row))
             engine_index[id(row)] = index
-            row.proposal = moment
-            row.needs_check = False
+            # The same step and times under the earlier rules is still a decision the researcher made on another
+            # reading of the flow chart: it stays marked until they confirm it.
+            review = is_decided(row) and (_under_earlier_rules(row) or (bool(row.proposal.get(REVIEW_AFTER_UPDATE))
+                                                                      and row.needs_check))
+            row.proposal = {**moment, REVIEW_AFTER_UPDATE: True} if review else moment
+            row.needs_check = review
 
         survivors: list[InterviewMoment] = []
         for row in rows:
             if row.is_manual or id(row) in matched:
                 survivors.append(row)
             elif is_decided(row):
-                # A candidate the researcher added from the timeline needs no check while the Analysis still has it.
-                row.needs_check = not (row.proposal.get(FROM_TIMELINE)
-                                       and _row_identity(row) in candidates.get(key, set()))
+                # A candidate the researcher added from the timeline needs no check while the Analysis still has it,
+                # once they confirmed a decision made under the earlier rules.
+                candidate = candidates.get(key, {}).get(_row_identity(row)) if row.proposal.get(FROM_TIMELINE) else None
+                if candidate is None:
+                    row.needs_check = True
+                else:
+                    review = _under_earlier_rules(row) or (bool(row.proposal.get(REVIEW_AFTER_UPDATE))
+                                                           and row.needs_check)
+                    proposal = _timeline_proposal(candidate)
+                    row.proposal = {**proposal, REVIEW_AFTER_UPDATE: True} if review else proposal
+                    row.needs_check = review
                 survivors.append(row)
             else:
                 row.delete()
@@ -180,15 +219,11 @@ def lesson_clock_start(payload: dict[str, Any]) -> datetime | None:
     return None
 
 
-def _clock(clock_start: datetime | None, seconds: float) -> str | None:
-    return None if clock_start is None else (clock_start + timedelta(seconds=seconds)).strftime("%H:%M:%S")
-
-
 def _times(row: InterviewMoment, clock_start: datetime | None) -> dict[str, str | None]:
     if not row.is_manual and not row.time_changed:
         start_clock, end_clock = row.proposal.get("start_clock"), row.proposal.get("end_clock")
     else:
-        start_clock, end_clock = _clock(clock_start, row.start_seconds), _clock(clock_start, row.end_seconds)
+        start_clock, end_clock = clock_at(clock_start, row.start_seconds), clock_at(clock_start, row.end_seconds)
     return {
         "start_clock": start_clock,
         "end_clock": end_clock,
@@ -309,8 +344,16 @@ def set_status(moment: InterviewMoment, status: str) -> None:
     if status != InterviewMoment.STATUS_REJECTED and moment.status == InterviewMoment.STATUS_REJECTED:
         _check_free(moment)
     moment.status = status
+    _confirm(moment)
+    moment.save(update_fields=["status", "needs_check", "proposal", "updated_at"])
+
+
+def _confirm(moment: InterviewMoment) -> None:
+    """The researcher acted on the moment: it needs no check, and a decision from the earlier rules stops counting as
+    one."""
+    if moment.needs_check and _under_earlier_rules(moment):
+        moment.proposal = {**moment.proposal, RULES_CONFIRMED: True}
     moment.needs_check = False
-    moment.save(update_fields=["status", "needs_check", "updated_at"])
 
 
 def _check_free(moment: InterviewMoment) -> None:
@@ -359,8 +402,8 @@ def change_time(moment: InterviewMoment, result: AnalysisResult, start: float, e
     elif not reason:
         raise ValueError(gettext("Give the reason for the change."))
     moment.start_seconds, moment.end_seconds, moment.reason = start, end, reason
-    moment.needs_check = False
-    moment.save(update_fields=["start_seconds", "end_seconds", "reason", "needs_check", "updated_at"])
+    _confirm(moment)
+    moment.save(update_fields=["start_seconds", "end_seconds", "reason", "needs_check", "proposal", "updated_at"])
 
 
 def set_note(moment: InterviewMoment, note: str) -> None:
@@ -396,17 +439,17 @@ def add_manual(project: Project, result: AnalysisResult, key: str, start: float,
     return moment
 
 
-def candidate_identity(candidate: dict[str, Any]) -> tuple[int, float, float]:
+def candidate_identity(candidate: dict[str, Any]) -> tuple[str, float, float]:
     return _identity(candidate["step"], candidate["start_seconds"], candidate["end_seconds"])
 
 
-def row_identity(row: InterviewMoment) -> tuple[int, float, float] | None:
+def row_identity(row: InterviewMoment) -> tuple[str, float, float] | None:
     """A proposed row's step and proposed times, as ``candidate_identity`` gives them; None for a manual one."""
     return _row_identity(row)
 
 
 @transaction.atomic
-def add_candidate(project: Project, result: AnalysisResult, key: str, step: int, rank: int) -> InterviewMoment:
+def add_candidate(project: Project, result: AnalysisResult, key: str, step: str, rank: int) -> InterviewMoment:
     """Put a candidate from the lesson timeline (``step``, ``rank`` within the step) on the interview's list.
 
     A candidate already on the list as a rejected moment is restored; otherwise it is added after the kept moments,
@@ -416,7 +459,7 @@ def add_candidate(project: Project, result: AnalysisResult, key: str, step: int,
     if interview is None:
         raise ValueError(gettext("Choose an interview of the current proposals."))
     candidate = next((item for item in interview.get("candidates", [])
-                      if item["step"] == step and item["candidate_rank"] == rank), None)
+                      if step_label(item["step"]) == step_label(step) and item["candidate_rank"] == rank), None)
     if candidate is None:
         raise ValueError(gettext("This candidate is no longer in the moments chosen from the Analysis. Reload the page."))
     rows = ordered_rows(project.interview_moments.filter(interview_key=key))
@@ -437,7 +480,7 @@ def add_candidate(project: Project, result: AnalysisResult, key: str, step: int,
         original_end_seconds=candidate["end_seconds"],
         start_seconds=start,
         end_seconds=end,
-        proposal={**candidate, "number": None, "status": None, "pass_number": None, FROM_TIMELINE: True},
+        proposal=_timeline_proposal(candidate),
         position=len(kept),
     )
     _renumber(kept + [moment] + [row for row in rows if row.status == InterviewMoment.STATUS_REJECTED])

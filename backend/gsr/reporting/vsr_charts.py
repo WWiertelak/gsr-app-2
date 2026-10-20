@@ -9,12 +9,14 @@ resolve CSS variables inside SVG.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Sequence
 from xml.sax.saxutils import escape
 
 import numpy as np
 from django.utils.formats import number_format
 
+from ..pipeline.common import clock_at
 from ..templatetags.gsr_tags import seconds_mmss
 
 FONT = "'Plex Sans Latin', 'Plex Sans Ext', 'DejaVu Sans', sans-serif"
@@ -55,9 +57,11 @@ def _svg(width: int, height: int, body: Sequence[str], label: str) -> str:
             + "".join(body) + "</svg>")
 
 
-def lesson_timeline_svg(moments: Sequence[dict[str, Any]], start: float, end: float, label: str) -> str:
-    """The lesson with its moments as numbered bars (primary solid, reserve outlined), on a minute axis."""
-    width, height, left, right, top = 680, 54, 8, 8, 6
+def lesson_timeline_svg(moments: Sequence[dict[str, Any]], start: float, end: float, label: str,
+                        clock: datetime | None = None) -> str:
+    """The lesson with its moments as numbered bars (primary solid, reserve outlined), on a minute axis; each tick
+    also gives the recordings' clock when ``clock`` (the clock at lesson time 0) is known."""
+    width, height, left, right, top = 680, 64 if clock else 54, 8, 8, 6
     span = end - start
     track_w = width - left - right
     body = [f'<rect x="{left}" y="{top}" width="{track_w}" height="26" rx="3" fill="{SUNKEN}" stroke="{LINE}" '
@@ -70,6 +74,8 @@ def lesson_timeline_svg(moments: Sequence[dict[str, Any]], start: float, end: fl
         x = x_of(tick["seconds"])
         body.append(f'<line x1="{x:.1f}" x2="{x:.1f}" y1="{top}" y2="{top + 26}" stroke="{LINE_2}" stroke-width="0.5"/>')
         body.append(_text(x, top + 38, seconds_mmss(tick["seconds"]), anchor="middle"))
+        if clock:
+            body.append(_text(x, top + 48, clock_at(clock, tick["seconds"]), size=6.5, fill=INK_2, anchor="middle"))
     for moment in moments:
         x0, x1 = x_of(moment["start_seconds"]), x_of(moment["end_seconds"])
         width_px = max(x1 - x0, 3.0)
@@ -88,12 +94,15 @@ def _decimate(count: int, limit: int) -> np.ndarray:
 
 
 def moment_chart_svg(window: dict[str, Any], names: Sequence[str], colors: Sequence[str | None], label: str,
-                     number: int | None, high: float | None = None, low: float | None = None) -> str | None:
+                     number: int | None, high: float | None = None, low: float | None = None,
+                     clock: datetime | None = None) -> str | None:
     """The moment preview of the Interviews step, drawn for the report.
 
     Both z-scored signals around the moment (``services/vsr.preview``), the moment shaded
     and numbered like an Analysis episode, and the Co-arousal High (``high``) or Low
-    (``low``) threshold when the moment is about a shared state. None without signals.
+    (``low``) threshold when the moment is about a shared state. The time labels are the
+    recordings' clock when ``clock`` (the clock at lesson time 0) is known, the lesson time
+    otherwise, as on the Interviews step. None without signals.
     """
     seconds = np.asarray(window["seconds"], dtype=float)
     if len(seconds) < 2:
@@ -142,9 +151,11 @@ def moment_chart_svg(window: dict[str, Any], names: Sequence[str], colors: Seque
         body.append(f'<polyline points="{points}" fill="none" stroke="{colors[index] or AVERAGE_COLOR}" '
                     'stroke-width="1.2" stroke-linejoin="round"/>')
     labelled = -1e9
+    min_gap = 40 if clock else 30
     for value, anchor in ((lo, "start"), (start, "middle"), (end, "middle"), (hi, "end")):
-        if lo <= value <= hi and x_of(value) - labelled >= 30:  # skip a label that would sit on the previous one
-            body.append(_text(x_of(value), height - 5, seconds_mmss(value), anchor=anchor))
+        if lo <= value <= hi and x_of(value) - labelled >= min_gap:  # skip a label that would sit on the previous one
+            body.append(_text(x_of(value), height - 5, clock_at(clock, value) if clock else seconds_mmss(value),
+                              anchor=anchor))
             labelled = x_of(value)
     cursor = float(left)
     for index, name in enumerate(names):

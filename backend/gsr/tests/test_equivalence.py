@@ -198,8 +198,12 @@ def test_legacy_snapshot_is_unmodified() -> None:
 def test_shared_config_fields_have_identical_defaults() -> None:
     old_defaults = old_config.PipelineConfig().model_dump()
     new_defaults = new_config.PipelineConfig().model_dump()
-    assert set(new_defaults) <= set(old_defaults)
-    assert {key: old_defaults[key] for key in new_defaults} == new_defaults
+    # Settings GSRv2 did not have (the VSR flow chart, Hassan's e-mail) take their defaults from the document values.
+    added = set(new_defaults) - set(old_defaults)
+    assert added <= set(new_config.VSR_DOCUMENT_SETTINGS)
+    assert {key: new_defaults[key] for key in added} == {key: new_config.VSR_DOCUMENT_SETTINGS[key] for key in added}
+    assert {key: old_defaults[key] for key in new_defaults if key not in added} == {
+        key: value for key, value in new_defaults.items() if key not in added}
     assert new_config.MAX_DATASETS == old_config.MAX_DATASETS
 
 

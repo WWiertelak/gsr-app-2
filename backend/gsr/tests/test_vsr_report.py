@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import zipfile
+from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -12,9 +13,11 @@ import numpy as np
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import translation
 
 from gsr.models import AnalysisResult, InterviewMoment, Project
 from gsr.pipeline.vsr import aggregate_student_signal
+from gsr.reporting import interviews
 from gsr.reporting.report import render_report_html, render_report_pdf
 from gsr.reporting.vsr_charts import lesson_timeline_svg, moment_chart_svg
 from gsr.services import curation
@@ -126,11 +129,16 @@ def test_polish_report_lists_every_interview_with_times_previews_and_one_sentenc
 @pytest.mark.django_db
 def test_summary_tile_and_contents_list_the_interview_section(proposed) -> None:
     page = _page(proposed, "pl")
-    stats = report_data(proposed)["stats"]
+    data = report_data(proposed)
+    stats = data["stats"]
+    counts = {(item["stats"]["primary_count"], item["stats"]["reserve_count"]) for item in data["interviews"]}
     texts = _texts(page)
     assert "Wywiady VSR" in texts
     tile = texts[texts.index("Wywiady VSR") + 1]
-    assert tile in ("3 × 5 + 3", f"{stats['primary_total']} + {stats['reserve_total']}")
+    # Interviews × primary + reserve when every interview has the same numbers, the totals otherwise.
+    expected = (f"3 × {next(iter(counts))[0]} + {next(iter(counts))[1]}" if len(counts) == 1
+                else f"{stats['primary_total']} + {stats['reserve_total']}")
+    assert tile == expected
     assert 'href="#interviews"' in page and 'id="interviews"' in page
     assert page.index('id="coarousal"') < page.index('id="interviews"') < page.index('id="methodology"')
 
@@ -145,9 +153,10 @@ def test_english_report_uses_english_sentences_and_headings(proposed) -> None:
         assert heading in texts, heading
     assert "VSR flow chart step" in page and "Students' average" in page
     assert "Momenty do wywiadów" not in page and "schematu VSR" not in page
-    # The source table states the asynchrony threshold the moments were chosen with (a new project's 0.1).
-    source = texts[texts.index("Step 5: correlation below") + 1]
-    assert source == "0.1"
+    # The source table states the correlation thresholds the moments were chosen with: Analysis settings.
+    assert texts[texts.index("Interview moment correlation (|r| at least)") + 1] == "0.8"
+    assert texts[texts.index("Decoupling threshold (|r| <)") + 1] == "0.1"
+    assert texts[texts.index("Divergent synchrony threshold (r ≤ −)") + 1] == "0.3"
 
 
 @pytest.mark.django_db
@@ -205,6 +214,9 @@ def test_lesson_timeline_numbers_the_moments_and_marks_reserves() -> None:
     svg = lesson_timeline_svg(moments, 0.0, 600.0, 'Oś "lekcji"')
     assert svg.startswith("<svg") and svg.count("<rect") == 3 and ">1</text>" in svg and ">2</text>" in svg
     assert "0:00" in svg and "10:00" in svg and "&quot;lekcji&quot;" in svg
+    # With the recordings' clock every tick also gives the clock time.
+    clocked = lesson_timeline_svg(moments, 0.0, 600.0, "Oś", datetime(1900, 1, 1, 10, 8, 26, 296000))
+    assert ">10:08:26</text>" in clocked and ">10:18:26</text>" in clocked and ">10:00</text>" in clocked
 
 
 def test_moment_chart_draws_both_signals_around_the_moment() -> None:
@@ -217,6 +229,10 @@ def test_moment_chart_draws_both_signals_around_the_moment() -> None:
     assert ">3</text>" in svg  # the moment's number on its shading
     assert 'stroke="#b2182b"' in svg  # the High threshold
     assert moment_chart_svg({**window, "seconds": seconds[:1]}, ["a", "b"], ["#000000", "#000000"], "x", 1) is None
+    # On the recordings' clock, as the Interviews step's chart.
+    clocked = moment_chart_svg(window, ["S1", "S2"], ["#1b9e77", "#d95f02"], "label", 3,
+                               clock=datetime(1900, 1, 1, 10, 0, 0))
+    assert ">10:01:40</text>" in clocked and ">10:02:20</text>" in clocked and ">1:40</text>" not in clocked
 
 
 @pytest.mark.django_db
@@ -365,9 +381,15 @@ def test_csv_lists_accepted_retimed_and_manual_moments_with_reasons_and_notes(cu
     retimed = next(row for row in own if row["time_changed"] == "True")
     assert retimed["reason"] == "the exchange starts a little later" and retimed["note"] == "Ask about the group task"
     assert float(retimed["lesson_start_s"]) == float(retimed["proposed_start_s"]) + 5.0
+    # The proposed times on the sensor clock too, as the proposal stored them.
+    proposal = next(moment for interview in report_data(curated)["interviews"] if interview["key"] == "S1+S2"
+                    for moment in interview["moments"] if moment["time_changed"])["proposal"]
+    assert (retimed["proposed_clock_start"], retimed["proposed_clock_end"]) == (proposal["start_clock"],
+                                                                                proposal["end_clock"])
     manual = next(row for row in own if row["source"] == "manual")
     assert manual["justification"] == "Added by the researcher: the teacher stood next to the pair"
     assert manual["step"] == "" and manual["correlation"] == "" and manual["proposed_start_s"] == ""
+    assert manual["proposed_clock_start"] == ""
     assert manual["clock_start"]
     # A proposed moment's step stays a whole number although a manual row leaves the column empty there.
     assert {row["step"] for row in own if row["source"] == "proposed"} <= {"1", "2", "3", "4", "5"}
@@ -381,7 +403,8 @@ def test_report_shows_the_curated_list_in_both_languages(curated) -> None:
     assert "the teacher stood next to the pair" in pl and "Ask about the group task" in pl
     assert "Dodany ręcznie" in texts and "Dodany przez badacza:" in pl
     assert "Odrzucone przez badacza i pominięte w raporcie: 1." in texts
-    assert any(text.startswith("Zaproponowano ") and "czas zmieniony przez badacza:" in text for text in texts)
+    assert any(text.startswith("Zaproponowano ") and "(zegar czujnika " in text
+               and "czas zmieniony przez badacza:" in text for text in texts)
     assert any(text.startswith("Lista momentów to lista badacza") for text in texts)
     assert "zaakceptowany" in texts and "zaakceptowany, czas zmieniony" not in texts
     assert "zaakceptowany" in pl and "czas zmieniony" in pl
@@ -438,3 +461,53 @@ def test_summary_tile_counts_the_researchers_list(curated) -> None:
     assert stats["primary_total"] + stats["reserve_total"] == sum(
         len(i["moments"]) for i in report_data(curated)["interviews"])
     assert own["stats"]["primary_count"] + own["stats"]["reserve_count"] == len(own["moments"])
+
+
+@pytest.mark.parametrize("lang, interview, decoupling", [
+    ("pl", "próg momentu wywiadu (0,7)", "bez okna o sile rozbieżności (|r| ≥ 0,4)"),
+    ("en", "interview moment threshold (0.7)", "without a window at the divergent strength (|r| ≥ 0.4)"),
+])
+def test_method_text_states_the_settings_the_moments_were_chosen_with(lang, interview, decoupling) -> None:
+    vsr = {"analysis_settings": {"synchrony_interview_threshold": 0.7, "synchrony_divergent_threshold": 0.4,
+                                 "synchrony_decoupled_threshold": 0.15,
+                                 "synchrony_decoupled_rule": "stretch_correlation"}}
+    selection = interviews.methodology_blocks(vsr, lang)[1]["text"]
+    assert interview in selection and decoupling in selection
+    assert ("±0,15" if lang == "pl" else "±0.15") in selection
+    assert "every window" not in selection and "każde okno" not in selection
+    # The flow chart's own words stay quoted as written.
+    assert "“Synchronous = above 0.8”" in selection or "„Synchronous = above 0.8”" in selection
+
+
+@pytest.mark.parametrize("lang, every_window", [
+    ("pl", "każde okno ma |r| < 0,1 przez co najmniej"),
+    ("en", "every window has |r| < 0.1 for at least"),
+])
+def test_method_text_of_moments_stored_without_a_decoupling_rule_reads_every_window(lang, every_window) -> None:
+    vsr = {"analysis_settings": {"synchrony_interview_threshold": 0.8, "synchrony_divergent_threshold": 0.3,
+                                 "synchrony_decoupled_threshold": 0.1}}
+    assert every_window in interviews.methodology_blocks(vsr, lang)[1]["text"]
+
+
+@pytest.mark.django_db
+def test_source_table_names_the_decoupling_rule(proposed) -> None:
+    texts = _texts(_page(proposed, "en"))
+    assert texts[texts.index("Decoupling rule") + 1] == "every window"
+
+
+@pytest.mark.parametrize("lang, dyad, gap, yes", [
+    ("pl", "Diady: bez łączenia przez przerwy", "Maks. przerwa (s)", "tak"),
+    ("en", "Dyads: no joining across gaps", "Max gap (s)", "yes"),
+])
+@pytest.mark.parametrize("joining", [True, False, None])
+def test_source_table_shows_the_dyad_gap_setting_the_interviews_used(lang, dyad, gap, yes, joining) -> None:
+    settings = {"synchrony_episode_max_gap_seconds": 15}
+    if joining is not None:
+        settings["synchrony_dyad_without_gap_joining"] = joining
+    vsr = {"analysis_settings": settings, "counts": {"primary": 5, "reserve": 3}}
+    with translation.override(lang):
+        rows = {row[0]: row[1] for row in interviews._source_blocks(vsr, lang)[1]["rows"]}
+    if joining:
+        assert rows[dyad] == yes and gap not in rows
+    else:
+        assert rows[gap] == "15" and dyad not in rows

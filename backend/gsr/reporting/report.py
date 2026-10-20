@@ -24,6 +24,7 @@ from typing import Any
 
 from django.template.loader import render_to_string
 
+from ..pipeline.common import clock_at, clock_start
 from ..pipeline.preprocessing import analysed_range
 from . import interviews
 from .methodology import METHODOLOGY, METHODS_COMPARISON
@@ -58,12 +59,16 @@ _TR: dict[str, dict[str, str]] = {
         "summary_high": "wysokie",
         "summary_low": "niskie",
         "summary_comovement": "ko-ruch",
+        "summary_opposite": "przeciwstawne",
         "summary_mean": "średnia",
         "summary_index": "indeks",
         "contents": "Spis treści",
         "interpretation_note": "Uwaga interpretacyjna",
         "summary_interpretation_note": "GSR opisuje poziom i dynamikę pobudzenia fizjologicznego. Nie rozpoznaje konkretnej emocji, nie określa jej znaku i sam nie dowodzi związku przyczynowego między osobami.",
         "stale_warning": "UWAGA: ustawienia lub sygnały projektu zmieniły się po tym obliczeniu. Raport opisuje ostatnie obliczenie.",
+        "stale_warning_rules": "UWAGA: to obliczenie wykonano według wcześniejszych reguł. Aplikacja czyta teraz kryteria "
+                               "korelacji schematu VSR według siły i wykrywa też synchronię rozbieżną, rozprzężenie i "
+                               "pobudzenie przeciwstawne. Raport opisuje ostatnie obliczenie.",
         # import
         "import_heading": "Import",
         "alias": "Alias",
@@ -74,7 +79,18 @@ _TR: dict[str, dict[str, str]] = {
         "cleaning_params": "Parametry czyszczenia",
         "median_kernel": "Filtr med. (okno)",
         "physio_range": "Zakres fizjol.",
-        "zscore": "Z-score",
+        "zscore": "Filtr artefaktów z-score",
+        "zscore_on": "tak (> {threshold} SD)",
+        "analysis_normalization": "Normalizacja sygnałów do analizy",
+        "analysis_normalization_value": "z-score w obrębie analizowanego okna (stała)",
+        "chart_scale": "Skala wykresu sygnałów",
+        "chart_scale_zscore": "z-score",
+        "chart_scale_minmax": "min-max (0–1)",
+        "chart_scale_minmax_note": "Skala 0–1 (min-max) służy tylko do podglądu: wszystkie wyniki liczone są na "
+                                   "z-score lub na korelacjach, a stany Wysoki i Niski mają progi z = {high} i "
+                                   "z = {low}.",
+        "chart_scale_zscore_note": "Sygnały w z-score w obrębie analizowanego okna, na tej skali liczone są stany "
+                                   "Wysoki i Niski; linie przerywane: z = {high} i z = {low}.",
         "jumps": "Nagłe skoki",
         "iqr": "IQR",
         "butterworth": "Butterworth",
@@ -129,13 +145,38 @@ _TR: dict[str, dict[str, str]] = {
         "sync_group_p": "p całej grupy",
         "sync_pair_p": "p (surogat)",
         "sync_episodes_heading": "Epizody synchronizacji podgrup",
-        "sync_ep_time": "Czas (min)",
+        "sync_ep_clock": "Zegar czujnika",
+        "sync_ep_time": "Czas lekcji (m:ss)",
         "sync_ep_duration": "Czas trwania",
         "sync_ep_members": "Uczestnicy",
         "sync_ep_size": "Osób",
         "sync_ep_mean": "Śr. siła",
         "sync_ep_peak": "Szczyt. siła",
         "sync_no_episodes": "Nie wykryto epizodów synchronizacji podgrup.",
+        "divergent_heading": "Epizody synchronizacji rozbieżnej",
+        "divergent_intro": "Podgrupy, których sygnały zmieniają się systematycznie w przeciwnych kierunkach: r każdej "
+                           "pary pozostaje na poziomie −{threshold} lub niższym, z tymi samymi regułami epizodu co "
+                           "synchronizacja (na wykresie: przerywane niebieskie pasma D).",
+        "divergent_none": "Nie wykryto epizodów synchronizacji rozbieżnej.",
+        "divergent_unsigned": "Synchronizacja rozbieżna wymaga trybu signed: bez niego para w przeciwfazie liczy się "
+                              "jako zsynchronizowana.",
+        "divergent_count": "Epizody rozbieżne",
+        "divergent_mean": "Śr. r",
+        "divergent_peak": "Najniższe r",
+        "summary_divergent": "rozbieżne",
+        "decoupled_heading": "Rozprzężenie (brak synchronii)",
+        "decoupled_intro": "Odcinki między epizodami synchronizacji i rozbieżności pary, w których każde okno ma "
+                           "|r| < {threshold} przez co najmniej minimalny czas epizodu, jak w skrypcie zespołu Hassana "
+                           "(schemat VSR: „Asynchronous = below 0.1”; na wykresie: kropkowane pasma U).",
+        "decoupled_intro_stretch": "Odcinki między epizodami synchronizacji i rozbieżności pary bez okna o sile "
+                                   "rozbieżności, trwające co najmniej minimalny czas epizodu, których jedna korelacja "
+                                   "danych mieści się w ±{threshold} (schemat VSR: „Asynchronous = below 0.1”; na "
+                                   "wykresie: kropkowane pasma U).",
+        "decoupled_stretch_r": "r odcinka",
+        "decoupled_none": "Nie wykryto rozprzężenia.",
+        "decoupled_count": "Odcinki rozprzężenia",
+        "decoupled_pair": "Para",
+        "summary_decoupled": "rozprzężenie",
         "sync_pairs_heading": "Metryki par",
         "sync_pair": "Para",
         "sync_xcorr": "Maks. korel.",
@@ -165,6 +206,7 @@ _TR: dict[str, dict[str, str]] = {
         "contagion_dir_high": "Wysoki",
         "contagion_dir_low": "Niski",
         "contagion_dir_comov": "Ko-ruch",
+        "contagion_dir_opposite": "Przeciwstawny",
         "contagion_strength_full": "pełna",
         "contagion_strength_strong": "silna",
         "contagion_strength_partial": "częściowa",
@@ -194,6 +236,7 @@ _TR: dict[str, dict[str, str]] = {
         "res_cont": "Ko-pobudzenie",
         "res_cont_metric": "Indeks ko-pobudzenia",
         "res_cont_ep": "Epizody (High/Low/ko-ruch)",
+        "res_cont_opposite": "Epizody przeciwstawnego pobudzenia",
         "res_cont_p": "Istotność (p surogatowe)",
         "res_episodes_reading": "Liczba wykrytych okresów i grup; ich znaczenie zależy od czasu, uczestników i kontekstu.",
         "res_cont_reading": "Średnia liczba osób w liczniejszym stanie skrajnym High albo Low; zakres 0–{participants}.",
@@ -241,12 +284,16 @@ _TR: dict[str, dict[str, str]] = {
         "summary_high": "high",
         "summary_low": "low",
         "summary_comovement": "co-movement",
+        "summary_opposite": "opposite",
         "summary_mean": "mean",
         "summary_index": "index",
         "contents": "Contents",
         "interpretation_note": "Interpretation note",
         "summary_interpretation_note": "GSR describes physiological arousal level and dynamics. It does not identify a specific emotion or valence and cannot by itself establish causation between people.",
         "stale_warning": "NOTE: the project settings or signals changed after this run. The report describes the last run.",
+        "stale_warning_rules": "NOTE: this run used the earlier rules. The app now reads the VSR flow chart's correlation "
+                               "criteria by strength and also finds divergent synchrony, decoupling and opposite "
+                               "arousal. The report describes the last run.",
         # import
         "import_heading": "Import",
         "alias": "Alias",
@@ -257,7 +304,18 @@ _TR: dict[str, dict[str, str]] = {
         "cleaning_params": "Cleaning parameters",
         "median_kernel": "Median filter (window)",
         "physio_range": "Physiological range",
-        "zscore": "Z-score",
+        "zscore": "Z-score artifact filter",
+        "zscore_on": "yes (> {threshold} SD)",
+        "analysis_normalization": "Signal normalization for the analysis",
+        "analysis_normalization_value": "z-score within the analysed window (fixed)",
+        "chart_scale": "Signals chart scale",
+        "chart_scale_zscore": "z-score",
+        "chart_scale_minmax": "min-max (0–1)",
+        "chart_scale_minmax_note": "The 0–1 scale (min-max) is only for viewing: every result is computed on z-scores "
+                                   "or correlations, and the High and Low states use the thresholds z = {high} and "
+                                   "z = {low}.",
+        "chart_scale_zscore_note": "Signals as z-scores within the analysed window, the scale the High and Low states "
+                                   "are computed on; dashed lines: z = {high} and z = {low}.",
         "jumps": "Abrupt jumps",
         "iqr": "IQR",
         "butterworth": "Butterworth",
@@ -312,13 +370,38 @@ _TR: dict[str, dict[str, str]] = {
         "sync_group_p": "Whole-group p",
         "sync_pair_p": "p (surrogate)",
         "sync_episodes_heading": "Subgroup synchronization episodes",
-        "sync_ep_time": "Time (min)",
+        "sync_ep_clock": "Sensor clock",
+        "sync_ep_time": "Lesson time (m:ss)",
         "sync_ep_duration": "Duration",
         "sync_ep_members": "Participants",
         "sync_ep_size": "People",
         "sync_ep_mean": "Mean strength",
         "sync_ep_peak": "Peak strength",
         "sync_no_episodes": "No subgroup synchronization episodes detected.",
+        "divergent_heading": "Divergent synchronization episodes",
+        "divergent_intro": "Subgroups whose signals move systematically in opposite directions: every pair's r stays "
+                           "at or below −{threshold}, with the same episode rules as synchronization (on the chart: "
+                           "dashed blue D bands).",
+        "divergent_none": "No divergent synchronization episodes detected.",
+        "divergent_unsigned": "Divergent synchronization needs the signed mode: without it an opposite-direction pair "
+                              "counts as synchronized.",
+        "divergent_count": "Divergent episodes",
+        "divergent_mean": "Mean r",
+        "divergent_peak": "Lowest r",
+        "summary_divergent": "divergent",
+        "decoupled_heading": "Decoupling (no synchrony)",
+        "decoupled_intro": "Stretches between a pair's synchronization and divergent episodes in which every window has "
+                           "|r| < {threshold} for at least the minimum episode duration, as in Hassan's team's script "
+                           "(the VSR flow chart: “Asynchronous = below 0.1”; on the chart: dotted U bands).",
+        "decoupled_intro_stretch": "Stretches between a pair's synchronization and divergent episodes without a "
+                                   "window at the divergent strength, at least the minimum episode duration long, "
+                                   "whose one correlation over the data lies within ±{threshold} (the VSR flow chart: "
+                                   "“Asynchronous = below 0.1”; on the chart: dotted U bands).",
+        "decoupled_stretch_r": "Stretch r",
+        "decoupled_none": "No decoupling detected.",
+        "decoupled_count": "Decoupling stretches",
+        "decoupled_pair": "Pair",
+        "summary_decoupled": "decoupling",
         "sync_pairs_heading": "Pairwise metrics",
         "sync_pair": "Pair",
         "sync_xcorr": "Max corr.",
@@ -348,6 +431,7 @@ _TR: dict[str, dict[str, str]] = {
         "contagion_dir_high": "High",
         "contagion_dir_low": "Low",
         "contagion_dir_comov": "Co-move",
+        "contagion_dir_opposite": "Opposite",
         "contagion_strength_full": "full",
         "contagion_strength_strong": "strong",
         "contagion_strength_partial": "partial",
@@ -377,6 +461,7 @@ _TR: dict[str, dict[str, str]] = {
         "res_cont": "Co-arousal",
         "res_cont_metric": "Co-arousal index",
         "res_cont_ep": "Episodes (High/Low/co-move)",
+        "res_cont_opposite": "Opposite-arousal episodes",
         "res_cont_p": "Significance (surrogate p)",
         "res_episodes_reading": "Number of detected periods and groups; meaning depends on timing, participants, and context.",
         "res_cont_reading": "Average number of people in the more populated High or Low state; range 0–{participants}.",
@@ -411,7 +496,8 @@ CHART_SECTIONS = {
     "coarousal": ("coarousal_states",),
 }
 
-_CONTAGION_DIR_KEYS = {"High": "contagion_dir_high", "Low": "contagion_dir_low", "Co-movement": "contagion_dir_comov"}
+_CONTAGION_DIR_KEYS = {"High": "contagion_dir_high", "Low": "contagion_dir_low", "Co-movement": "contagion_dir_comov",
+                       "Opposite": "contagion_dir_opposite"}
 
 
 def resolve_lang(value: Any) -> str:
@@ -477,6 +563,18 @@ def _fmt_min(value: Any) -> str:
         return "-"
     total_seconds = max(0, round(value * 60))
     return f"{total_seconds // 60}:{total_seconds % 60:02d}"
+
+
+def _lesson_clock(payload: dict[str, Any]) -> Any:
+    """The recordings' own clock at lesson time 0 of the run, or None."""
+    return clock_start((payload.get("preview") or {}).get("alignment"))
+
+
+def _clock_span(start: Any, start_minutes: Any, end_minutes: Any) -> str:
+    """A stretch of lesson time (minutes) on the recordings' clock: "10:24:46–10:25:16"."""
+    if start is None or not isinstance(start_minutes, (int, float)) or not isinstance(end_minutes, (int, float)):
+        return "-"
+    return f"{clock_at(start, start_minutes * 60)}–{clock_at(start, end_minutes * 60)}"
 
 
 # ─── Blocks ──────────────────────────────────────────────────────────────────
@@ -551,6 +649,15 @@ def _members(values: Any) -> str:
     return ", ".join(str(member) for member in values or [])
 
 
+def _contributors(episode: dict[str, Any]) -> str:
+    """A co-arousal episode's contributors; for opposite arousal the High side (↑) and the Low side (↓)."""
+    if episode.get("direction") == "Opposite":
+        sides = [f"{member} ↑" for member in episode.get("high_contributors") or []]
+        sides += [f"{member} ↓" for member in episode.get("low_contributors") or []]
+        return ", ".join(sides) or "—"
+    return _members(episode.get("contributors")) or "—"
+
+
 # ─── Sections ────────────────────────────────────────────────────────────────
 
 
@@ -564,7 +671,8 @@ def _title_page(payload: dict[str, Any], lang: str) -> dict[str, Any]:
             [_tr(lang, "computed_at"), payload.get("computed_at") or "-"],
             [_tr(lang, "signals"), ", ".join(payload.get("dataset_aliases") or []) or "-"],
         ]),
-        "stale_warning": _tr(lang, "stale_warning") if payload.get("stale") else "",
+        "stale_warning": "" if not payload.get("stale") else _tr(
+            lang, "stale_warning_rules" if payload.get("predates_rules") else "stale_warning"),
         "description_heading": _tr(lang, "description"),
         "description": str(payload.get("project_description") or "").strip() or _tr(lang, "no_description"),
     }
@@ -596,6 +704,9 @@ def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, 
                  f"p={_fmt(sync_stats.get('mean_synchrony_p_value'))}",
                  f"{_fmt(sync_stats.get('episode_count'))} {episodes}; "
                  f"{_tr(lang, 'summary_max_group')}={_fmt(sync_stats.get('max_episode_size'))}",
+                 *([f"{_tr(lang, 'summary_divergent')}={_fmt(sync_stats['divergent_episode_count'])}; "
+                    f"{_tr(lang, 'summary_decoupled')}={_fmt(sync_stats.get('decoupled_episode_count'))}"]
+                   if "divergent_episode_count" in sync_stats else []),
              ] if synchrony else []),
         _kpi(_tr(lang, "summary_contagion"), coarousal.get("coarousal_index") if coarousal else "—",
              _tr(lang, "summary_index"),
@@ -604,7 +715,9 @@ def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, 
                  f"{_fmt(coarousal_stats.get('episode_count'))} {episodes}: "
                  f"{_tr(lang, 'summary_high')}={_fmt(coarousal_stats.get('high_episode_count'))}, "
                  f"{_tr(lang, 'summary_low')}={_fmt(coarousal_stats.get('low_episode_count'))}, "
-                 f"{_tr(lang, 'summary_comovement')}={_fmt(coarousal_stats.get('comovement_episode_count'))}",
+                 f"{_tr(lang, 'summary_comovement')}={_fmt(coarousal_stats.get('comovement_episode_count'))}"
+                 + (f", {_tr(lang, 'summary_opposite')}={_fmt(coarousal_stats['opposite_episode_count'])}"
+                    if "opposite_episode_count" in coarousal_stats else ""),
              ] if coarousal else []),
     ]
     interviews_kpi = interviews.summary_kpi(payload.get("vsr"), lang)
@@ -613,7 +726,10 @@ def _section_executive_summary(payload: dict[str, Any], lang: str) -> dict[str, 
     charts = {chart["key"]: chart for chart in _charts(payload, "summary", lang)}
     blocks: list[dict[str, Any]] = [{"type": "kpis", "items": kpis}]
     if "sync_signals" in charts:
-        blocks.append(charts["sync_signals"])
+        config = payload.get("config") or {}
+        note = "chart_scale_minmax_note" if payload.get("chart_scale") == "minmax" else "chart_scale_zscore_note"
+        blocks.append({**charts["sync_signals"], "note": _tr(lang, note).format(
+            high=_fmt(config.get("contagion_high_z")), low=_fmt(config.get("contagion_low_z")))})
     blocks.append({
         "type": "aside",
         "chart": charts.get("sync_matrix"),
@@ -667,10 +783,12 @@ def _section_cleaning(payload: dict[str, Any], lang: str) -> dict[str, Any]:
     preview_range = analysed_range(preview, cfg)
     alignment = preview.get("alignment") or {}
 
+    zscore_filter = (_tr(lang, "zscore_on").format(threshold=_fmt(cfg.get("clean_filter_zscore_threshold")))
+                     if cfg.get("clean_filter_zscore") else _tr(lang, "no"))
     mapping = [
         (_tr(lang, "median_kernel"), cfg.get("median_kernel")),
         (_tr(lang, "physio_range"), cfg.get("clean_filter_physiological_range")),
-        (_tr(lang, "zscore"), cfg.get("clean_filter_zscore")),
+        (_tr(lang, "zscore"), zscore_filter),
         (_tr(lang, "jumps"), cfg.get("clean_filter_jump")),
         (_tr(lang, "iqr"), cfg.get("clean_filter_iqr")),
         (_tr(lang, "butterworth"), cfg.get("clean_filter_butterworth")),
@@ -682,6 +800,8 @@ def _section_cleaning(payload: dict[str, Any], lang: str) -> dict[str, Any]:
         (_tr(lang, "alignment_mode"), alignment.get("mode")),
         (_tr(lang, "alignment_range"), f"{_fmt(alignment.get('start'))}–{_fmt(alignment.get('end'))}"),
         (_tr(lang, "alignment_duration"), alignment.get("duration_seconds")),
+        (_tr(lang, "analysis_normalization"), _tr(lang, "analysis_normalization_value")),
+        (_tr(lang, "chart_scale"), _tr(lang, f"chart_scale_{payload.get('chart_scale') or 'zscore'}")),
     ]
     blocks: list[dict[str, Any]] = [
         _h2(_tr(lang, "cleaning_params")),
@@ -758,32 +878,52 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
          _fmt(stats.get("surrogate_count") or config.get("synchrony_surrogate_count"))],
         [_tr(lang, "sync_surrogate_seed"), _fmt(config.get("synchrony_surrogate_seed"))],
         [_tr(lang, "sync_group_p"), _fmt(stats.get("mean_synchrony_p_value"))],
+        *([[_tr(lang, "divergent_count"), _fmt(stats["divergent_episode_count"])]]
+          if "divergent_episode_count" in stats else []),
+        *([[_tr(lang, "decoupled_count"), _fmt(stats["decoupled_episode_count"])]]
+          if "decoupled_episode_count" in stats else []),
     ], first="metric", split=True)]
 
+    lesson_clock = _lesson_clock(payload)
     blocks.append(_h2(_tr(lang, "sync_episodes_heading")))
     episodes = synchrony.get("episodes") or []
     if episodes:
-        rows = []
-        for index, episode in enumerate(episodes):
-            start, end = episode.get("start_relative"), episode.get("end_relative")
-            duration = end - start if isinstance(start, (int, float)) and isinstance(end, (int, float)) else None
-            rows.append([
-                _fmt(index + 1),
-                f"{_fmt_min(start)}–{_fmt_min(end)}",
-                _fmt_min(duration),
-                _members(episode.get("members")),
-                _fmt(episode.get("size")),
-                _fmt(episode.get("mean_strength")),
-                _fmt(episode.get("peak_strength")),
-            ])
-        blocks.append(_table(
-            [_tr(lang, key) for key in ("no_seg", "sync_ep_time", "sync_ep_duration", "sync_ep_members",
-                                         "sync_ep_size", "sync_ep_mean", "sync_ep_peak")],
-            rows,
-            numeric=(0, 2, 4, 5, 6),
-        ))
+        blocks.append(_episode_table(lang, episodes, lesson_clock, ("sync_ep_mean", "sync_ep_peak")))
     else:
         blocks.append(_p(_tr(lang, "sync_no_episodes"), style="muted"))
+
+    if "divergent_episodes" in synchrony:
+        blocks += [_h2(_tr(lang, "divergent_heading")),
+                   _p(_tr(lang, "divergent_intro").format(threshold=_fmt(config.get("synchrony_divergent_threshold"))),
+                      style="muted")]
+        if synchrony["divergent_episodes"]:
+            blocks.append(_episode_table(lang, synchrony["divergent_episodes"], lesson_clock,
+                                         ("divergent_mean", "divergent_peak")))
+        else:
+            blocks.append(_p(_tr(lang, "divergent_none" if config.get("synchrony_signed", True)
+                                     else "divergent_unsigned"), style="muted"))
+
+    if "decoupled_episodes" in synchrony:
+        whole_stretch = config.get("synchrony_decoupled_rule") == "stretch_correlation"
+        intro = "decoupled_intro_stretch" if whole_stretch else "decoupled_intro"
+        blocks += [_h2(_tr(lang, "decoupled_heading")),
+                   _p(_tr(lang, intro).format(threshold=_fmt(config.get("synchrony_decoupled_threshold"))),
+                      style="muted")]
+        decoupled = synchrony["decoupled_episodes"]
+        if decoupled:
+            rows = []
+            for index, episode in enumerate(decoupled):
+                start, end = episode.get("start_relative"), episode.get("end_relative")
+                rows.append([_fmt(index + 1), _clock_span(lesson_clock, start, end),
+                             f"{_fmt_min(start)}–{_fmt_min(end)}", _fmt_min(end - start),
+                             _members(episode.get("members")), _fmt(episode.get("mean_r")),
+                             *([_fmt(episode.get("stretch_r"))] if whole_stretch else [])])
+            columns = ("no_seg", "sync_ep_clock", "sync_ep_time", "sync_ep_duration", "decoupled_pair",
+                       "divergent_mean", *(("decoupled_stretch_r",) if whole_stretch else ()))
+            blocks.append(_table([_tr(lang, key) for key in columns], rows,
+                                 numeric=(0, 3, 5, 6) if whole_stretch else (0, 3, 5)))
+        else:
+            blocks.append(_p(_tr(lang, "decoupled_none"), style="muted"))
 
     pairs = synchrony.get("pairs") or []
     if pairs:
@@ -827,6 +967,31 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
     return _section("synchrony", _tr(lang, "synchrony_heading"), blocks)
 
 
+def _episode_table(lang: str, episodes: list[dict[str, Any]], lesson_clock: Any,
+                   strength_keys: tuple[str, str]) -> dict[str, Any]:
+    """A table of synchronization-tab episodes: clock, lesson time, duration, members, size and two strengths."""
+    rows = []
+    for index, episode in enumerate(episodes):
+        start, end = episode.get("start_relative"), episode.get("end_relative")
+        duration = end - start if isinstance(start, (int, float)) and isinstance(end, (int, float)) else None
+        rows.append([
+            _fmt(index + 1),
+            _clock_span(lesson_clock, start, end),
+            f"{_fmt_min(start)}–{_fmt_min(end)}",
+            _fmt_min(duration),
+            _members(episode.get("members")),
+            _fmt(episode.get("size")),
+            _fmt(episode.get("mean_strength")),
+            _fmt(episode.get("peak_strength")),
+        ])
+    return _table(
+        [_tr(lang, key) for key in ("no_seg", "sync_ep_clock", "sync_ep_time", "sync_ep_duration", "sync_ep_members",
+                                     "sync_ep_size", *strength_keys)],
+        rows,
+        numeric=(0, 3, 5, 6, 7),
+    )
+
+
 def _section_coarousal(payload: dict[str, Any], lang: str) -> dict[str, Any] | None:
     coarousal = payload.get("coarousal")
     if not isinstance(coarousal, dict):
@@ -847,24 +1012,27 @@ def _section_coarousal(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
 
     blocks.append(_h2(_tr(lang, "contagion_episodes_heading")))
     episodes = coarousal.get("episodes") or []
+    lesson_clock = _lesson_clock(payload)
     if episodes:
         rows = [
             [
                 _fmt(index + 1),
                 _tr(lang, _CONTAGION_DIR_KEYS.get(str(episode.get("direction")), "contagion_ep_dir")),
+                _clock_span(lesson_clock, (episode.get("start_s") or 0) / 60, (episode.get("end_s") or 0) / 60),
                 f"{_fmt_min((episode.get('start_s') or 0) / 60)}–{_fmt_min((episode.get('end_s') or 0) / 60)}",
                 _fmt_min((episode.get("duration_s") or 0) / 60),
-                _members(episode.get("contributors")) or "—",
+                _contributors(episode),
                 _tr(lang, f"contagion_strength_{episode.get('strength')}"),
                 _members(episode.get("non_contributors")) or "—",
             ]
             for index, episode in enumerate(episodes)
         ]
         blocks.append(_table(
-            [_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_time", "sync_ep_duration",
-                                         "contagion_ep_contrib", "contagion_ep_strength", "contagion_ep_noncontrib")],
+            [_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_clock", "sync_ep_time",
+                                         "sync_ep_duration", "contagion_ep_contrib", "contagion_ep_strength",
+                                         "contagion_ep_noncontrib")],
             rows,
-            numeric=(0, 3),
+            numeric=(0, 4),
         ))
     else:
         blocks.append(_p(_tr(lang, "contagion_no_episodes"), style="muted"))
@@ -875,6 +1043,7 @@ def _section_coarousal(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
             [
                 _fmt(index + 1),
                 _tr(lang, _CONTAGION_DIR_KEYS.get(str(segment.get("label")), "contagion_ep_dir")),
+                _clock_span(lesson_clock, segment.get("start_min"), segment.get("end_min")),
                 f"{_fmt_min(segment.get('start_min'))}–{_fmt_min(segment.get('end_min'))}",
                 _fmt_min((segment.get("duration_s") or 0) / 60),
             ]
@@ -882,8 +1051,9 @@ def _section_coarousal(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
         ]
         blocks += [
             _h2(_tr(lang, "contagion_primary_heading")),
-            _table([_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_time", "sync_ep_duration")],
-                   rows, numeric=(0, 3)),
+            _table([_tr(lang, key) for key in ("no_seg", "contagion_ep_dir", "sync_ep_clock", "sync_ep_time",
+                                                "sync_ep_duration")],
+                   rows, numeric=(0, 4)),
         ]
 
     state_percentages = coarousal.get("state_percentages") or []
@@ -924,7 +1094,7 @@ def _section_methodology(payload: dict[str, Any], lang: str) -> dict[str, Any]:
         for block in section["blocks"]:
             blocks += _methodology_blocks(block)
     if payload.get("vsr"):
-        blocks += interviews.methodology_blocks(lang)
+        blocks += interviews.methodology_blocks(payload["vsr"], lang)
 
     comparison = METHODS_COMPARISON.get(lang, METHODS_COMPARISON["pl"])
     blocks += [
@@ -964,6 +1134,10 @@ def _section_methodology(payload: dict[str, Any], lang: str) -> dict[str, Any]:
             [_tr(lang, "res_sync"), _tr(lang, "res_sync_p"), _fmt(sstats.get("mean_synchrony_p_value")),
              p_reading(sstats.get("mean_synchrony_p_value"))],
         ]
+        for key, label in (("divergent_episode_count", "divergent_count"), ("decoupled_episode_count", "decoupled_count")):
+            if key in sstats:
+                result_rows.append([_tr(lang, "res_sync"), _tr(lang, label), _fmt(sstats[key]),
+                                    _tr(lang, "res_episodes_reading")])
     coarousal = payload.get("coarousal")
     if isinstance(coarousal, dict):
         cstats = coarousal.get("stats") or {}
@@ -977,6 +1151,9 @@ def _section_methodology(payload: dict[str, Any], lang: str) -> dict[str, Any]:
              _tr(lang, "res_episodes_reading")],
             [_tr(lang, "res_cont"), _tr(lang, "res_cont_p"), _fmt(c_p) if c_p is not None else "—", p_reading(c_p)],
         ]
+        if "opposite_episode_count" in cstats:
+            result_rows.insert(-1, [_tr(lang, "res_cont"), _tr(lang, "res_cont_opposite"),
+                                    _fmt(cstats["opposite_episode_count"]), _tr(lang, "res_episodes_reading")])
     blocks.append(_table([_tr(lang, key) for key in ("res_method", "res_metric", "res_value", "res_reading")],
                          result_rows, numeric=(2,)))
     return _section("methodology", content["title"], blocks)
