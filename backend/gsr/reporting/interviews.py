@@ -129,8 +129,10 @@ _TEXT: dict[str, dict[str, str]] = {
                             "minimalny czas epizodu (reguła rozprzężenia z ustawień Analizy).",
         "method_choice": "Korelacja r momentu to średnia z okien zakładki Synchronizacja (to samo okno, krok i "
                          "metoda) dla sygnałów pary albo nauczyciela i średniej uczniów (każdy uczeń w z-score, "
-                         "potem średnia ponownie w z-score). Gdy kilka epizodów spełnia ten sam krok, pierwszy jest "
-                         "najsilniejszy: najwyższe r w krokach 1–2, najniższe r w kroku 4b; w kroku 5 pobudzenie "
+                         "potem średnia ponownie w z-score), ze wszystkich okien momentu; „Śr. siła” i „Śr. r” w "
+                         "tabelach synchronizacji i rozbieżności Analizy to średnie tylko z okien powyżej progu, "
+                         "więc mogą być silniejsze niż r momentu. Gdy kilka epizodów spełnia ten sam krok, pierwszy "
+                         "jest najsilniejszy: najwyższe r w krokach 1–2, najniższe r w kroku 4b; w kroku 5 pobudzenie "
                          "przeciwstawne przed rozprzężeniem, a z odcinków rozprzężenia r najbliższe zera "
                          "(najwyraźniejszy brak związku); potem dłuższy. Kroki przechodzi się od początku (krok 6), "
                          "aż wybrano momenty główne, potem rezerwowe. Momenty nie mogą się nakładać.",
@@ -243,7 +245,10 @@ _TEXT: dict[str, dict[str, str]] = {
                             "least the minimum episode duration (the decoupling rule of the Analysis settings).",
         "method_choice": "A moment's correlation r is the mean over the Synchronization tab's windows (same window, "
                          "step and method) of the pair's signals, or of the teacher and the students' average (each "
-                         "student z-scored, then the average z-scored again). When several episodes answer the "
+                         "student z-scored, then the average z-scored again), over all the moment's windows; the "
+                         "Analysis synchronization and divergent tables' “Mean strength” and “Mean r” average only "
+                         "the windows past the threshold, "
+                         "so they can be stronger than the moment's r. When several episodes answer the "
                          "same step, the strongest comes first: the highest r in steps 1–2, the lowest r in step 4b; "
                          "in step 5 opposite arousal before decoupling, and of the decoupling stretches the r closest "
                          "to zero (the clearest absence of a relation); then the longer one. "
