@@ -14,13 +14,14 @@ type. The steps (``PROTOCOL``, the one place their order lives):
   2. co-movement only - such a co-movement episode that overlaps no shared state;
   3. shared High arousal - a shared High episode that overlaps no such co-movement;
   4. shared Low arousal - a shared Low episode that overlaps no such co-movement;
-  4b. divergent synchrony - a divergent synchronization episode (Synchronization tab: the
-     signals move in opposite directions) whose r is at or below minus the interview
-     threshold ("ideally above .80 for the interviews");
   5. no synchrony - opposite arousal first (Co-arousal tab: one person High while the
      other is Low, the complement of STEPS 3-4), then a decoupling stretch (Synchronization
      tab: between the pair's synchronization and divergent episodes, its mean r within
-     +/-0.1, "Asynchronous = below 0.1").
+     +/-0.1, "Asynchronous = below 0.1");
+  4b. divergent synchrony - a divergent synchronization episode (Synchronization tab: the
+     signals move in opposite directions) whose r is at or below minus the interview
+     threshold ("ideally above .80 for the interviews"), walked after STEP 5 so the first
+     five moments keep the document's "4 synchronous, 1 not synchronous".
 
 An episode belongs to a student pair when both students are in it (members of a
 synchronization subgroup, contributors of a co-arousal episode). The teacher interview is
@@ -82,17 +83,19 @@ OPPOSITE = "opposite"
 DECOUPLED = "decoupled"
 
 # Every moment type with the step of the VSR flow chart it answers, in the order STEP 6 walks them: the document's
-# STEPS 1-5 read by correlation strength, with Hassan's e-mail's types where they belong - divergent synchrony as
-# STEP 4b after the synchronous types, opposite arousal before decoupling in STEP 5 (no synchrony).
+# STEPS 1-5 read by correlation strength ("4 synchronous, 1 not synchronous": the first walk yields STEP 5 among the
+# five primary moments), with Hassan's e-mail's types where they belong - opposite arousal before decoupling in
+# STEP 5 (no synchrony), divergent synchrony as STEP 4b after it. Walked before STEP 5, the many divergent episodes
+# would push the no-synchrony moment out of the primary five.
 # This is the one place the order lives: moving or renumbering a type is one line.
 PROTOCOL = (
     ("1", COMOVEMENT_STATE),
     ("2", COMOVEMENT),
     ("3", SHARED_HIGH),
     ("4", SHARED_LOW),
-    ("4b", DIVERGENT),
     ("5", OPPOSITE),
     ("5", DECOUPLED),
+    ("4b", DIVERGENT),
 )
 STEP_NUMBERS = tuple(dict.fromkeys(step for step, _kind in PROTOCOL))
 STEP_OF = {kind: step for step, kind in PROTOCOL}

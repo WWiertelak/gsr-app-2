@@ -33,6 +33,8 @@ from gsr.pipeline.vsr import (
     OPPOSITE,
     PRIMARY,
     RESERVE,
+    SHARED_HIGH,
+    SHARED_LOW,
     STEP_NUMBERS,
     SYNCHRONY,
     Candidate,
@@ -176,8 +178,9 @@ def test_a_single_window_episode_gets_the_window_it_was_measured_over() -> None:
 # ─── The steps of the VSR flow chart ─────────────────────────────────────────
 
 
-def test_the_protocol_is_the_documents_steps_read_by_strength_with_divergent_as_4b() -> None:
-    assert STEP_NUMBERS == ("1", "2", "3", "4", "4b", "5")
+def test_the_protocol_is_the_documents_steps_read_by_strength_with_divergent_as_4b_after_step_5() -> None:
+    # "4 synchronous, 1 not synchronous": STEP 5 comes before the divergent STEP 4b.
+    assert STEP_NUMBERS == ("1", "2", "3", "4", "5", "4b")
 
 
 def test_each_step_takes_its_kind_of_analysis_episode() -> None:
@@ -375,9 +378,27 @@ def test_step_6_walks_the_steps_again_until_the_primary_and_reserve_moments_are_
     proposals = select(steps, primary_count=5, reserve_count=3)
 
     assert [(p.number, p.candidate.step, p.pass_number) for p in proposals] == [
-        (1, "1", 1), (2, "2", 1), (3, "4b", 1), (4, "5", 1), (5, "1", 2), (6, "2", 2), (7, "5", 2), (8, "2", 3)]
+        (1, "1", 1), (2, "2", 1), (3, "5", 1), (4, "4b", 1), (5, "1", 2), (6, "2", 2), (7, "5", 2), (8, "2", 3)]
     assert [p.status for p in proposals] == [PRIMARY] * 5 + [RESERVE] * 3
     assert proposals[4].rank == 2 and proposals[4].candidate_count == 2
+
+
+def test_the_primary_five_keep_a_no_synchrony_moment_among_many_divergent_ones() -> None:
+    # Every step has candidates and divergent ones are many (32 on the trial replica): the five primary moments are
+    # STEPS 1-5, with divergent synchrony first in the reserve.
+    steps = {
+        "1": [_candidate(COMOVEMENT_STATE, 0, 30)],
+        "2": [_candidate(COMOVEMENT, 100, 130)],
+        "3": [_candidate(SHARED_HIGH, 200, 230)],
+        "4": [_candidate(SHARED_LOW, 300, 330)],
+        "5": [_candidate(DECOUPLED, 400, 430, 0.0)],
+        "4b": [_candidate(DIVERGENT, 500 + 40 * index, 530 + 40 * index, -0.9) for index in range(10)],
+    }
+
+    proposals = select(steps, primary_count=5, reserve_count=3)
+
+    assert [p.candidate.step for p in proposals if p.status == PRIMARY] == ["1", "2", "3", "4", "5"]
+    assert proposals[5].candidate.step == "4b" and proposals[5].status == RESERVE
 
 
 def test_selected_moments_never_overlap() -> None:
