@@ -224,8 +224,9 @@ def test_a_shared_state_with_co_movement_during_it_is_steps_3_4_whole_unless_the
     low, = steps["4"]
     assert (low.start_seconds, low.end_seconds, low.shared_state) == (150.0, 300.0, LOW)
     assert low.shared.kind == "synchronization"  # the co-movement during it, for the justification
-    english, _polish = _sentences(low)
-    assert "with co-movement during it" in english and "no co-movement" not in english
+    english, polish = _sentences(low)
+    assert "with co-movement of interview strength during it" in english and "no co-movement" not in english
+    assert "z ko-ruchem o sile wymaganej w wywiadzie w jego trakcie" in polish
     exclusive = CONFIG.model_copy(update={"synchrony_interview_shared_without_comovement": True})
     steps = _steps(synchrony, coarousal, windows, config=exclusive)
     assert [c.shared_state for c in steps["1"]] == [LOW] and steps["3"] == steps["4"] == []
@@ -260,6 +261,9 @@ def test_steps_1_and_2_need_the_interview_threshold() -> None:
     assert CONFIG.synchrony_interview_threshold == 0.8
     assert steps["1"] == [] and [c.start_seconds for c in steps["2"]] == [300.0]
     assert [c.episode.number for c in steps["3"]] == [1]
+    english, polish = _sentences(steps["3"][0])
+    assert "no co-movement of interview strength" in english and "with co-movement" not in english
+    assert "bez ko-ruchu o sile wymaganej w wywiadzie" in polish
     assert steps["5"] == []
     lowered = _steps(synchrony, coarousal, windows,
                      config=CONFIG.model_copy(update={"synchrony_interview_threshold": 0.6}))

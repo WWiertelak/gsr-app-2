@@ -3141,12 +3141,12 @@ msgid "no shared arousal state"
 msgstr "bez wspólnego stanu pobudzenia"
 
 #: gsr/vsr_text.py:122
-msgid "with co-movement during it"
-msgstr "z ko-ruchem w jego trakcie"
+msgid "with co-movement of interview strength during it"
+msgstr "z ko-ruchem o sile wymaganej w wywiadzie w jego trakcie"
 
-#: gsr/vsr_text.py:122
-msgid "no co-movement"
-msgstr "bez ko-ruchu"
+#: gsr/vsr_text.py:123
+msgid "no co-movement of interview strength"
+msgstr "bez ko-ruchu o sile wymaganej w wywiadzie"
 
 #: gsr/vsr_text.py:125
 msgid "the signals moved in opposite directions"
