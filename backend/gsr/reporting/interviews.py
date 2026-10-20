@@ -36,6 +36,8 @@ _TEXT: dict[str, dict[str, str]] = {
         "source_heading": "Źródło: Analiza",
         "parameter": "Ustawienie",
         "value": "Wartość",
+        "yes": "tak",
+        "no": "nie",
         "analysis_run": "Przebieg Analizy",
         "moment_counts": "Momenty na wywiad",
         "moment_counts_value": "{primary} głównych + {reserve} rezerwowych",
@@ -159,6 +161,8 @@ _TEXT: dict[str, dict[str, str]] = {
         "source_heading": "Source: the Analysis",
         "parameter": "Setting",
         "value": "Value",
+        "yes": "yes",
+        "no": "no",
         "analysis_run": "Analysis run",
         "moment_counts": "Moments per interview",
         "moment_counts_value": "{primary} primary + {reserve} reserve",
@@ -343,14 +347,22 @@ def _episode_cell(lang: str, moment: dict[str, Any], interview_kind: str) -> str
     return _t(lang, key, number=episode["number"])
 
 
-def _setting_text(name: str, value: Any) -> str:
+def _setting_text(lang: str, name: str, value: Any) -> str:
+    if isinstance(value, bool):
+        return _t(lang, "yes" if value else "no")
     return str(params.choice_label(name, value)) if isinstance(value, str) else params.display_number(value)
 
 
 def _source_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
+    """The settings table; an interview's own analysis is a dyad, so where dyads join no gaps the class Max gap is
+    replaced by that setting."""
     settings = vsr["analysis_settings"]
     labels = {param.name: str(param.label) for param in params.ANALYSIS_PARAMS}
-    rows = [[labels.get(name, name), _setting_text(name, settings[name])] for name in _SETTINGS if name in settings]
+    names = _SETTINGS
+    if settings.get("synchrony_dyad_without_gap_joining"):
+        names = tuple("synchrony_dyad_without_gap_joining" if name == "synchrony_episode_max_gap_seconds" else name
+                      for name in _SETTINGS)
+    rows = [[labels.get(name, name), _setting_text(lang, name, settings[name])] for name in names if name in settings]
     computed = (vsr.get("analysis_computed_at") or "")[:16].replace("T", " ")
     counts = vsr["counts"]
     rows = [

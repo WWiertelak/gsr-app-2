@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import translation
 
 from gsr.models import AnalysisResult, InterviewMoment, Project
 from gsr.pipeline.vsr import aggregate_student_signal
@@ -492,3 +493,21 @@ def test_method_text_of_moments_stored_without_a_decoupling_rule_reads_every_win
 def test_source_table_names_the_decoupling_rule(proposed) -> None:
     texts = _texts(_page(proposed, "en"))
     assert texts[texts.index("Decoupling rule") + 1] == "every window"
+
+
+@pytest.mark.parametrize("lang, dyad, gap, yes", [
+    ("pl", "Diady: bez łączenia przez przerwy", "Maks. przerwa (s)", "tak"),
+    ("en", "Dyads: no joining across gaps", "Max gap (s)", "yes"),
+])
+@pytest.mark.parametrize("joining", [True, False, None])
+def test_source_table_shows_the_dyad_gap_setting_the_interviews_used(lang, dyad, gap, yes, joining) -> None:
+    settings = {"synchrony_episode_max_gap_seconds": 15}
+    if joining is not None:
+        settings["synchrony_dyad_without_gap_joining"] = joining
+    vsr = {"analysis_settings": settings, "counts": {"primary": 5, "reserve": 3}}
+    with translation.override(lang):
+        rows = {row[0]: row[1] for row in interviews._source_blocks(vsr, lang)[1]["rows"]}
+    if joining:
+        assert rows[dyad] == yes and gap not in rows
+    else:
+        assert rows[gap] == "15" and dyad not in rows
