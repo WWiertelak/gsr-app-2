@@ -720,7 +720,8 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
             divergent_rule=_("r ≤ −%(threshold)s in every window") % {
                 "threshold": params.display_number(config.synchrony_divergent_threshold)},
             decoupled_episodes=decoupled_episodes if "decoupled_episodes" in synchrony else None,
-            decoupled_rule=_("mean |r| < %(threshold)s between the episodes") % {
+            decoupled_rule=(_("|r| < %(threshold)s in every window") if config.synchrony_decoupled_rule == "every_window"
+                            else _("one correlation |r| < %(threshold)s over the stretch")) % {
                 "threshold": params.display_number(config.synchrony_decoupled_threshold)},
             cluster_members=" | ".join(" · ".join(cluster["members"])
                                        for cluster in synchrony.get("clusters", {}).get("clusters", [])),

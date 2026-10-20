@@ -141,7 +141,7 @@
         {% endif %}
 
         {% if decoupled_episodes is not None %}
-          {% translate "No synchrony: stretches between a pair's synchronization and divergent episodes whose correlation, taken over the whole stretch (the mean of its windows), lies within plus/minus the decoupling threshold (U-numbers on the chart)." as decoupled_help %}
+          {% translate "No synchrony: stretches between a pair's synchronization and divergent episodes whose correlation lies within plus/minus the decoupling threshold, judged by the decoupling rule of the Analysis settings (default: every window, as in Hassan's script); U-numbers on the chart." as decoupled_help %}
           <div class="disclosure">
             <div class="disclosure-head">
               <h3><button type="button" class="disclosure-toggle" id="decoupled-episodes-toggle" aria-expanded="true" aria-controls="decoupled-episodes-body" data-disclosure>{% translate "Decoupling (no synchrony)" %} <span class="count">{{ decoupled_episodes|length }}</span></button></h3>{% include "gsr/partials/tip.html" with text=decoupled_help tip_id="tip-decoupled-episodes" %}
@@ -150,7 +150,7 @@
               {% if decoupled_episodes %}
                 <div class="table-wrap">
                   <table class="data">
-                    <thead><tr><th>#</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Pair" %}</th><th>{% translate "Mean r" %}</th></tr></thead>
+                    <thead><tr><th>#</th><th class="left">{% translate "Sensor clock" %}</th><th class="left">{% translate "Lesson time (m:ss)" %}</th><th>{% translate "Duration" %}</th><th class="left">{% translate "Pair" %}</th><th>{% translate "Mean r" %}</th>{% if applied.synchrony_decoupled_rule == "stretch_correlation" %}<th>{% translate "Stretch r" %}</th>{% endif %}</tr></thead>
                     <tbody>
                       {% for episode in decoupled_episodes %}
                         <tr>
@@ -160,6 +160,7 @@
                           <td>{{ episode.duration|mmss }}</td>
                           <td class="left"><div class="chips">{% for member in episode.members %}<span class="chip"><span class="dot" style="background: {{ colors|get_item:member }}"></span>{{ member }}</span>{% endfor %}</div></td>
                           <td>{{ episode.mean_r|floatformat:3 }}</td>
+                          {% if applied.synchrony_decoupled_rule == "stretch_correlation" %}<td>{{ episode.stretch_r|floatformat:3 }}</td>{% endif %}
                         </tr>
                       {% endfor %}
                     </tbody>

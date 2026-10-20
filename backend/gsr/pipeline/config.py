@@ -56,6 +56,7 @@ _FIELD_RULES: dict[str, tuple[Any, ...]] = {
     "synchrony_interview_threshold": (_FLOAT, 0.0, 1.0),
     "synchrony_divergent_threshold": (_FLOAT, 0.0, 1.0),
     "synchrony_decoupled_threshold": (_FLOAT, 0.0, 1.0),
+    "synchrony_decoupled_rule": (_CHOICE, ("every_window", "stretch_correlation")),
     "contagion_high_z": (_FLOAT, 0.0, 10.0),
     "contagion_low_z": (_FLOAT, -10.0, 0.0),
     "contagion_window_seconds": (_FLOAT, 1.0, 600.0),
@@ -87,6 +88,10 @@ VSR_DOCUMENT_SETTINGS: dict[str, Any] = {
     # Decoupling: a stretch whose correlation lies within plus/minus this ("Asynchronous = below 0.1"; Hassan:
     # "between -.10 and +.10").
     "synchrony_decoupled_threshold": 0.1,
+    # How a stretch's correlation is judged against it: every 30 s window within it, for at least the minimum episode
+    # duration (Hassan's script; on his data no such stretch exists, as his script reports), or one correlation over
+    # a stretch without a single window at the divergent strength ("stretch_correlation").
+    "synchrony_decoupled_rule": "every_window",
     # The High and Low states (shared High/Low, and opposite arousal: one High while another is Low), as GSRv2's
     # defaults; Hassan's script uses the same.
     "contagion_high_z": 1.0,
@@ -190,9 +195,10 @@ class PipelineConfig:
     synchrony_interview_threshold: float = VSR_DOCUMENT_SETTINGS["synchrony_interview_threshold"]
     # Divergent synchrony (not in GSRv2): subgroup episodes of windows whose r is at or below minus this strength.
     synchrony_divergent_threshold: float = VSR_DOCUMENT_SETTINGS["synchrony_divergent_threshold"]
-    # Decoupling (not in GSRv2): stretches between a pair's synchronization and divergent episodes whose mean r lies
-    # within plus/minus this strength.
+    # Decoupling (not in GSRv2): stretches between a pair's synchronization and divergent episodes whose correlation
+    # lies within plus/minus this strength, judged by ``synchrony_decoupled_rule``.
     synchrony_decoupled_threshold: float = VSR_DOCUMENT_SETTINGS["synchrony_decoupled_threshold"]
+    synchrony_decoupled_rule: str = VSR_DOCUMENT_SETTINGS["synchrony_decoupled_rule"]
     # Co-arousal (shared arousal, "contagion" in GSRv2). The ``contagion_*`` names
     # are kept so GSRv2 configs load unchanged. z-scoring is computed WITHIN the
     # analysis window, contributors require positive (in-phase) correlation, and

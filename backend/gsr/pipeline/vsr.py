@@ -16,8 +16,8 @@ type. The steps (``PROTOCOL``, the one place their order lives):
   4. shared Low arousal - a shared Low episode that overlaps no such co-movement;
   5. no synchrony - opposite arousal first (Co-arousal tab: one person High while the
      other is Low, the complement of STEPS 3-4), then a decoupling stretch (Synchronization
-     tab: between the pair's synchronization and divergent episodes, its mean r within
-     +/-0.1, "Asynchronous = below 0.1");
+     tab: between the pair's synchronization and divergent episodes, every window |r| < 0.1
+     for at least the minimum episode duration, "Asynchronous = below 0.1");
   4b. divergent synchrony - a divergent synchronization episode (Synchronization tab: the
      signals move in opposite directions) whose r is at or below minus the interview
      threshold ("ideally above .80 for the interviews"), walked after STEP 5 so the first
@@ -319,7 +319,8 @@ def aggregate_analysis(teacher: np.ndarray, students: np.ndarray, relative_minut
     frame = pd.DataFrame({"time": relative_minutes, **{f"microsiemens_{alias}": signals[alias] for alias in aliases}})
     coarousal = compute_coarousal(_PairInput(aliases, frame), aliases, pair_config,  # type: ignore[arg-type]
                                   opposite=True)
-    synchrony = synchrony_types({"aliases": aliases, "windows": windows, "episodes": episodes, "stats": {}}, pair_config)
+    synchrony = synchrony_types({"aliases": aliases, "windows": windows, "episodes": episodes, "stats": {}}, pair_config,
+                                frame)
     return synchrony, coarousal
 
 
@@ -393,7 +394,7 @@ def candidates_by_step(windows: Windows, episodes: InterviewEpisodes,
     A co-movement episode is synchronous (STEPS 1-2) when its r reaches the interview threshold (the document:
     "Synchronous = above 0.8"), a divergent one (STEP 4b) when its r reaches minus it; in between neither
     (the document's criteria leave that band neither synchronous nor asynchronous). A decoupling stretch is STEP 5
-    as the Analysis found it (its mean r within the decoupling threshold), after opposite arousal (one of the pair
+    as the Analysis found it (by the decoupling rule and threshold), after opposite arousal (one of the pair
     High, the other Low), which has no correlation criterion, as shared High and Low have none.
     """
     steps: dict[str, list[Candidate]] = {step: [] for step in STEP_NUMBERS}

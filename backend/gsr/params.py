@@ -161,9 +161,21 @@ SYNCHRONY_ESSENTIAL = (
         "synchrony_decoupled_threshold",
         _("Decoupling threshold (|r| <)"),
         _(
-            "A stretch between a pair's synchronization and divergent episodes whose mean correlation lies within "
-            "plus/minus this value is decoupled: no synchrony (the VSR flow chart: “Asynchronous = below 0.1”)."
+            "A stretch between a pair's synchronization and divergent episodes whose correlation lies within "
+            "plus/minus this value is decoupled: no synchrony (the VSR flow chart: “Asynchronous = below 0.1”). "
+            "The decoupling rule says how the stretch's correlation is judged."
         ),
+    ),
+    Param(
+        "synchrony_decoupled_rule",
+        _("Decoupling rule"),
+        _(
+            "Every window: every window of the stretch has |r| below the decoupling threshold, for at least the "
+            "minimum episode duration (as in Hassan's script). One correlation over the stretch: a stretch without a "
+            "window at the divergent strength, whose one correlation over its data lies within the threshold."
+        ),
+        kind="choice",
+        choices=(("every_window", _("every window")), ("stretch_correlation", _("one correlation over the stretch"))),
     ),
     Param("synchrony_window_seconds", _("Window (s)")),
 )

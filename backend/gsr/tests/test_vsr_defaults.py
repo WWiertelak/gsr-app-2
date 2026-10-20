@@ -21,8 +21,8 @@ def test_the_document_values_are_the_application_defaults_and_the_pipeline_keeps
     # The High and Low states (shared states and opposite arousal) at z = +/-1, GSRv2's values.
     assert VSR_DOCUMENT_SETTINGS == {"synchrony_threshold": 0.8, "contagion_comovement_rho": 0.8,
                                      "synchrony_interview_threshold": 0.8, "synchrony_divergent_threshold": 0.3,
-                                     "synchrony_decoupled_threshold": 0.1, "contagion_high_z": 1.0,
-                                     "contagion_low_z": -1.0}
+                                     "synchrony_decoupled_threshold": 0.1, "synchrony_decoupled_rule": "every_window",
+                                     "contagion_high_z": 1.0, "contagion_low_z": -1.0}
     assert (PipelineConfig().contagion_high_z, PipelineConfig().contagion_low_z) == (1.0, -1.0)
     assert params.DEFAULTS["synchrony_threshold"] == 0.8 and params.DEFAULTS["contagion_comovement_rho"] == 0.8
     assert PipelineConfig().synchrony_threshold == 0.6 and PipelineConfig().contagion_comovement_rho == 0.3

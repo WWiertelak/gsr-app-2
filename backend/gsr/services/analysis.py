@@ -92,7 +92,8 @@ def analyze_files_with_result(
     for entry in payload["preview"]["datasets"]:
         entry["zscore"] = zscores[entry["alias"]]
     if "synchrony" in analyses:
-        payload["synchrony"] = synchrony_types(compute_synchrony(result, aliases, config, cancel_callback), config)
+        payload["synchrony"] = synchrony_types(compute_synchrony(result, aliases, config, cancel_callback), config,
+                                               result.merged_decimated)
     if "coarousal" in analyses:
         payload["coarousal"] = compute_coarousal(result, aliases, config, cancel_callback, opposite=True)
     return result, payload

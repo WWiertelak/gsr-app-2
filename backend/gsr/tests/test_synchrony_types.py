@@ -83,22 +83,23 @@ def _decoupled_spans(synchrony: dict, config: PipelineConfig = CONFIG) -> list[t
             for e in decoupled_episodes(synchrony, config)]
 
 
-def test_decoupling_is_one_correlation_for_the_whole_stretch_between_the_episodes() -> None:
-    # Hassan: "the correlation between GSR data within an episode is between -.10 and +.10". The windowed r swings
-    # (+0.6, -0.6, ...) so no 30 s run of windows has |r| < 0.1, but the stretch as a whole averages to zero.
+def test_decoupling_needs_every_window_of_the_stretch_below_the_threshold() -> None:
+    # Hassan's script: every 30 s window |r| < 0.1, for at least the minimum episode duration. Windows swinging between
+    # +0.6 and -0.6 average to zero, yet the signals are strongly related in each window: no decoupling.
     synchrony = _synchrony([], end=400.0)
     centers = synchrony["windows"]["centers"]
     synchrony["windows"]["pairs"][0]["values"] = [0.6 if index % 2 else -0.6 for index in range(len(centers))]
-    synchrony["episodes"] = [{"start_relative": 200 / 60, "end_relative": 240 / 60, "members": ["A", "B"]}]
 
-    spans = _decoupled_spans(synchrony)
+    assert CONFIG.synchrony_decoupled_rule == "every_window"
+    assert _decoupled_spans(synchrony) == []
 
-    assert [(start, end) for start, end, _mean in spans] == [(15, 195), (245, 385)]
-    assert all(abs(mean) < 0.1 for _start, _end, mean in spans)
+    # A quiet stretch is decoupled; one window at 0.1 breaks it (no bridging), and the rest is shorter than 30 s.
+    synchrony = _synchrony([(15, 95, 0.05), (100, 100, 0.1), (105, 125, 0.0)], default=0.5, end=400.0)
+    assert _decoupled_spans(synchrony) == [(15, 95, 0.05)]
 
 
-def test_decoupling_needs_a_mean_within_the_threshold_and_the_minimum_duration() -> None:
-    # Stretches (outside the synchronization episodes): 15-95 at 0.05, 165-185 too short, 255-385 at 0.3.
+def test_decoupling_stays_between_the_pairs_episodes_and_follows_the_threshold() -> None:
+    # Quiet windows everywhere except 255-385 (0.3); the pair's episodes cut the quiet stretches.
     synchrony = _synchrony([(15, 95, 0.05), (255, 385, 0.3)], end=400.0)
     synchrony["episodes"] = [
         {"start_relative": 100 / 60, "end_relative": 160 / 60, "members": ["A", "B"]},
@@ -106,9 +107,28 @@ def test_decoupling_needs_a_mean_within_the_threshold_and_the_minimum_duration()
         {"start_relative": 300 / 60, "end_relative": 320 / 60, "members": ["A", "C"]},  # not this pair's
     ]
 
+    # 165-185 is shorter than 30 s; 255-385 is not below 0.1.
     assert [(start, end) for start, end, _mean in _decoupled_spans(synchrony)] == [(15, 95)]
     wider = CONFIG.model_copy(update={"synchrony_decoupled_threshold": 0.35})
     assert [(start, end) for start, end, _mean in _decoupled_spans(synchrony, wider)] == [(15, 95), (255, 385)]
+
+
+def test_the_one_correlation_rule_judges_the_stretchs_data() -> None:
+    # The alternative decoupling rule: a stretch with no window at the divergent strength (|r| < 0.3), judged by one
+    # correlation over its data. 15-195: independent signals in the data; 255-385: the same signal.
+    synchrony = _synchrony([(15, 195, 0.2), (255, 385, 0.2)], default=0.9, end=400.0)
+    minutes = np.arange(0, 400) / 60.0
+    a = np.sin(np.arange(400) / 7.0)
+    b = np.where(np.arange(400) < 220, np.cos(np.arange(400) / 7.0), a)
+    frame = pd.DataFrame({"time": minutes, "microsiemens_A": a, "microsiemens_B": b})
+    rule = CONFIG.model_copy(update={"synchrony_decoupled_rule": "stretch_correlation"})
+
+    episodes = decoupled_episodes(synchrony, rule, frame)
+
+    assert [(round(e["start_relative"] * 60), round(e["end_relative"] * 60)) for e in episodes] == [(15, 195)]
+    assert abs(episodes[0]["stretch_r"]) < 0.1 and episodes[0]["mean_r"] == pytest.approx(0.2)
+    assert decoupled_episodes(synchrony, rule) == []  # without the data no stretch is judged
+    assert _decoupled_spans(synchrony) == []  # every window at 0.2: not decoupled by the default rule
 
 
 def test_decoupling_is_found_for_every_pair_of_a_group() -> None:

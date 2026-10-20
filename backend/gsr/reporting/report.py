@@ -165,9 +165,14 @@ _TR: dict[str, dict[str, str]] = {
         "divergent_peak": "Najniższe r",
         "summary_divergent": "rozbieżne",
         "decoupled_heading": "Rozprzężenie (brak synchronii)",
-        "decoupled_intro": "Odcinki między epizodami synchronizacji i rozbieżności pary, których korelacja liczona dla "
-                           "całego odcinka (średnia jego okien) mieści się w ±{threshold} (schemat VSR: "
-                           "„Asynchronous = below 0.1”; na wykresie: kropkowane pasma U).",
+        "decoupled_intro": "Odcinki między epizodami synchronizacji i rozbieżności pary, w których każde okno ma "
+                           "|r| < {threshold} przez co najmniej minimalny czas epizodu, jak w skrypcie zespołu Hassana "
+                           "(schemat VSR: „Asynchronous = below 0.1”; na wykresie: kropkowane pasma U).",
+        "decoupled_intro_stretch": "Odcinki między epizodami synchronizacji i rozbieżności pary bez okna o sile "
+                                   "rozbieżności, trwające co najmniej minimalny czas epizodu, których jedna korelacja "
+                                   "danych mieści się w ±{threshold} (schemat VSR: „Asynchronous = below 0.1”; na "
+                                   "wykresie: kropkowane pasma U).",
+        "decoupled_stretch_r": "r odcinka",
         "decoupled_none": "Nie wykryto rozprzężenia.",
         "decoupled_count": "Odcinki rozprzężenia",
         "decoupled_pair": "Para",
@@ -385,9 +390,14 @@ _TR: dict[str, dict[str, str]] = {
         "divergent_peak": "Lowest r",
         "summary_divergent": "divergent",
         "decoupled_heading": "Decoupling (no synchrony)",
-        "decoupled_intro": "Stretches between a pair's synchronization and divergent episodes whose correlation over "
-                           "the whole stretch (the mean of its windows) lies within ±{threshold} (the VSR flow chart: "
-                           "“Asynchronous = below 0.1”; on the chart: dotted U bands).",
+        "decoupled_intro": "Stretches between a pair's synchronization and divergent episodes in which every window has "
+                           "|r| < {threshold} for at least the minimum episode duration, as in Hassan's team's script "
+                           "(the VSR flow chart: “Asynchronous = below 0.1”; on the chart: dotted U bands).",
+        "decoupled_intro_stretch": "Stretches between a pair's synchronization and divergent episodes without a "
+                                   "window at the divergent strength, at least the minimum episode duration long, "
+                                   "whose one correlation over the data lies within ±{threshold} (the VSR flow chart: "
+                                   "“Asynchronous = below 0.1”; on the chart: dotted U bands).",
+        "decoupled_stretch_r": "Stretch r",
         "decoupled_none": "No decoupling detected.",
         "decoupled_count": "Decoupling stretches",
         "decoupled_pair": "Pair",
@@ -894,8 +904,10 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
                                      else "divergent_unsigned"), style="muted"))
 
     if "decoupled_episodes" in synchrony:
+        whole_stretch = config.get("synchrony_decoupled_rule") == "stretch_correlation"
+        intro = "decoupled_intro_stretch" if whole_stretch else "decoupled_intro"
         blocks += [_h2(_tr(lang, "decoupled_heading")),
-                   _p(_tr(lang, "decoupled_intro").format(threshold=_fmt(config.get("synchrony_decoupled_threshold"))),
+                   _p(_tr(lang, intro).format(threshold=_fmt(config.get("synchrony_decoupled_threshold"))),
                       style="muted")]
         decoupled = synchrony["decoupled_episodes"]
         if decoupled:
@@ -904,10 +916,12 @@ def _section_synchrony(payload: dict[str, Any], lang: str) -> dict[str, Any] | N
                 start, end = episode.get("start_relative"), episode.get("end_relative")
                 rows.append([_fmt(index + 1), _clock_span(lesson_clock, start, end),
                              f"{_fmt_min(start)}–{_fmt_min(end)}", _fmt_min(end - start),
-                             _members(episode.get("members")), _fmt(episode.get("mean_r"))])
-            blocks.append(_table([_tr(lang, key) for key in ("no_seg", "sync_ep_clock", "sync_ep_time",
-                                                             "sync_ep_duration", "decoupled_pair", "divergent_mean")],
-                                 rows, numeric=(0, 3, 5)))
+                             _members(episode.get("members")), _fmt(episode.get("mean_r")),
+                             *([_fmt(episode.get("stretch_r"))] if whole_stretch else [])])
+            columns = ("no_seg", "sync_ep_clock", "sync_ep_time", "sync_ep_duration", "decoupled_pair",
+                       "divergent_mean", *(("decoupled_stretch_r",) if whole_stretch else ()))
+            blocks.append(_table([_tr(lang, key) for key in columns], rows,
+                                 numeric=(0, 3, 5, 6) if whole_stretch else (0, 3, 5)))
         else:
             blocks.append(_p(_tr(lang, "decoupled_none"), style="muted"))
 

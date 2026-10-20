@@ -149,11 +149,13 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                           "schematu VSR („Synchronous = above 0.8”, „Asynchronous = below 0.1”) czytane są jako siła "
                           "korelacji, czyli jej wartość bezwzględna."),
                     ("p", "Rozprzężenie (brak synchronii): odcinek między epizodami synchronizacji i rozbieżności pary, "
-                          "co najmniej tak długi jak minimalny epizod, którego korelacja liczona dla całego odcinka "
-                          "(średnia r jego okien) mieści się w ± progu rozprzężenia (domyślnie 0,1). Pojedyncze okna "
-                          "30 s po filtrze 0,05 Hz wahają się między −1 a +1, więc warunek „każde okno |r| < 0,1” "
-                          "prawie nigdy nie jest spełniony; jedna korelacja dla odcinka odpowiada opisowi zespołu "
-                          "Hassana („the correlation between GSR data within an episode”)."),
+                          "w którym każde okno 30 s ma |r| poniżej progu rozprzężenia (domyślnie 0,1) przez co "
+                          "najmniej minimalny czas epizodu, jak w skrypcie zespołu Hassana. Średnia z okien nie "
+                          "wystarcza: okna przeskakujące między −0,98 a +0,98 dają średnią bliską zera mimo silnego "
+                          "związku. Po filtrze 0,05 Hz okna 30 s wahają się między −1 a +1, więc na wielu danych "
+                          "takiego odcinka nie ma (na danych zespołu Hassana 0, tak jak w jego skrypcie). Ustawienie "
+                          "„reguła rozprzężenia” pozwala zamiast tego liczyć jedną korelację danych odcinka, który "
+                          "nie ma okna o sile rozbieżności."),
                     ("note", "Po ludzku", "Synchronizacja pyta, czy osoby zmieniały się podobnie w tym samym czasie "
                                            "albo z niewielkim opóźnieniem. Epizod pokazuje kiedy i w jakiej podgrupie."),
                     ("note", "Opóźnienie", "Lag 5 s oznacza najlepsze dopasowanie po przesunięciu jednego sygnału o "
@@ -336,11 +338,13 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                           "0.8”, “Asynchronous = below 0.1”) are read as the strength of the correlation, its "
                           "absolute value."),
                     ("p", "Decoupling (no synchrony): a stretch between a pair's synchronization and divergent "
-                          "episodes, at least as long as the minimum episode, whose correlation over the whole stretch "
-                          "(the mean r of its windows) lies within ± the decoupling threshold (default 0.1). Single "
-                          "30 s windows after the 0.05 Hz filter swing between −1 and +1, so “every window |r| < 0.1” "
-                          "is almost never met; one correlation for the stretch follows Hassan's team's description "
-                          "(“the correlation between GSR data within an episode”)."),
+                          "episodes in which every 30 s window has |r| below the decoupling threshold (default 0.1) "
+                          "for at least the minimum episode duration, as in Hassan's team's script. A mean of the "
+                          "windows would not do: windows swinging between −0.98 and +0.98 average to about zero "
+                          "despite a strong relation. After the 0.05 Hz filter 30 s windows swing between −1 and +1, "
+                          "so many recordings have no such stretch (Hassan's team's data: 0, as in their script). The "
+                          "“decoupling rule” setting can instead take one correlation over the data of a stretch "
+                          "without a window at the divergent strength."),
                     ("note", "In plain language", "Synchrony asks whether people changed similarly at the same time or "
                                                    "with a small delay. An episode shows when and which subgroup."),
                     ("note", "Lag", "A 5 s lag means the best fit appeared after shifting one signal by five seconds. "

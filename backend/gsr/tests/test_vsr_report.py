@@ -127,11 +127,16 @@ def test_polish_report_lists_every_interview_with_times_previews_and_one_sentenc
 @pytest.mark.django_db
 def test_summary_tile_and_contents_list_the_interview_section(proposed) -> None:
     page = _page(proposed, "pl")
-    stats = report_data(proposed)["stats"]
+    data = report_data(proposed)
+    stats = data["stats"]
+    counts = {(item["stats"]["primary_count"], item["stats"]["reserve_count"]) for item in data["interviews"]}
     texts = _texts(page)
     assert "Wywiady VSR" in texts
     tile = texts[texts.index("Wywiady VSR") + 1]
-    assert tile in ("3 × 5 + 3", f"{stats['primary_total']} + {stats['reserve_total']}")
+    # Interviews × primary + reserve when every interview has the same numbers, the totals otherwise.
+    expected = (f"3 × {next(iter(counts))[0]} + {next(iter(counts))[1]}" if len(counts) == 1
+                else f"{stats['primary_total']} + {stats['reserve_total']}")
+    assert tile == expected
     assert 'href="#interviews"' in page and 'id="interviews"' in page
     assert page.index('id="coarousal"') < page.index('id="interviews"') < page.index('id="methodology"')
 

@@ -114,8 +114,9 @@ _TEXT: dict[str, dict[str, str]] = {
                             "rozbieżnej (sygnały zmieniają się w przeciwnych kierunkach), którego r jest równe lub "
                             "niższe od minus progu momentu wywiadu (za prośbą zespołu Hassana, „ideally above .80 for "
                             "the interviews”); 5 brak synchronii: najpierw pobudzenie przeciwstawne (zakładka Ko-pobudzenie: jedna "
-                            "osoba w stanie Wysokim, druga w Niskim), potem odcinek rozprzężenia, czyli odcinek między "
-                            "epizodami synchronizacji i rozbieżności pary, którego średnie r mieści się w ±0,1.",
+                            "osoba w stanie Wysokim, druga w Niskim), potem odcinek rozprzężenia między epizodami "
+                            "synchronizacji i rozbieżności pary, w którym każde okno ma |r| < 0,1 przez co najmniej "
+                            "minimalny czas epizodu (reguła rozprzężenia z ustawień Analizy).",
         "method_choice": "Korelacja r momentu to średnia z okien zakładki Synchronizacja (to samo okno, krok i "
                          "metoda) dla sygnałów pary albo nauczyciela i średniej uczniów (każdy uczeń w z-score, "
                          "potem średnia ponownie w z-score). Gdy kilka epizodów spełnia ten sam krok, pierwszy jest "
@@ -217,8 +218,9 @@ _TEXT: dict[str, dict[str, str]] = {
                             "divergent synchronization episode (the signals move in opposite directions) whose r is at "
                             "or below minus the interview moment threshold (as Hassan's team asked, “ideally above .80 "
                             "for the interviews”); 5 no synchrony: opposite arousal first (Co-arousal tab: one person in the "
-                            "High state while the other is in the Low state), then a decoupling stretch, a stretch "
-                            "between the pair's synchronization and divergent episodes whose mean r lies within ±0.1.",
+                            "High state while the other is in the Low state), then a decoupling stretch between the "
+                            "pair's synchronization and divergent episodes in which every window has |r| < 0.1 for at "
+                            "least the minimum episode duration (the decoupling rule of the Analysis settings).",
         "method_choice": "A moment's correlation r is the mean over the Synchronization tab's windows (same window, "
                          "step and method) of the pair's signals, or of the teacher and the students' average (each "
                          "student z-scored, then the average z-scored again). When several episodes answer the "

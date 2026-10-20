@@ -84,8 +84,9 @@ outdated until each is refreshed in order. The flow chart's correlation criteria
 0.8", "Asynchronous = below 0.1") are read as the strength of the correlation, its absolute value, and
 Hassan's team's e-mail adds the types the chart leaves out. The steps are 1 co-movement and a shared state,
 2 co-movement only (both with a moment r of at least 0.8), 3 shared High, 4 shared Low, 5 no synchrony
-(opposite arousal, one person High while the other is Low, then a decoupling stretch, mean r within
-+/-0.1, closest to zero first) and then 4b divergent synchrony (signals moving in opposite directions,
+(opposite arousal, one person High while the other is Low, then a decoupling stretch, every 30 s window
+|r| < 0.1 for at least the minimum episode duration as in Hassan's script, closest to zero first; the
+decoupling rule is an Analysis setting) and then 4b divergent synchrony (signals moving in opposite directions,
 moment r at most -0.8), walked after step 5 so the five primary moments keep the chart's "4 synchronous,
 1 not synchronous"; their order lives in one tuple (`pipeline/vsr.py` `PROTOCOL`). The Analysis finds
 divergent synchronization episodes (r <= -0.3 in every window), decoupling stretches and opposite-arousal

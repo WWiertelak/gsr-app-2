@@ -131,7 +131,7 @@ def synchrony_episodes_csv(synchrony: dict[str, Any], lesson_clock: datetime | N
 
 
 def decoupled_episodes_csv(synchrony: dict[str, Any], lesson_clock: datetime | None = None) -> bytes:
-    """Decoupling stretches: the pair and the mean r over the whole stretch."""
+    """Decoupling stretches: the pair, the mean r of the stretch's windows and (one-correlation rule) its r."""
     rows = [
         {
             "episode": index + 1,
@@ -142,11 +142,13 @@ def decoupled_episodes_csv(synchrony: dict[str, Any], lesson_clock: datetime | N
             "duration_minutes": episode["end_relative"] - episode["start_relative"],
             "members": _join(episode["members"]),
             "mean_r": episode["mean_r"],
+            # The one correlation over the stretch's data, under the "stretch_correlation" decoupling rule only.
+            "stretch_r": episode.get("stretch_r"),
         }
         for index, episode in enumerate(synchrony.get("decoupled_episodes", []))
     ]
     columns = ["episode", "clock_start", "clock_end", "start_minutes", "end_minutes", "duration_minutes", "members",
-               "mean_r"]
+               "mean_r", "stretch_r"]
     return _csv(pd.DataFrame(rows, columns=columns))
 
 
