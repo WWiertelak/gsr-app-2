@@ -146,10 +146,10 @@
           <div class="lesson-timeline">
             <div class="lt-lane">
               <span class="lt-lane-label">{% translate "On the list" %}</span>
-              <div class="lt-track" role="img" aria-label="{% translate 'Moments on the list' %}: {% for moment in interview.moments %}{% if not moment.rejected %}{{ moment.number }} {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}">
+              <div class="lt-track" role="img" aria-label="{% translate 'Moments on the list' %}: {% for moment in interview.moments %}{% if not moment.rejected %}{{ moment.number }} {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}{% if moment.start_clock %} ({{ moment.start_clock }}–{{ moment.end_clock }}){% endif %}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}">
                 {% for tick in interview.ticks %}<span class="lt-grid" style="left: {{ tick.pct }}%"></span>{% endfor %}
                 {% for moment in interview.moments %}{% if not moment.rejected %}
-                  <a class="lt-moment{% if not moment.primary %} reserve{% endif %}" href="#moment-{{ moment.id }}" style="left: {{ moment.bar.left }}%; width: {{ moment.bar.width }}%" title="{{ moment.number }} · {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}"><b>{{ moment.number }}</b></a>
+                  <a class="lt-moment{% if not moment.primary %} reserve{% endif %}" href="#moment-{{ moment.id }}" style="left: {{ moment.bar.left }}%; width: {{ moment.bar.width }}%" title="{{ moment.number }} · {{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}{% if moment.start_clock %} · {{ moment.start_clock }}–{{ moment.end_clock }}{% endif %}"><b>{{ moment.number }}</b></a>
                 {% endif %}{% endfor %}
               </div>
             </div>
@@ -160,7 +160,7 @@
                   <div class="lt-track candidates">
                     {% for tick in interview.ticks %}<span class="lt-grid" style="left: {{ tick.pct }}%"></span>{% endfor %}
                     {% for candidate in lane.candidates %}
-                      <a class="lt-candidate {{ candidate.state }}" href="#{{ candidate.id }}" data-candidate="{{ candidate.id }}" aria-controls="{{ candidate.id }}" aria-expanded="false" style="left: {{ candidate.bar.left }}%; width: {{ candidate.bar.width }}%" title="{{ candidate.step_title }} · {{ candidate.start_seconds|seconds_mmss }}–{{ candidate.end_seconds|seconds_mmss }}{% if candidate.number %} · {{ candidate.number }}{% endif %}"><span class="sr-only">{{ candidate.step_title }}, {{ candidate.start_seconds|seconds_mmss }}–{{ candidate.end_seconds|seconds_mmss }}</span>{% if candidate.number %}<b aria-hidden="true">{{ candidate.number }}</b>{% endif %}</a>
+                      <a class="lt-candidate {{ candidate.state }}" href="#{{ candidate.id }}" data-candidate="{{ candidate.id }}" aria-controls="{{ candidate.id }}" aria-expanded="false" style="left: {{ candidate.bar.left }}%; width: {{ candidate.bar.width }}%" title="{{ candidate.step_title }} · {{ candidate.start_seconds|seconds_mmss }}–{{ candidate.end_seconds|seconds_mmss }}{% if candidate.start_clock %} · {{ candidate.start_clock }}–{{ candidate.end_clock }}{% endif %}{% if candidate.number %} · {{ candidate.number }}{% endif %}"><span class="sr-only">{{ candidate.step_title }}, {{ candidate.start_seconds|seconds_mmss }}–{{ candidate.end_seconds|seconds_mmss }}{% if candidate.start_clock %} ({{ candidate.start_clock }}–{{ candidate.end_clock }}){% endif %}</span>{% if candidate.number %}<b aria-hidden="true">{{ candidate.number }}</b>{% endif %}</a>
                     {% empty %}
                       <span class="lt-none">{% translate "none" %}</span>
                     {% endfor %}
@@ -177,7 +177,7 @@
             <div class="candidate-detail {{ candidate.state }}" id="{{ candidate.id }}" data-candidate-panel tabindex="-1">
               <div class="candidate-head">
                 <strong>{{ candidate.step_title }}</strong>
-                <span class="moment-when">{{ candidate.start_seconds|seconds_mmss }}–{{ candidate.end_seconds|seconds_mmss }} <span class="muted">({{ candidate.duration_seconds|seconds_mmss }})</span></span>
+                <span class="moment-when">{{ candidate.start_seconds|seconds_mmss }}–{{ candidate.end_seconds|seconds_mmss }}{% if candidate.start_clock %} <span class="muted" title="{% translate 'Sensor clock' %}">· {{ candidate.start_clock }}–{{ candidate.end_clock }}</span>{% endif %} <span class="muted">({{ candidate.duration_seconds|seconds_mmss }})</span></span>
                 {% if candidate.start_clock %}<span class="muted small">{% translate "Sensor clock" %} {{ candidate.start_clock }}–{{ candidate.end_clock }}</span>{% endif %}
                 <span class="muted small">{% blocktranslate with rank=candidate.rank count=candidate.count %}candidate {{ rank }} of {{ count }} in this step{% endblocktranslate %}</span>
                 {% if candidate.state == "primary" %}<span class="badge sig">{% blocktranslate with number=candidate.number %}primary, moment {{ number }}{% endblocktranslate %}</span>

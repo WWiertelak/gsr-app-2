@@ -82,6 +82,8 @@ _TEXT: dict[str, dict[str, str]] = {
         "rejected": "Odrzucone przez badacza i pominięte w raporcie: {count}.",
         "added_by": "Dodany przez badacza:",
         "retimed": "Zaproponowano {start}–{end}; czas zmieniony przez badacza:",
+        "retimed_clock": "Zaproponowano {start}–{end} (zegar czujnika {clock_start}–{clock_end}); czas zmieniony "
+                         "przez badacza:",
         "needs_check_rules": "Decyzję podjęto, gdy momenty wybrano według wcześniejszych reguł; aplikacja czyta teraz "
                              "schemat VSR według siły korelacji. Decyzja badacza została zachowana. Sprawdź ją.",
         "stale_rules": "Te momenty wybrano według wcześniejszych reguł. Aplikacja czyta teraz kryteria korelacji "
@@ -193,6 +195,8 @@ _TEXT: dict[str, dict[str, str]] = {
         "rejected": "Rejected by the researcher and left out of the report: {count}.",
         "added_by": "Added by the researcher:",
         "retimed": "Proposed as {start}–{end}; time changed by the researcher:",
+        "retimed_clock": "Proposed as {start}–{end} (sensor clock {clock_start}–{clock_end}); time changed by the "
+                         "researcher:",
         "needs_check_rules": "The decision was made when the moments were chosen under the earlier rules; the app now "
                              "reads the VSR flow chart by correlation strength. The researcher's decision was kept. "
                              "Check it.",
@@ -370,8 +374,12 @@ def _change(lang: str, moment: dict[str, Any]) -> list[str]:
     """What the researcher changed about a proposed moment's time, and why."""
     if not moment["time_changed"]:
         return []
-    proposed = _t(lang, "retimed", start=seconds_mmss(moment["original_start_seconds"]),
-                  end=seconds_mmss(moment["original_end_seconds"]))
+    times = {"start": seconds_mmss(moment["original_start_seconds"]), "end": seconds_mmss(moment["original_end_seconds"])}
+    if moment.get("original_start_clock") and moment.get("original_end_clock"):
+        proposed = _t(lang, "retimed_clock", **times, clock_start=moment["original_start_clock"],
+                      clock_end=moment["original_end_clock"])
+    else:
+        proposed = _t(lang, "retimed", **times)
     return [f"{proposed} {moment['reason']}"]
 
 

@@ -905,6 +905,9 @@ def _moment_view(item: curation.CuratedMoment, interview: dict[str, Any], payloa
         "duration_seconds": duration,
         "start_clock": item.start_clock,
         "end_clock": item.end_clock,
+        # The proposed times on the sensor clock, for a retimed moment's "Proposed as".
+        "proposed_start_clock": None if row.is_manual else row.proposal.get("start_clock"),
+        "proposed_end_clock": None if row.is_manual else row.proposal.get("end_clock"),
         "bar": _bar(row.start_seconds, row.end_seconds, lesson),
         "from_timeline": not row.is_manual and bool(row.proposal.get(curation.FROM_TIMELINE)),
         "chart": _moment_chart(payload, interview, row, colors, item.number),

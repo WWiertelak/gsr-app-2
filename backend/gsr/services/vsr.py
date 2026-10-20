@@ -180,7 +180,8 @@ def _report_moment(number: int, role: str, decision: str, source: dict[str, Any]
     base = {field: None for field in PROPOSAL_FIELDS}
     base.update(
         number=number, status=role, decision=decision, source="proposed", time_changed=False, reason="", note="",
-        needs_check=False, check_reason=None, original_start_seconds=None, original_end_seconds=None, proposal={},
+        needs_check=False, check_reason=None, original_start_seconds=None, original_end_seconds=None,
+        original_start_clock=None, original_end_clock=None, proposal={},
     )
     return {**base, **source}
 
@@ -216,6 +217,9 @@ def _curated_moments(items: list[Any]) -> list[dict[str, Any]]:
             "time_changed": row.time_changed,
             "original_start_seconds": row.original_start_seconds,
             "original_end_seconds": row.original_end_seconds,
+            # The proposed times on the sensor clock, as the proposal stored them.
+            "original_start_clock": None if row.is_manual else row.proposal.get("start_clock"),
+            "original_end_clock": None if row.is_manual else row.proposal.get("end_clock"),
             "reason": row.reason,
             "note": row.note,
             "needs_check": row.needs_check,

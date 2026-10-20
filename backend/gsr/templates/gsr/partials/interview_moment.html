@@ -9,7 +9,7 @@ researcher's actions. Every action posts to gsr:interview_moment and swaps the m
     {% else %}<span class="badge neutral">{% translate "reserve" %}</span>{% endif %}
     {% if moment.accepted %}<span class="badge good">✓ {% translate "accepted" %}</span>{% endif %}
     <strong>{% if moment.manual %}{% translate "Added manually" %}{% else %}{{ moment.step_title }}{% endif %}</strong>
-    <span class="moment-when">{{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}</span>
+    <span class="moment-when">{{ moment.start_seconds|seconds_mmss }}–{{ moment.end_seconds|seconds_mmss }}{% if moment.start_clock %} <span class="muted" title="{% translate 'Sensor clock' %}">· {{ moment.start_clock }}–{{ moment.end_clock }}</span>{% endif %}</span>
     {% if moment.proposed_role == "reserve" %}<span class="muted small">{% translate "proposed as reserve" %}</span>
     {% elif moment.proposed_role == "primary" %}<span class="muted small">{% translate "proposed as primary" %}</span>{% endif %}
     {% if moment.from_timeline %}<span class="muted small">{% translate "added from the timeline" %}</span>{% endif %}
@@ -35,7 +35,9 @@ researcher's actions. Every action posts to gsr:interview_moment and swaps the m
       {% if moment.manual %}
         <p class="moment-sentence">{% translate "Added by the researcher:" %} {{ moment.row.reason }}</p>
       {% else %}
-        {% if moment.time_changed %}
+        {% if moment.time_changed and moment.proposed_start_clock %}
+          <p class="moment-change small">{% blocktranslate with start=moment.row.original_start_seconds|seconds_mmss end=moment.row.original_end_seconds|seconds_mmss clock_start=moment.proposed_start_clock clock_end=moment.proposed_end_clock %}Proposed as {{ start }}–{{ end }} (sensor clock {{ clock_start }}–{{ clock_end }}); time changed by the researcher:{% endblocktranslate %} {{ moment.row.reason }}</p>
+        {% elif moment.time_changed %}
           <p class="moment-change small">{% blocktranslate with start=moment.row.original_start_seconds|seconds_mmss end=moment.row.original_end_seconds|seconds_mmss %}Proposed as {{ start }}–{{ end }}; time changed by the researcher:{% endblocktranslate %} {{ moment.row.reason }}</p>
         {% endif %}
         <p class="moment-sentence">{{ moment.sentence }}</p>

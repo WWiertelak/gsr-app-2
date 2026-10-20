@@ -1114,6 +1114,13 @@ def test_export_json_records_settings_versions_and_inputs(client, project) -> No
         assert segment["end_clock"] == (start + pd.Timedelta(minutes=segment["end_min"])).strftime("%H:%M:%S")
     for episode in document["synchrony"]["episodes"]:
         assert episode["start_clock"] == (start + pd.Timedelta(minutes=episode["start_relative"])).strftime("%H:%M:%S")
+    # The synchronization windows and the state map on the sensor clock too.
+    windows = document["synchrony"]["windows"]
+    assert len(windows["center_clocks"]) == len(windows["centers"]) > 0
+    assert windows["center_clocks"][-1] == (start + pd.Timedelta(minutes=windows["centers"][-1])).strftime("%H:%M:%S")
+    states = document["coarousal"]["state_timeline"]
+    assert len(states["clocks"]) == len(states["times_min"]) > 0
+    assert states["clocks"][1] == (start + pd.Timedelta(minutes=states["times_min"][1])).strftime("%H:%M:%S")
 
 
 @pytest.mark.django_db

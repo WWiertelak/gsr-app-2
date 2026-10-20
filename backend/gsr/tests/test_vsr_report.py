@@ -379,9 +379,15 @@ def test_csv_lists_accepted_retimed_and_manual_moments_with_reasons_and_notes(cu
     retimed = next(row for row in own if row["time_changed"] == "True")
     assert retimed["reason"] == "the exchange starts a little later" and retimed["note"] == "Ask about the group task"
     assert float(retimed["lesson_start_s"]) == float(retimed["proposed_start_s"]) + 5.0
+    # The proposed times on the sensor clock too, as the proposal stored them.
+    proposal = next(moment for interview in report_data(curated)["interviews"] if interview["key"] == "S1+S2"
+                    for moment in interview["moments"] if moment["time_changed"])["proposal"]
+    assert (retimed["proposed_clock_start"], retimed["proposed_clock_end"]) == (proposal["start_clock"],
+                                                                                proposal["end_clock"])
     manual = next(row for row in own if row["source"] == "manual")
     assert manual["justification"] == "Added by the researcher: the teacher stood next to the pair"
     assert manual["step"] == "" and manual["correlation"] == "" and manual["proposed_start_s"] == ""
+    assert manual["proposed_clock_start"] == ""
     assert manual["clock_start"]
     # A proposed moment's step stays a whole number although a manual row leaves the column empty there.
     assert {row["step"] for row in own if row["source"] == "proposed"} <= {"1", "2", "3", "4", "5"}
@@ -395,7 +401,8 @@ def test_report_shows_the_curated_list_in_both_languages(curated) -> None:
     assert "the teacher stood next to the pair" in pl and "Ask about the group task" in pl
     assert "Dodany ręcznie" in texts and "Dodany przez badacza:" in pl
     assert "Odrzucone przez badacza i pominięte w raporcie: 1." in texts
-    assert any(text.startswith("Zaproponowano ") and "czas zmieniony przez badacza:" in text for text in texts)
+    assert any(text.startswith("Zaproponowano ") and "(zegar czujnika " in text
+               and "czas zmieniony przez badacza:" in text for text in texts)
     assert any(text.startswith("Lista momentów to lista badacza") for text in texts)
     assert "zaakceptowany" in texts and "zaakceptowany, czas zmieniony" not in texts
     assert "zaakceptowany" in pl and "czas zmieniony" in pl

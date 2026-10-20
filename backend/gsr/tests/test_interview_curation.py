@@ -10,12 +10,14 @@ from django.urls import reverse
 from django.utils import timezone, translation
 
 from gsr.models import AnalysisResult, InterviewMoment, Project
+from gsr.pipeline.common import clock_at
 from gsr.pipeline.vsr import PRIMARY, RESERVE
 from gsr.services import curation
 from gsr.services.datasets import add_dataset
 from gsr.services.interview import apply_interview_config
 from gsr.services.results import compute_analysis
 from gsr.services.vsr import compute_interviews
+from gsr.templatetags.gsr_tags import seconds_mmss
 
 from .sample_data import Participant, write_group
 
@@ -347,6 +349,34 @@ def test_card_actions_post_through_htmx_and_without_javascript(client, proposed)
     assert row.status == InterviewMoment.STATUS_REJECTED
 
     assert client.post(url, {"action": "explode"}).status_code == 404
+
+
+@pytest.mark.django_db
+def test_the_moment_cards_and_the_timeline_show_the_sensor_clock(client, proposed) -> None:
+    # Hassan: sensor-clock timestamps everywhere. The card header, a retimed moment's proposed times, the timeline's
+    # moment and candidate tooltips and the candidate details carry the clock next to the lesson time.
+    project, result = proposed
+    row = _list(project, result)[0].row
+    proposed_clock = (row.proposal["start_clock"], row.proposal["end_clock"])
+    curation.change_time(row, result, row.start_seconds + 5, row.end_seconds, "Starts with the question.")
+    row.refresh_from_db()
+    moved = (clock_at(curation.lesson_clock_start(result.payload), row.start_seconds),
+             clock_at(curation.lesson_clock_start(result.payload), row.end_seconds))
+
+    with translation.override("en"):
+        html = client.get(reverse("gsr:interviews", args=[project.pk]), HTTP_ACCEPT_LANGUAGE="en").content.decode()
+
+    card = html[html.index(f'id="moment-{row.pk}"'):]
+    header = card[:card.index("</div>")]
+    assert f"{seconds_mmss(row.start_seconds)}–{seconds_mmss(row.end_seconds)}" in header
+    assert f"· {moved[0]}–{moved[1]}" in header
+    assert (f"Proposed as {seconds_mmss(row.original_start_seconds)}–{seconds_mmss(row.original_end_seconds)} "
+            f"(sensor clock {proposed_clock[0]}–{proposed_clock[1]}); time changed by the researcher:") in card
+    assert f'{seconds_mmss(row.end_seconds)} · {moved[0]}–{moved[1]}"' in html  # the timeline's tooltip
+    candidate = result.payload["interviews"][0]["candidates"][0]
+    times = f"{seconds_mmss(candidate['start_seconds'])}–{seconds_mmss(candidate['end_seconds'])}"
+    assert f"{times} · {candidate['start_clock']}–{candidate['end_clock']}" in html  # tooltip
+    assert f"{times} ({candidate['start_clock']}–{candidate['end_clock']})</span>" in html  # screen readers
 
 
 @pytest.mark.django_db

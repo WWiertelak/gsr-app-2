@@ -212,8 +212,8 @@ def coarousal_state_percentages_csv(coarousal: dict[str, Any]) -> bytes:
 
 VSR_MOMENT_COLUMNS = (
     "interview", "interview_type", "participants", "number", "status", "decision", "source", "step", "step_name",
-    "moment_type", "pass", "lesson_start_s", "lesson_end_s", "time_changed", "proposed_start_s", "proposed_end_s", "clock_start",
-    "clock_end", "analysis_episode", "correlation", "shared_state", "in_shared_state",
+    "moment_type", "pass", "lesson_start_s", "lesson_end_s", "time_changed", "proposed_start_s", "proposed_end_s",
+    "proposed_clock_start", "proposed_clock_end", "clock_start", "clock_end", "analysis_episode", "correlation", "shared_state", "in_shared_state",
     "candidate_rank", "candidate_count", "justification", "reason", "note", "check", "stale",
 )
 
@@ -245,7 +245,8 @@ def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
     The rows are the researcher's list from the Interviews step without its rejected moments (the moments chosen
     from the Analysis for an interview nobody has curated): ``decision`` is accepted, undecided or manual;
     ``status`` is primary or reserve by the place on the list; a retimed moment (``time_changed``) keeps the
-    proposed times and the ``reason``; ``analysis_episode`` names the Analysis episode the moment came from.
+    proposed times (lesson seconds and sensor clock) and the ``reason``; ``analysis_episode`` names the episode the
+    moment came from.
     ``stale`` is True on every row when the participants, the number of moments or the analysis changed after the
     moments were chosen.
     """
@@ -268,6 +269,8 @@ def vsr_moments_csv(vsr: dict[str, Any]) -> bytes:
                 "time_changed": moment["time_changed"],
                 "proposed_start_s": moment["original_start_seconds"],
                 "proposed_end_s": moment["original_end_seconds"],
+                "proposed_clock_start": moment["original_start_clock"],
+                "proposed_clock_end": moment["original_end_clock"],
                 "clock_start": moment["start_clock"],
                 "clock_end": moment["end_clock"],
                 "analysis_episode": _episode_label(moment["episode"], interview["kind"]),
@@ -315,8 +318,9 @@ def _with_clocks(items: list[dict[str, Any]], lesson_clock: datetime | None, sta
 def results_document(project: Project, stored: AnalysisResult) -> dict[str, Any]:
     """Run settings, input files and results: enough for a recipient to check what was run.
 
-    Episodes carry the recordings' own clock (``start_clock`` / ``end_clock``) next to their lesson times;
-    ``lesson_clock_start`` is the clock at lesson time 0, so any other lesson time converts the same way.
+    Episodes carry the recordings' own clock (``start_clock`` / ``end_clock``) next to their lesson times, the
+    synchronization windows ``center_clocks`` and the state map ``clocks``; ``lesson_clock_start`` is the clock at
+    lesson time 0, so any other lesson time converts the same way.
     """
     payload = stored.payload
     lesson_clock = _lesson_clock(stored)
@@ -325,12 +329,20 @@ def results_document(project: Project, stored: AnalysisResult) -> dict[str, Any]
         synchrony = {**synchrony, **{
             key: _with_clocks(synchrony[key], lesson_clock, "start_relative", "end_relative", True)
             for key in ("episodes", "divergent_episodes", "decoupled_episodes") if key in synchrony}}
+        if "windows" in synchrony:
+            windows = synchrony["windows"]
+            synchrony["windows"] = {**windows, "center_clocks": [_minutes_clock(lesson_clock, center)
+                                                                 for center in windows.get("centers", [])]}
     coarousal = payload.get("coarousal")
     if coarousal:
         coarousal = {**coarousal,
                      "episodes": _with_clocks(coarousal.get("episodes", []), lesson_clock, "start_s", "end_s", False),
                      "primary_timeline": _with_clocks(coarousal.get("primary_timeline", []), lesson_clock,
                                                       "start_min", "end_min", True)}
+        if "state_timeline" in coarousal:
+            timeline = coarousal["state_timeline"]
+            coarousal["state_timeline"] = {**timeline, "clocks": [_minutes_clock(lesson_clock, minute)
+                                                                  for minute in timeline.get("times_min", [])]}
     preview = payload.get("preview", {})
     files = {str(dataset.id): dataset for dataset in project.datasets.all()}
     datasets = []
