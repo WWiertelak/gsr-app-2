@@ -1094,7 +1094,7 @@ def _section_methodology(payload: dict[str, Any], lang: str) -> dict[str, Any]:
         for block in section["blocks"]:
             blocks += _methodology_blocks(block)
     if payload.get("vsr"):
-        blocks += interviews.methodology_blocks(lang)
+        blocks += interviews.methodology_blocks(payload["vsr"], lang)
 
     comparison = METHODS_COMPARISON.get(lang, METHODS_COMPARISON["pl"])
     blocks += [

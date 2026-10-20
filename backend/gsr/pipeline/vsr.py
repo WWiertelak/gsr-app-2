@@ -124,6 +124,7 @@ ANALYSIS_SETTINGS = (
     "synchrony_interview_threshold",
     "synchrony_divergent_threshold",
     "synchrony_decoupled_threshold",
+    "synchrony_decoupled_rule",
     "contagion_high_z",
     "contagion_low_z",
     "contagion_min_participants",

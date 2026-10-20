@@ -18,6 +18,7 @@ from django.utils.formats import number_format
 from django.utils.safestring import SafeString
 
 from .. import params, vsr_text
+from ..pipeline.config import VSR_DOCUMENT_SETTINGS
 from ..pipeline.vsr import HIGH, LOW, PRIMARY
 from ..templatetags.gsr_tags import seconds_mmss
 from .vsr_charts import lesson_timeline_svg, moment_chart_svg
@@ -117,7 +118,7 @@ _TEXT: dict[str, dict[str, str]] = {
                             "projekcie; ekran Analizy pokazuje całą klasę. Kryteria schematu VSR („Synchronous = above "
                             "0.8”, „Asynchronous = below 0.1”) czytane są jako siła korelacji, czyli jej wartość "
                             "bezwzględna. Kroki: 1 to epizod ko-ruchu (synchronizacji lub ko-ruchu z zakładki "
-                            "Ko-pobudzenie), którego r osiąga próg momentu wywiadu (0,8), nakładający się na wspólny "
+                            "Ko-pobudzenie), którego r osiąga próg momentu wywiadu ({interview}), nakładający się na wspólny "
                             "stan Wysoki lub Niski; 2 taki epizod ko-ruchu bez wspólnego stanu; 3 i 4 epizod wspólnego "
                             "stanu Wysokiego lub Niskiego bez takiego ko-ruchu; 4b, przechodzony po kroku 5, żeby pierwsze pięć "
                             "momentów zachowało „4 synchronous, 1 not synchronous” schematu, to epizod synchronizacji "
@@ -125,8 +126,11 @@ _TEXT: dict[str, dict[str, str]] = {
                             "niższe od minus progu momentu wywiadu (za prośbą zespołu Hassana, „ideally above .80 for "
                             "the interviews”); 5 brak synchronii: najpierw pobudzenie przeciwstawne (zakładka Ko-pobudzenie: jedna "
                             "osoba w stanie Wysokim, druga w Niskim), potem odcinek rozprzężenia między epizodami "
-                            "synchronizacji i rozbieżności pary, w którym każde okno ma |r| < 0,1 przez co najmniej "
-                            "minimalny czas epizodu (reguła rozprzężenia z ustawień Analizy).",
+                            "synchronizacji i rozbieżności pary, {decoupling} (reguła rozprzężenia z ustawień Analizy).",
+        "decoupling_every_window": "w którym każde okno ma |r| < {threshold} przez co najmniej minimalny czas epizodu",
+        "decoupling_stretch_correlation": "bez okna o sile rozbieżności (|r| ≥ {divergent}), trwający co najmniej "
+                                          "minimalny czas epizodu, którego jedna korelacja danych mieści się w "
+                                          "±{threshold}",
         "method_choice": "Korelacja r momentu to średnia z okien zakładki Synchronizacja (to samo okno, krok i "
                          "metoda) dla sygnałów pary albo nauczyciela i średniej uczniów (każdy uczeń w z-score, "
                          "potem średnia ponownie w z-score), ze wszystkich okien momentu; „Śr. siła” i „Śr. r” w "
@@ -233,7 +237,7 @@ _TEXT: dict[str, dict[str, str]] = {
                             "else is in the project; the Analysis screen shows the whole class. The VSR flow chart's "
                             "criteria (“Synchronous = above 0.8”, “Asynchronous = below 0.1”) are read as the strength "
                             "of the correlation, its absolute value. The steps: 1 is a co-movement episode (synchronization, or "
-                            "co-movement on the Co-arousal tab) whose r reaches the interview moment threshold (0.8) "
+                            "co-movement on the Co-arousal tab) whose r reaches the interview moment threshold ({interview}) "
                             "overlapping a shared High or Low state; 2 such a co-movement episode without a shared "
                             "state; 3 and 4 a shared High or Low episode without such co-movement; 4b, walked after step "
                             "5 so the first five moments keep the flow chart's “4 synchronous, 1 not synchronous”, a "
@@ -241,8 +245,13 @@ _TEXT: dict[str, dict[str, str]] = {
                             "or below minus the interview moment threshold (as Hassan's team asked, “ideally above .80 "
                             "for the interviews”); 5 no synchrony: opposite arousal first (Co-arousal tab: one person in the "
                             "High state while the other is in the Low state), then a decoupling stretch between the "
-                            "pair's synchronization and divergent episodes in which every window has |r| < 0.1 for at "
-                            "least the minimum episode duration (the decoupling rule of the Analysis settings).",
+                            "pair's synchronization and divergent episodes {decoupling} (the decoupling rule of the Analysis "
+                            "settings).",
+        "decoupling_every_window": "in which every window has |r| < {threshold} for at least the minimum episode "
+                                   "duration",
+        "decoupling_stretch_correlation": "without a window at the divergent strength (|r| ≥ {divergent}), at least "
+                                          "the minimum episode duration long, whose one correlation over its data "
+                                          "lies within ±{threshold}",
         "method_choice": "A moment's correlation r is the mean over the Synchronization tab's windows (same window, "
                          "step and method) of the pair's signals, or of the teacher and the students' average (each "
                          "student z-scored, then the average z-scored again), over all the moment's windows; the "
@@ -261,7 +270,8 @@ _TEXT: dict[str, dict[str, str]] = {
 _SETTINGS = (
     "synchrony_threshold", "synchrony_window_seconds", "synchrony_step_seconds",
     "synchrony_episode_min_duration_seconds", "synchrony_episode_max_gap_seconds", "synchrony_interview_threshold",
-    "synchrony_divergent_threshold", "synchrony_decoupled_threshold", "contagion_high_z", "contagion_low_z",
+    "synchrony_divergent_threshold", "synchrony_decoupled_threshold", "synchrony_decoupled_rule", "contagion_high_z",
+    "contagion_low_z",
 )
 
 
@@ -322,10 +332,14 @@ def _episode_cell(lang: str, moment: dict[str, Any], interview_kind: str) -> str
     return _t(lang, key, number=episode["number"])
 
 
+def _setting_text(name: str, value: Any) -> str:
+    return str(params.choice_label(name, value)) if isinstance(value, str) else params.display_number(value)
+
+
 def _source_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
     settings = vsr["analysis_settings"]
     labels = {param.name: str(param.label) for param in params.ANALYSIS_PARAMS}
-    rows = [[labels.get(name, name), params.display_number(settings[name])] for name in _SETTINGS if name in settings]
+    rows = [[labels.get(name, name), _setting_text(name, settings[name])] for name in _SETTINGS if name in settings]
     computed = (vsr.get("analysis_computed_at") or "")[:16].replace("T", " ")
     counts = vsr["counts"]
     rows = [
@@ -504,10 +518,18 @@ def summary_kpi(vsr: dict[str, Any] | None, lang: str) -> dict[str, Any] | None:
     return {"label": _t(lang, "summary_label"), "value": value, "unit": _t(lang, "summary_unit"), "details": details}
 
 
-def methodology_blocks(lang: str) -> list[dict[str, Any]]:
-    """The short note on how the moments are chosen, appended to the Methodology."""
+def methodology_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
+    """The short note on how the moments are chosen, appended to the Methodology, with the settings they were
+    chosen with (stored without a decoupling rule: every window)."""
+    settings = {**VSR_DOCUMENT_SETTINGS, **vsr["analysis_settings"]}
+    with translation.override(lang):
+        threshold = params.display_number(settings["synchrony_decoupled_threshold"])
+        decoupling = _t(lang, f"decoupling_{settings['synchrony_decoupled_rule']}", threshold=threshold,
+                        divergent=params.display_number(settings["synchrony_divergent_threshold"]))
+        selection = _t(lang, "method_selection", decoupling=decoupling,
+                       interview=params.display_number(settings["synchrony_interview_threshold"]))
     return [
         {"type": "h2", "text": _t(lang, "method_title")},
-        _p(_t(lang, "method_selection")),
+        _p(selection),
         _p(_t(lang, "method_choice")),
     ]

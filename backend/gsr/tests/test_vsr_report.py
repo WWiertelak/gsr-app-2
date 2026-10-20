@@ -16,6 +16,7 @@ from django.urls import reverse
 
 from gsr.models import AnalysisResult, InterviewMoment, Project
 from gsr.pipeline.vsr import aggregate_student_signal
+from gsr.reporting import interviews
 from gsr.reporting.report import render_report_html, render_report_pdf
 from gsr.reporting.vsr_charts import lesson_timeline_svg, moment_chart_svg
 from gsr.services import curation
@@ -459,3 +460,35 @@ def test_summary_tile_counts_the_researchers_list(curated) -> None:
     assert stats["primary_total"] + stats["reserve_total"] == sum(
         len(i["moments"]) for i in report_data(curated)["interviews"])
     assert own["stats"]["primary_count"] + own["stats"]["reserve_count"] == len(own["moments"])
+
+
+@pytest.mark.parametrize("lang, interview, decoupling", [
+    ("pl", "próg momentu wywiadu (0,7)", "bez okna o sile rozbieżności (|r| ≥ 0,4)"),
+    ("en", "interview moment threshold (0.7)", "without a window at the divergent strength (|r| ≥ 0.4)"),
+])
+def test_method_text_states_the_settings_the_moments_were_chosen_with(lang, interview, decoupling) -> None:
+    vsr = {"analysis_settings": {"synchrony_interview_threshold": 0.7, "synchrony_divergent_threshold": 0.4,
+                                 "synchrony_decoupled_threshold": 0.15,
+                                 "synchrony_decoupled_rule": "stretch_correlation"}}
+    selection = interviews.methodology_blocks(vsr, lang)[1]["text"]
+    assert interview in selection and decoupling in selection
+    assert ("±0,15" if lang == "pl" else "±0.15") in selection
+    assert "every window" not in selection and "każde okno" not in selection
+    # The flow chart's own words stay quoted as written.
+    assert "“Synchronous = above 0.8”" in selection or "„Synchronous = above 0.8”" in selection
+
+
+@pytest.mark.parametrize("lang, every_window", [
+    ("pl", "każde okno ma |r| < 0,1 przez co najmniej"),
+    ("en", "every window has |r| < 0.1 for at least"),
+])
+def test_method_text_of_moments_stored_without_a_decoupling_rule_reads_every_window(lang, every_window) -> None:
+    vsr = {"analysis_settings": {"synchrony_interview_threshold": 0.8, "synchrony_divergent_threshold": 0.3,
+                                 "synchrony_decoupled_threshold": 0.1}}
+    assert every_window in interviews.methodology_blocks(vsr, lang)[1]["text"]
+
+
+@pytest.mark.django_db
+def test_source_table_names_the_decoupling_rule(proposed) -> None:
+    texts = _texts(_page(proposed, "en"))
+    assert texts[texts.index("Decoupling rule") + 1] == "every window"
