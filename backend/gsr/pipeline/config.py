@@ -85,6 +85,11 @@ VSR_DOCUMENT_SETTINGS: dict[str, Any] = {
     "contagion_comovement_rho": 0.3,
     # The windowed correlation: Hassan's script uses Spearman (the flow chart names none).
     "synchrony_correlation_method": "spearman",
+    # Episodes are not joined across gaps: Hassan's printout keeps episodes 9 s and 11 s apart separate (shared Low
+    # 10:08:41-10:10:05 / 10:10:14-10:10:46, divergent 10:17:22-10:18:08 / 10:18:19-10:18:53). GSRv2 joined gaps up
+    # to 15 s (synchronization) and 30 s (co-arousal); ``PipelineConfig`` keeps those for projects saved earlier.
+    "synchrony_episode_max_gap_seconds": 0.0,
+    "contagion_min_episode_gap_seconds": 0.0,
     # STEPS 1-2 take a moment whose r is at least this; Hassan's e-mail: "ideally above .80 for the interviews".
     "synchrony_interview_threshold": 0.8,
     # Divergent synchrony: windows whose r is at or below minus this (Hassan's e-mail: "negative correlations

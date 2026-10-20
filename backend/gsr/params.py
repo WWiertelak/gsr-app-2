@@ -201,7 +201,14 @@ SYNCHRONY_ADVANCED = (
     Param("synchrony_surrogate_seed", _("Surrogate seed"), kind="int", step="1"),
     Param("synchrony_episode_min_size", _("Min. people per episode"), kind="int", step="1"),
     Param("synchrony_episode_min_duration_seconds", _("Min. episode duration (s)")),
-    Param("synchrony_episode_max_gap_seconds", _("Max gap (s)")),
+    Param(
+        "synchrony_episode_max_gap_seconds",
+        _("Max gap (s)"),
+        _(
+            "Synchronization and divergent episodes closer than this are joined into one. 0 (default, as in Hassan's "
+            "script) joins none; GSRv2 joined gaps up to 15 s."
+        ),
+    ),
     Param("synchrony_cluster_distance_threshold", _("Clustering threshold")),
     Param(
         "downsample_interval_seconds",
@@ -249,6 +256,14 @@ COAROUSAL_ADVANCED = (
         "contagion_comovement_rho",
         _("Co-movement threshold (ρ)"),
         _("Minimum mean pairwise Spearman correlation in a window to count it as co-movement."),
+    ),
+    Param(
+        "contagion_min_episode_gap_seconds",
+        _("Max gap (s)"),
+        _(
+            "Episodes of one kind closer than this are joined into one. 0 (default, as in Hassan's script) joins only "
+            "windows that touch; GSRv2 joined gaps up to 30 s."
+        ),
     ),
     Param(
         "contagion_surrogate_count",

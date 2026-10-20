@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 06:43+0000\n"
+"POT-Creation-Date: 2026-10-20 06:55+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -462,11 +462,11 @@ msgstr "każde okno"
 msgid "one correlation over the stretch"
 msgstr "jedna korelacja odcinka"
 
-#: gsr/params.py:180 gsr/params.py:236
+#: gsr/params.py:180 gsr/params.py:243
 msgid "Window (s)"
 msgstr "Okno (s)"
 
-#: gsr/params.py:183 gsr/params.py:242
+#: gsr/params.py:183 gsr/params.py:249
 msgid "Step (s)"
 msgstr "Krok (s)"
 
@@ -506,7 +506,7 @@ msgstr "przesunięcie kołowe"
 msgid "phase randomization"
 msgstr "randomizacja fazy"
 
-#: gsr/params.py:201 gsr/params.py:262
+#: gsr/params.py:201 gsr/params.py:277
 msgid "Surrogate seed"
 msgstr "Seed surogatów"
 
@@ -518,19 +518,28 @@ msgstr "Min. osób w epizodzie"
 msgid "Min. episode duration (s)"
 msgstr "Min. czas epizodu (s)"
 
-#: gsr/params.py:204
+#: gsr/params.py:206 gsr/params.py:262
 msgid "Max gap (s)"
 msgstr "Maks. przerwa (s)"
 
-#: gsr/params.py:205
+#: gsr/params.py:208
+msgid ""
+"Synchronization and divergent episodes closer than this are joined into one. "
+"0 (default, as in Hassan's script) joins none; GSRv2 joined gaps up to 15 s."
+msgstr ""
+"Epizody synchronizacji i rozbieżne bliższe niż ta wartość są łączone w "
+"jeden. 0 (domyślnie, jak w skrypcie Hassana) nie łączy żadnych; GSRv2 łączył "
+"przerwy do 15 s."
+
+#: gsr/params.py:212
 msgid "Clustering threshold"
 msgstr "Próg klastrowania"
 
-#: gsr/params.py:208
+#: gsr/params.py:215
 msgid "Downsampling interval (s)"
 msgstr "Interwał downsamplingu (s)"
 
-#: gsr/params.py:210
+#: gsr/params.py:217
 msgid ""
 "The downsampling interval defines time sampling: 1 s = 1 Hz, 2 s = every 2 "
 "seconds, etc. It reduces the number of analyzed points in whole seconds "
@@ -540,11 +549,11 @@ msgstr ""
 "sekundy itd. Pozwala redukować liczbę punktów do analizy przez "
 "wielokrotności sekundy przy zachowaniu trendu sygnału."
 
-#: gsr/params.py:221
+#: gsr/params.py:228
 msgid "High threshold (z)"
 msgstr "Próg Wysoki (z)"
 
-#: gsr/params.py:222
+#: gsr/params.py:229
 msgid ""
 "z above this = High-arousal state (relative to the participant's own "
 "baseline)."
@@ -552,19 +561,19 @@ msgstr ""
 "z powyżej tej wartości = stan Wysokiego pobudzenia (względem własnej linii "
 "bazowej uczestnika)."
 
-#: gsr/params.py:224
+#: gsr/params.py:231
 msgid "Low threshold (z)"
 msgstr "Próg Niski (z)"
 
-#: gsr/params.py:224
+#: gsr/params.py:231
 msgid "z below this = Low-arousal state."
 msgstr "z poniżej tej wartości = stan Niskiego pobudzenia."
 
-#: gsr/params.py:227
+#: gsr/params.py:234
 msgid "Min. participants"
 msgstr "Min. uczestników"
 
-#: gsr/params.py:228
+#: gsr/params.py:235
 msgid ""
 "Minimum number of participants in the same state for a second to count "
 "toward an episode."
@@ -572,7 +581,7 @@ msgstr ""
 "Minimalna liczba uczestników w tym samym stanie, aby sekunda liczyła się do "
 "epizodu."
 
-#: gsr/params.py:238
+#: gsr/params.py:245
 msgid ""
 "Length of the sliding window for episode detection. Note: with the 0.05 Hz "
 "filter the signal is very smooth, so pairwise correlation in a short window "
@@ -582,11 +591,11 @@ msgstr ""
 "sygnał jest bardzo gładki, więc korelacja parowa w krótkim oknie bywa "
 "zawyżona przez wspólny wolny trend."
 
-#: gsr/params.py:245
+#: gsr/params.py:252
 msgid "Agreement threshold"
 msgstr "Próg zgodności"
 
-#: gsr/params.py:246
+#: gsr/params.py:253
 msgid ""
 "Fraction of the window where the condition (≥ min. participants in state) "
 "must hold to form an episode."
@@ -594,11 +603,11 @@ msgstr ""
 "Ułamek okna, w którym warunek (≥ min. uczestników w stanie) musi być "
 "spełniony, aby powstał epizod."
 
-#: gsr/params.py:250
+#: gsr/params.py:257
 msgid "Co-movement threshold (ρ)"
 msgstr "Próg ko-ruchu (ρ)"
 
-#: gsr/params.py:251
+#: gsr/params.py:258
 msgid ""
 "Minimum mean pairwise Spearman correlation in a window to count it as co-"
 "movement."
@@ -606,11 +615,20 @@ msgstr ""
 "Minimalna średnia parowa korelacja Spearmana w oknie, aby uznać je za ko-"
 "ruch."
 
-#: gsr/params.py:255
+#: gsr/params.py:264
+msgid ""
+"Episodes of one kind closer than this are joined into one. 0 (default, as in "
+"Hassan's script) joins only windows that touch; GSRv2 joined gaps up to 30 s."
+msgstr ""
+"Epizody jednego rodzaju bliższe niż ta wartość są łączone w jeden. 0 "
+"(domyślnie, jak w skrypcie Hassana) łączy tylko stykające się okna; GSRv2 "
+"łączył przerwy do 30 s."
+
+#: gsr/params.py:270
 msgid "Surrogate count"
 msgstr "Liczba surogatów"
 
-#: gsr/params.py:256
+#: gsr/params.py:271
 msgid ""
 "Number of random circular shifts for the co-arousal index null distribution. "
 "0 = skip the significance test."
@@ -618,15 +636,15 @@ msgstr ""
 "Liczba losowych przesunięć kołowych do rozkładu zerowego indeksu ko-"
 "pobudzenia. 0 = pomiń test istotności."
 
-#: gsr/params.py:263
+#: gsr/params.py:278
 msgid "A fixed seed makes the co-arousal surrogate test reproducible."
 msgstr "Stały seed zapewnia odtwarzalność testu surogatowego ko-pobudzenia."
 
-#: gsr/params.py:272
+#: gsr/params.py:287
 msgid "Interview moment correlation (|r| at least)"
 msgstr "Korelacja momentu wywiadu (|r| co najmniej)"
 
-#: gsr/params.py:274
+#: gsr/params.py:289
 msgid ""
 "The strength of correlation a moment needs to count as synchronous on the "
 "Interviews step: STEPS 1–2 take a co-movement episode whose r is at least "
@@ -638,11 +656,11 @@ msgstr ""
 "wartość, krok 4b epizod rozbieżny, którego r jest równe lub niższe od minus "
 "tej wartości (schemat VSR: „Synchronous = above 0.8”)."
 
-#: gsr/params.py:281
+#: gsr/params.py:296
 msgid "Shared High/Low only without co-movement (STEPS 3–4)"
 msgstr "Wspólny stan Wysoki/Niski tylko bez ko-ruchu (KROKI 3–4)"
 
-#: gsr/params.py:283
+#: gsr/params.py:298
 msgid ""
 "Off (default, as in Hassan's script, where the categories may overlap): "
 "STEPS 3–4 take a whole shared High or Low episode, also one with co-movement "
@@ -653,7 +671,7 @@ msgstr ""
 "Niskiego, także z ko-ruchem w jego trakcie. Włączone: tylko epizody bez ko-"
 "ruchu o sile wymaganej w wywiadzie."
 
-#: gsr/params.py:312 gsr/views.py:367
+#: gsr/params.py:327 gsr/views.py:367
 msgid ""
 "The analysed period must lie inside the common window and end after it "
 "starts."
@@ -661,7 +679,7 @@ msgstr ""
 "Analizowany okres musi mieścić się we wspólnym oknie i kończyć się po swoim "
 "początku."
 
-#: gsr/params.py:385
+#: gsr/params.py:400
 #, python-format
 msgid "%(count)d changed"
 msgid_plural "%(count)d changed"
@@ -669,78 +687,78 @@ msgstr[0] "%(count)d zmieniony"
 msgstr[1] "%(count)d zmienione"
 msgstr[2] "%(count)d zmienionych"
 
-#: gsr/params.py:390 gsr/params.py:494
+#: gsr/params.py:405 gsr/params.py:509
 msgid "on"
 msgstr "wł."
 
-#: gsr/params.py:390 gsr/params.py:438 gsr/params.py:494
+#: gsr/params.py:405 gsr/params.py:453 gsr/params.py:509
 msgid "off"
 msgstr "wył."
 
-#: gsr/params.py:411
+#: gsr/params.py:426
 #, python-format
 msgid "%(section)s · %(label)s: %(value)s"
 msgstr "%(section)s · %(label)s: %(value)s"
 
-#: gsr/params.py:416
+#: gsr/params.py:431
 msgid "defaults"
 msgstr "domyślne"
 
-#: gsr/params.py:427 gsr/templates/gsr/partials/param_field.html:14
+#: gsr/params.py:442 gsr/templates/gsr/partials/param_field.html:14
 msgid "full range"
 msgstr "pełny zakres"
 
-#: gsr/params.py:434
+#: gsr/params.py:449
 #, python-format
 msgid "Signals: %(included)d/%(total)d"
 msgstr "Sygnały: %(included)d/%(total)d"
 
-#: gsr/params.py:435
+#: gsr/params.py:450
 #, python-format
 msgid "Window: %(window)s"
 msgstr "Okno: %(window)s"
 
-#: gsr/params.py:436
+#: gsr/params.py:451
 #, python-format
 msgid "Filters: %(enabled)d/%(total)d"
 msgstr "Filtry: %(enabled)d/%(total)d"
 
-#: gsr/params.py:438
+#: gsr/params.py:453
 #, python-format
 msgid "Median: %(value)s"
 msgstr "Mediana: %(value)s"
 
-#: gsr/params.py:457
+#: gsr/params.py:472
 #, python-format
 msgid "Threshold: %(value)s"
 msgstr "Próg: %(value)s"
 
-#: gsr/params.py:458
+#: gsr/params.py:473
 #, python-format
 msgid "Window: %(value)s s"
 msgstr "Okno: %(value)s s"
 
-#: gsr/params.py:460
+#: gsr/params.py:475
 #, python-format
 msgid "High/Low z: %(high)s/%(low)s"
 msgstr "Próg wysoki/niski z: %(high)s/%(low)s"
 
-#: gsr/params.py:463
+#: gsr/params.py:478
 #, python-format
 msgid "Min. participants: %(value)s"
 msgstr "Min. uczestników: %(value)s"
 
-#: gsr/params.py:467 gsr/templates/gsr/partials/analysis_main.html:13
+#: gsr/params.py:482 gsr/templates/gsr/partials/analysis_main.html:13
 #: gsr/views.py:1301 gsr/views.py:1327
 msgid "Synchronization"
 msgstr "Synchronizacja"
 
-#: gsr/params.py:468 gsr/templates/gsr/partials/analysis_main.html:17
+#: gsr/params.py:483 gsr/templates/gsr/partials/analysis_main.html:17
 #: gsr/views.py:1308 gsr/views.py:1329
 msgid "Co-arousal"
 msgstr "Ko-pobudzenie"
 
-#: gsr/params.py:469 gsr/views.py:107
+#: gsr/params.py:484 gsr/views.py:107
 msgid "Interviews"
 msgstr "Wywiady"
 
@@ -1409,11 +1427,11 @@ msgstr "Ustawienia analizy"
 msgid ""
 "Defaults follow the VSR Interview Flow Chart (interview moments above 0.8) "
 "and, where it is silent, Hassan's script (Spearman correlation, co-movement "
-"detected from 0.3)."
+"detected from 0.3, episodes not joined across gaps)."
 msgstr ""
 "Wartości domyślne są zgodne ze schematem VSR (momenty wywiadu powyżej 0,8), "
 "a tam, gdzie schemat milczy, ze skryptem Hassana (korelacja Spearmana, ko-"
-"ruch wykrywany od 0,3)."
+"ruch wykrywany od 0,3, epizody nie są sklejane przez przerwy)."
 
 #: gsr/templates/gsr/partials/analysis_settings.html:9
 msgid "Synchronization settings"

@@ -94,8 +94,9 @@ moment r at most -0.8), walked after step 5 so the five primary moments keep the
 divergent synchronization episodes (r <= -0.3 in every window), decoupling stretches and opposite-arousal
 episodes (z above +1 while another is below -1) as its own types. New projects start with the values
 the VSR Interview Flow Chart and the e-mail suggest and, where the chart is silent, the values of Hassan's
-script (`VSR_DOCUMENT_SETTINGS`: 0.8 for the interview moments; from the script, Spearman correlation and
-co-movement detected from 0.3, as divergent synchrony is detected from -0.3; 0.1 decoupling, High/Low at
+script (`VSR_DOCUMENT_SETTINGS`: 0.8 for the interview moments; from the script, Spearman correlation,
+co-movement detected from 0.3, as divergent synchrony is detected from -0.3, and episodes not joined across
+gaps; 0.1 decoupling, High/Low at
 z = +/-1, shared High/Low episodes whole even with co-movement during them; 5 moments per interview plus 3 in
 reserve); projects saved earlier keep GSRv2's synchronization and co-movement settings until "Reset
 defaults" in the Analysis settings sets these. The 5 + 3 moment counts are the existing defaults;
