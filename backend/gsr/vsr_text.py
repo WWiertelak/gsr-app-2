@@ -117,7 +117,10 @@ def _details(proposal: dict[str, Any], kind: str) -> list[str]:
         return [_episode(proposal["episode"], times, kind), r,
                 shared_state(proposal, kind) if step == "1" else _("no shared arousal state")]
     if step in ("3", "4"):
-        return [_episode(proposal["episode"], times, kind), shared_state(proposal, kind), r, _("no co-movement")]
+        # A shared state with co-movement during it keeps that co-movement episode (moments chosen while STEPS 3-4
+        # left those out have none).
+        comovement = _("with co-movement during it") if proposal.get("shared_episode") else _("no co-movement")
+        return [_episode(proposal["episode"], times, kind), shared_state(proposal, kind), r, comovement]
     if step == "4b":
         return [_episode(proposal["episode"], times, kind), r, _("the signals moved in opposite directions")]
     if proposal.get("type") == "opposite":

@@ -17,8 +17,9 @@ type. The steps (``PROTOCOL``, the one place their order lives):
      co-movement episode of the interview's two signals whose r is at least the interview
      threshold (0.8), that overlaps a shared High or Low episode of the same two;
   2. co-movement only - such a co-movement episode that overlaps no shared state;
-  3. shared High arousal - a shared High episode that overlaps no such co-movement;
-  4. shared Low arousal - a shared Low episode that overlaps no such co-movement;
+  3. shared High arousal - a whole shared High episode, also one with such co-movement during
+     it (Hassan's script: "categories may overlap"; a setting keeps only those without);
+  4. shared Low arousal - the same for a shared Low episode;
   5. no synchrony - opposite arousal first (one of the two High while the other is Low,
      the complement of STEPS 3-4), then a decoupling stretch (between the two signals'
      synchronization and divergent episodes, every window |r| < 0.1 for at least the minimum
@@ -125,6 +126,7 @@ ANALYSIS_SETTINGS = (
     "synchrony_divergent_threshold",
     "synchrony_decoupled_threshold",
     "synchrony_decoupled_rule",
+    "synchrony_interview_shared_without_comovement",
     "contagion_high_z",
     "contagion_low_z",
     "contagion_min_participants",
@@ -178,7 +180,8 @@ class Candidate:
     # The Analysis episode the moment is: co-movement (STEPS 1-2), shared state (3-4), divergent (4b), opposite
     # arousal or decoupling (5).
     episode: Episode | None = None
-    # STEP 1: the shared-state episode the co-movement episode overlaps most.
+    # STEP 1: the shared-state episode the co-movement episode overlaps most; STEPS 3-4: the co-movement episode of
+    # the interview strength the shared state holds, if any.
     shared: Episode | None = None
 
     @property
@@ -391,7 +394,9 @@ def candidates_by_step(windows: Windows, episodes: InterviewEpisodes,
 
     A co-movement episode is synchronous (STEPS 1-2) when its r reaches the interview threshold (the document:
     "Synchronous = above 0.8"), a divergent one (STEP 4b) when its r reaches minus it; in between neither
-    (the document's criteria leave that band neither synchronous nor asynchronous). A decoupling stretch is STEP 5
+    (the document's criteria leave that band neither synchronous nor asynchronous). A shared High or Low episode is
+    STEP 3 or 4 whole, also with such co-movement during it, unless ``synchrony_interview_shared_without_comovement``
+    keeps only those without. A decoupling stretch is STEP 5
     as found by the Analysis' decoupling rule and threshold, after opposite arousal (one of the pair
     High, the other Low), which has no correlation criterion, as shared High and Low have none.
     """
@@ -414,8 +419,11 @@ def candidates_by_step(windows: Windows, episodes: InterviewEpisodes,
             state = _overlapping(episode, episodes.shared)
             add(COMOVEMENT_STATE if state else COMOVEMENT, episode, correlation, state)
     for episode in episodes.shared:
-        if _overlapping(episode, synchronous) is None:
-            add(SHARED_HIGH if episode.state == HIGH else SHARED_LOW, episode, r(episode))
+        # A shared state is the whole episode, co-movement during it or not (Hassan's script: "categories may
+        # overlap"), unless the setting keeps only those without; ``shared`` is then the co-movement it holds.
+        comovement = _overlapping(episode, synchronous)
+        if comovement is None or not config.synchrony_interview_shared_without_comovement:
+            add(SHARED_HIGH if episode.state == HIGH else SHARED_LOW, episode, r(episode), comovement)
     for episode in episodes.divergent:
         correlation = r(episode)
         if round(correlation, 2) <= -threshold:

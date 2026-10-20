@@ -119,8 +119,7 @@ _TEXT: dict[str, dict[str, str]] = {
                             "0.8”, „Asynchronous = below 0.1”) czytane są jako siła korelacji, czyli jej wartość "
                             "bezwzględna. Kroki: 1 to epizod ko-ruchu (synchronizacji lub ko-ruchu z zakładki "
                             "Ko-pobudzenie), którego r osiąga próg momentu wywiadu ({interview}), nakładający się na wspólny "
-                            "stan Wysoki lub Niski; 2 taki epizod ko-ruchu bez wspólnego stanu; 3 i 4 epizod wspólnego "
-                            "stanu Wysokiego lub Niskiego bez takiego ko-ruchu; 4b, przechodzony po kroku 5, żeby pierwsze pięć "
+                            "stan Wysoki lub Niski; 2 taki epizod ko-ruchu bez wspólnego stanu; 3 i 4 {shared}; 4b, przechodzony po kroku 5, żeby pierwsze pięć "
                             "momentów zachowało „4 synchronous, 1 not synchronous” schematu, to epizod synchronizacji "
                             "rozbieżnej (sygnały zmieniają się w przeciwnych kierunkach), którego r jest równe lub "
                             "niższe od minus progu momentu wywiadu (za prośbą zespołu Hassana, „ideally above .80 for "
@@ -128,6 +127,9 @@ _TEXT: dict[str, dict[str, str]] = {
                             "osoba w stanie Wysokim, druga w Niskim), potem odcinek rozprzężenia między epizodami "
                             "synchronizacji i rozbieżności pary, {decoupling} (reguła rozprzężenia z ustawień Analizy).",
         "decoupling_every_window": "w którym każde okno ma |r| < {threshold} przez co najmniej minimalny czas epizodu",
+        "shared_whole": "cały epizod wspólnego stanu Wysokiego lub Niskiego, także z ko-ruchem w jego trakcie (jak w "
+                        "skrypcie zespołu Hassana: kategorie mogą się nakładać)",
+        "shared_without_comovement": "epizod wspólnego stanu Wysokiego lub Niskiego bez takiego ko-ruchu",
         "decoupling_stretch_correlation": "bez okna o sile rozbieżności (|r| ≥ {divergent}), trwający co najmniej "
                                           "minimalny czas epizodu, którego jedna korelacja danych mieści się w "
                                           "±{threshold}",
@@ -239,7 +241,7 @@ _TEXT: dict[str, dict[str, str]] = {
                             "of the correlation, its absolute value. The steps: 1 is a co-movement episode (synchronization, or "
                             "co-movement on the Co-arousal tab) whose r reaches the interview moment threshold ({interview}) "
                             "overlapping a shared High or Low state; 2 such a co-movement episode without a shared "
-                            "state; 3 and 4 a shared High or Low episode without such co-movement; 4b, walked after step "
+                            "state; 3 and 4 {shared}; 4b, walked after step "
                             "5 so the first five moments keep the flow chart's “4 synchronous, 1 not synchronous”, a "
                             "divergent synchronization episode (the signals move in opposite directions) whose r is at "
                             "or below minus the interview moment threshold (as Hassan's team asked, “ideally above .80 "
@@ -249,6 +251,9 @@ _TEXT: dict[str, dict[str, str]] = {
                             "settings).",
         "decoupling_every_window": "in which every window has |r| < {threshold} for at least the minimum episode "
                                    "duration",
+        "shared_whole": "a whole shared High or Low episode, also one with co-movement during it (as in Hassan's "
+                        "team's script: the categories may overlap)",
+        "shared_without_comovement": "a shared High or Low episode without such co-movement",
         "decoupling_stretch_correlation": "without a window at the divergent strength (|r| ≥ {divergent}), at least "
                                           "the minimum episode duration long, whose one correlation over its data "
                                           "lies within ±{threshold}",
@@ -526,7 +531,9 @@ def methodology_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
         threshold = params.display_number(settings["synchrony_decoupled_threshold"])
         decoupling = _t(lang, f"decoupling_{settings['synchrony_decoupled_rule']}", threshold=threshold,
                         divergent=params.display_number(settings["synchrony_divergent_threshold"]))
-        selection = _t(lang, "method_selection", decoupling=decoupling,
+        shared = _t(lang, "shared_without_comovement" if settings["synchrony_interview_shared_without_comovement"]
+                    else "shared_whole")
+        selection = _t(lang, "method_selection", decoupling=decoupling, shared=shared,
                        interview=params.display_number(settings["synchrony_interview_threshold"]))
     return [
         {"type": "h2", "text": _t(lang, "method_title")},

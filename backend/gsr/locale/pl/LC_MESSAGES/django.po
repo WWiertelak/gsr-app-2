@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 05:46+0000\n"
+"POT-Creation-Date: 2026-10-20 06:43+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -638,7 +638,22 @@ msgstr ""
 "wartość, krok 4b epizod rozbieżny, którego r jest równe lub niższe od minus "
 "tej wartości (schemat VSR: „Synchronous = above 0.8”)."
 
-#: gsr/params.py:302 gsr/views.py:367
+#: gsr/params.py:281
+msgid "Shared High/Low only without co-movement (STEPS 3–4)"
+msgstr "Wspólny stan Wysoki/Niski tylko bez ko-ruchu (KROKI 3–4)"
+
+#: gsr/params.py:283
+msgid ""
+"Off (default, as in Hassan's script, where the categories may overlap): "
+"STEPS 3–4 take a whole shared High or Low episode, also one with co-movement "
+"during it. On: only those without co-movement of the interview strength."
+msgstr ""
+"Wyłączone (domyślnie, jak w skrypcie Hassana, w którym kategorie mogą się "
+"nakładać): KROKI 3–4 biorą cały epizod wspólnego stanu Wysokiego lub "
+"Niskiego, także z ko-ruchem w jego trakcie. Włączone: tylko epizody bez ko-"
+"ruchu o sile wymaganej w wywiadzie."
+
+#: gsr/params.py:312 gsr/views.py:367
 msgid ""
 "The analysed period must lie inside the common window and end after it "
 "starts."
@@ -646,7 +661,7 @@ msgstr ""
 "Analizowany okres musi mieścić się we wspólnym oknie i kończyć się po swoim "
 "początku."
 
-#: gsr/params.py:375
+#: gsr/params.py:385
 #, python-format
 msgid "%(count)d changed"
 msgid_plural "%(count)d changed"
@@ -654,78 +669,78 @@ msgstr[0] "%(count)d zmieniony"
 msgstr[1] "%(count)d zmienione"
 msgstr[2] "%(count)d zmienionych"
 
-#: gsr/params.py:380 gsr/params.py:484
+#: gsr/params.py:390 gsr/params.py:494
 msgid "on"
 msgstr "wł."
 
-#: gsr/params.py:380 gsr/params.py:428 gsr/params.py:484
+#: gsr/params.py:390 gsr/params.py:438 gsr/params.py:494
 msgid "off"
 msgstr "wył."
 
-#: gsr/params.py:401
+#: gsr/params.py:411
 #, python-format
 msgid "%(section)s · %(label)s: %(value)s"
 msgstr "%(section)s · %(label)s: %(value)s"
 
-#: gsr/params.py:406
+#: gsr/params.py:416
 msgid "defaults"
 msgstr "domyślne"
 
-#: gsr/params.py:417 gsr/templates/gsr/partials/param_field.html:14
+#: gsr/params.py:427 gsr/templates/gsr/partials/param_field.html:14
 msgid "full range"
 msgstr "pełny zakres"
 
-#: gsr/params.py:424
+#: gsr/params.py:434
 #, python-format
 msgid "Signals: %(included)d/%(total)d"
 msgstr "Sygnały: %(included)d/%(total)d"
 
-#: gsr/params.py:425
+#: gsr/params.py:435
 #, python-format
 msgid "Window: %(window)s"
 msgstr "Okno: %(window)s"
 
-#: gsr/params.py:426
+#: gsr/params.py:436
 #, python-format
 msgid "Filters: %(enabled)d/%(total)d"
 msgstr "Filtry: %(enabled)d/%(total)d"
 
-#: gsr/params.py:428
+#: gsr/params.py:438
 #, python-format
 msgid "Median: %(value)s"
 msgstr "Mediana: %(value)s"
 
-#: gsr/params.py:447
+#: gsr/params.py:457
 #, python-format
 msgid "Threshold: %(value)s"
 msgstr "Próg: %(value)s"
 
-#: gsr/params.py:448
+#: gsr/params.py:458
 #, python-format
 msgid "Window: %(value)s s"
 msgstr "Okno: %(value)s s"
 
-#: gsr/params.py:450
+#: gsr/params.py:460
 #, python-format
 msgid "High/Low z: %(high)s/%(low)s"
 msgstr "Próg wysoki/niski z: %(high)s/%(low)s"
 
-#: gsr/params.py:453
+#: gsr/params.py:463
 #, python-format
 msgid "Min. participants: %(value)s"
 msgstr "Min. uczestników: %(value)s"
 
-#: gsr/params.py:457 gsr/templates/gsr/partials/analysis_main.html:13
+#: gsr/params.py:467 gsr/templates/gsr/partials/analysis_main.html:13
 #: gsr/views.py:1301 gsr/views.py:1327
 msgid "Synchronization"
 msgstr "Synchronizacja"
 
-#: gsr/params.py:458 gsr/templates/gsr/partials/analysis_main.html:17
+#: gsr/params.py:468 gsr/templates/gsr/partials/analysis_main.html:17
 #: gsr/views.py:1308 gsr/views.py:1329
 msgid "Co-arousal"
 msgstr "Ko-pobudzenie"
 
-#: gsr/params.py:459 gsr/views.py:107
+#: gsr/params.py:469 gsr/views.py:107
 msgid "Interviews"
 msgstr "Wywiady"
 
@@ -1391,9 +1406,14 @@ msgid "Analysis settings"
 msgstr "Ustawienia analizy"
 
 #: gsr/templates/gsr/partials/analysis_settings.html:7
-msgid "Defaults follow the VSR Interview Flow Chart: synchrony above 0.8."
+msgid ""
+"Defaults follow the VSR Interview Flow Chart (interview moments above 0.8) "
+"and, where it is silent, Hassan's script (Spearman correlation, co-movement "
+"detected from 0.3)."
 msgstr ""
-"Wartości domyślne według schematu wywiadu VSR: synchronizacja powyżej 0,8."
+"Wartości domyślne są zgodne ze schematem VSR (momenty wywiadu powyżej 0,8), "
+"a tam, gdzie schemat milczy, ze skryptem Hassana (korelacja Spearmana, ko-"
+"ruch wykrywany od 0,3)."
 
 #: gsr/templates/gsr/partials/analysis_settings.html:9
 msgid "Synchronization settings"
@@ -3102,39 +3122,43 @@ msgstr[2] "nauczyciel i %(count)s z %(total)s uczniów w stanie Niskim"
 msgid "no shared arousal state"
 msgstr "bez wspólnego stanu pobudzenia"
 
-#: gsr/vsr_text.py:120
+#: gsr/vsr_text.py:122
+msgid "with co-movement during it"
+msgstr "z ko-ruchem w jego trakcie"
+
+#: gsr/vsr_text.py:122
 msgid "no co-movement"
 msgstr "bez ko-ruchu"
 
-#: gsr/vsr_text.py:122
+#: gsr/vsr_text.py:125
 msgid "the signals moved in opposite directions"
 msgstr "sygnały zmieniały się w przeciwnych kierunkach"
 
-#: gsr/vsr_text.py:124
+#: gsr/vsr_text.py:127
 msgid ""
 "the teacher or the students' average in the High state, the other in the Low "
 "state"
 msgstr ""
 "nauczyciel albo średnia uczniów w stanie Wysokim, drugie w stanie Niskim"
 
-#: gsr/vsr_text.py:125
+#: gsr/vsr_text.py:128
 msgid "one person in the High state, the other in the Low state"
 msgstr "jedna osoba w stanie Wysokim, druga w stanie Niskim"
 
-#: gsr/vsr_text.py:128 gsr/vsr_text.py:131
+#: gsr/vsr_text.py:131 gsr/vsr_text.py:134
 msgid "the signals were not related"
 msgstr "sygnały nie były powiązane"
 
-#: gsr/vsr_text.py:130
+#: gsr/vsr_text.py:133
 msgid "the signals moved in the opposite direction"
 msgstr "sygnały zmieniały się w przeciwnym kierunku"
 
-#: gsr/vsr_text.py:134
+#: gsr/vsr_text.py:137
 #, python-format
 msgid "%(times)s outside the synchronization and co-arousal episodes"
 msgstr "%(times)s poza epizodami synchronizacji i ko-pobudzenia"
 
-#: gsr/vsr_text.py:145
+#: gsr/vsr_text.py:148
 #, python-format
 msgid "VSR flow chart step %(step)s: %(name)s"
 msgstr "Krok %(step)s schematu VSR: %(name)s"

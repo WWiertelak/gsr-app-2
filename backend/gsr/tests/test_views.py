@@ -765,7 +765,7 @@ def test_polish_screens_use_polish_numbers_and_labels(client, project) -> None:
     page = client.get(reverse("gsr:analysis", args=[project.pk])).content.decode()
     assert "Próg: 0,75" in _run_bar(page) and "Próg wysoki/niski z: 1/-1" in _run_bar(page)
     form = _settings_form(page)
-    assert "zmienione (domyślnie 0,8)" in form
+    assert "zmienione (domyślnie 0,3)" in form
     # The input fields keep dot decimals: that is what <input type="number"> accepts.
     assert 'name="synchrony_threshold" step="any" value="0.75"' in form
     fragment = _run_analysis(client, project).content.decode()

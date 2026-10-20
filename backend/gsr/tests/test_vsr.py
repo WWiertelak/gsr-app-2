@@ -186,7 +186,7 @@ def test_the_protocol_is_the_documents_steps_read_by_strength_with_divergent_as_
 def test_each_step_takes_its_kind_of_analysis_episode() -> None:
     synchrony = [_sync(100, 160, ["S1", "S2"]), _sync(300, 360, ["S1", "S2"])]
     coarousal = [
-        _coarousal("High", 130, 200, ["S1", "S2"]),  # overlaps the first co-movement episode: STEP 1
+        _coarousal("High", 130, 200, ["S1", "S2"]),  # overlaps the first co-movement episode: STEP 1, and 3 whole
         _coarousal("High", 500, 560, ["S1", "S2"]),
         _coarousal("Low", 700, 760, ["S1", "S2"]),
     ]
@@ -201,7 +201,7 @@ def test_each_step_takes_its_kind_of_analysis_episode() -> None:
     assert step1.episode.number == 1 and step1.shared.number == 1
     assert step1.correlation == pytest.approx(0.9)
     assert [(c.start_seconds, c.shared_state, c.kind) for c in steps["2"]] == [(300.0, None, COMOVEMENT)]
-    assert [(c.episode.number, c.shared_state) for c in steps["3"]] == [(2, HIGH)]
+    assert [(c.episode.number, c.shared_state) for c in steps["3"]] == [(1, HIGH), (2, HIGH)]
     assert [(c.episode.number, c.shared_state) for c in steps["4"]] == [(3, LOW)]
     divergent, = steps["4b"]
     assert (divergent.kind, divergent.episode.kind, divergent.correlation) == (DIVERGENT, "divergent",
@@ -212,12 +212,23 @@ def test_each_step_takes_its_kind_of_analysis_episode() -> None:
     assert step5.correlation == pytest.approx(0.02)
 
 
-def test_a_shared_state_overlapping_co_movement_is_step_1_only() -> None:
-    steps = _steps([_sync(100, 160, ["S1", "S2"])], [_coarousal("Low", 150, 300, ["S1", "S2"])],
-                   _windows([(100, 160, 0.9)]))
+def test_a_shared_state_with_co_movement_during_it_is_steps_3_4_whole_unless_the_setting_leaves_it_out() -> None:
+    # Hassan's script: Shared HIGH/LOW are whole episodes, "categories may overlap" (its Shared HIGH 11:31:00-11:35:17
+    # holds co-movement AND shared arousal episodes). Co-movement only stays apart from STEP 1.
+    synchrony, coarousal = [_sync(100, 160, ["S1", "S2"])], [_coarousal("Low", 150, 300, ["S1", "S2"])]
+    windows = _windows([(100, 160, 0.9)])
 
-    assert [c.shared_state for c in steps["1"]] == [LOW]
-    assert steps["3"] == steps["4"] == []
+    steps = _steps(synchrony, coarousal, windows)
+
+    assert [c.shared_state for c in steps["1"]] == [LOW] and steps["2"] == []
+    low, = steps["4"]
+    assert (low.start_seconds, low.end_seconds, low.shared_state) == (150.0, 300.0, LOW)
+    assert low.shared.kind == "synchronization"  # the co-movement during it, for the justification
+    english, _polish = _sentences(low)
+    assert "with co-movement during it" in english and "no co-movement" not in english
+    exclusive = CONFIG.model_copy(update={"synchrony_interview_shared_without_comovement": True})
+    steps = _steps(synchrony, coarousal, windows, config=exclusive)
+    assert [c.shared_state for c in steps["1"]] == [LOW] and steps["3"] == steps["4"] == []
 
 
 def test_step_1_names_the_shared_state_that_overlaps_most() -> None:

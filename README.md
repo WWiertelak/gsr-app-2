@@ -84,7 +84,8 @@ all of it as a ZIP). Re-running or changing an earlier step marks later saved re
 outdated until each is refreshed in order. The flow chart's correlation criteria ("Synchronous = above
 0.8", "Asynchronous = below 0.1") are read as the strength of the correlation, its absolute value, and
 Hassan's team's e-mail adds the types the chart leaves out. The steps are 1 co-movement and a shared state,
-2 co-movement only (both with a moment r of at least 0.8), 3 shared High, 4 shared Low, 5 no synchrony
+2 co-movement only (both with a moment r of at least 0.8), 3 shared High, 4 shared Low (whole episodes, as
+in Hassan's script), 5 no synchrony
 (opposite arousal, one person High while the other is Low, then a decoupling stretch, every 30 s window
 |r| < 0.1 for at least the minimum episode duration as in Hassan's script, closest to zero first; the
 decoupling rule is an Analysis setting) and then 4b divergent synchrony (signals moving in opposite directions,
@@ -92,10 +93,12 @@ moment r at most -0.8), walked after step 5 so the five primary moments keep the
 1 not synchronous"; their order lives in one tuple (`pipeline/vsr.py` `PROTOCOL`). The Analysis finds
 divergent synchronization episodes (r <= -0.3 in every window), decoupling stretches and opposite-arousal
 episodes (z above +1 while another is below -1) as its own types. New projects start with the values
-the VSR Interview Flow Chart and the e-mail suggest (`VSR_DOCUMENT_SETTINGS`: 0.8 for the synchronization
-and co-movement thresholds and the interview moments, 0.3 divergent, 0.1 decoupling, High/Low at
-z = +/-1; 5 moments per interview plus 3 in reserve); projects saved earlier keep GSRv2's synchronization and co-movement thresholds until "Reset
-defaults" in the Analysis settings sets the 0.8 ones. The 5 + 3 moment counts are the existing defaults;
+the VSR Interview Flow Chart and the e-mail suggest and, where the chart is silent, the values of Hassan's
+script (`VSR_DOCUMENT_SETTINGS`: 0.8 for the interview moments; from the script, Spearman correlation and
+co-movement detected from 0.3, as divergent synchrony is detected from -0.3; 0.1 decoupling, High/Low at
+z = +/-1, shared High/Low episodes whole even with co-movement during them; 5 moments per interview plus 3 in
+reserve); projects saved earlier keep GSRv2's synchronization and co-movement settings until "Reset
+defaults" in the Analysis settings sets these. The 5 + 3 moment counts are the existing defaults;
 the reset does not change them, they are edited on the Interviews step. Interview pairs can be added and removed
 with the form buttons; removed pairs retain curated decisions for restoration when
 the same pair is added again. Every table, chart axis, CSV/JSON export and the PDF report give the

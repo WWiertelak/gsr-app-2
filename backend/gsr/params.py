@@ -276,6 +276,16 @@ INTERVIEW_ESSENTIAL = (
             "this (the VSR flow chart: “Synchronous = above 0.8”)."
         ),
     ),
+    Param(
+        "synchrony_interview_shared_without_comovement",
+        _("Shared High/Low only without co-movement (STEPS 3–4)"),
+        _(
+            "Off (default, as in Hassan's script, where the categories may overlap): STEPS 3–4 take a whole shared "
+            "High or Low episode, also one with co-movement during it. On: only those without co-movement of the "
+            "interview strength."
+        ),
+        kind="bool",
+    ),
 )
 
 ANALYSIS_PARAMS = (*SYNCHRONY_ESSENTIAL, *SYNCHRONY_ADVANCED, *COAROUSAL_ESSENTIAL, *COAROUSAL_ADVANCED,
