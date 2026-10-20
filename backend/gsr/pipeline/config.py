@@ -57,6 +57,7 @@ _FIELD_RULES: dict[str, tuple[Any, ...]] = {
     "synchrony_divergent_threshold": (_FLOAT, 0.0, 1.0),
     "synchrony_decoupled_threshold": (_FLOAT, 0.0, 1.0),
     "synchrony_decoupled_rule": (_CHOICE, ("every_window", "stretch_correlation")),
+    "synchrony_interview_episode_max_gap_seconds": (_FLOAT, 0.0, 600.0),
     "synchrony_interview_shared_without_comovement": (_BOOL,),
     "contagion_high_z": (_FLOAT, 0.0, 10.0),
     "contagion_low_z": (_FLOAT, -10.0, 0.0),
@@ -85,11 +86,11 @@ VSR_DOCUMENT_SETTINGS: dict[str, Any] = {
     "contagion_comovement_rho": 0.3,
     # The windowed correlation: Hassan's script uses Spearman (the flow chart names none).
     "synchrony_correlation_method": "spearman",
-    # Episodes are not joined across gaps: Hassan's printout keeps episodes 9 s and 11 s apart separate (shared Low
-    # 10:08:41-10:10:05 / 10:10:14-10:10:46, divergent 10:17:22-10:18:08 / 10:18:19-10:18:53). GSRv2 joined gaps up
-    # to 15 s (synchronization) and 30 s (co-arousal); ``PipelineConfig`` keeps those for projects saved earlier.
-    "synchrony_episode_max_gap_seconds": 0.0,
-    "contagion_min_episode_gap_seconds": 0.0,
+    # The interviews' own analysis of two signals does not join episodes across gaps: Hassan's printout keeps
+    # episodes 9 s and 11 s apart separate (shared Low 10:08:41-10:10:05 / 10:10:14-10:10:46, divergent
+    # 10:17:22-10:18:08 / 10:18:19-10:18:53). The whole-class Analysis keeps GSRv2's joining (15 s synchronization,
+    # 30 s co-arousal): his script has no whole-class analysis to match.
+    "synchrony_interview_episode_max_gap_seconds": 0.0,
     # STEPS 1-2 take a moment whose r is at least this; Hassan's e-mail: "ideally above .80 for the interviews".
     "synchrony_interview_threshold": 0.8,
     # Divergent synchrony: windows whose r is at or below minus this (Hassan's e-mail: "negative correlations
@@ -213,6 +214,10 @@ class PipelineConfig:
     # lies within plus/minus this strength, judged by ``synchrony_decoupled_rule``.
     synchrony_decoupled_threshold: float = VSR_DOCUMENT_SETTINGS["synchrony_decoupled_threshold"]
     synchrony_decoupled_rule: str = VSR_DOCUMENT_SETTINGS["synchrony_decoupled_rule"]
+    # VSR interview moments (not in GSRv2): the largest gap the interviews' own analysis of two signals joins
+    # episodes across, synchronization and co-arousal alike (the whole-class Analysis uses the two settings above).
+    synchrony_interview_episode_max_gap_seconds: float = VSR_DOCUMENT_SETTINGS[
+        "synchrony_interview_episode_max_gap_seconds"]
     # VSR STEPS 3-4 (not in GSRv2): leave out shared High/Low episodes with co-movement of the interview strength.
     synchrony_interview_shared_without_comovement: bool = VSR_DOCUMENT_SETTINGS[
         "synchrony_interview_shared_without_comovement"]

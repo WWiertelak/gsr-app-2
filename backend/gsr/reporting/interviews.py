@@ -111,7 +111,9 @@ _TEXT: dict[str, dict[str, str]] = {
         "summary_stale": "momenty nieaktualne",
         "method_title": "8. Momenty do wywiadów VSR",
         "method_selection": "Momenty każdego wywiadu pochodzą z analizy jego własnych dwóch sygnałów: tymi samymi "
-                            "funkcjami i ustawieniami co przebieg Analizy, zastosowanymi tylko do sygnałów pary "
+                            "funkcjami i ustawieniami co przebieg Analizy (poza łączeniem epizodów przez przerwy: do {gap} s, "
+                            "jak w skrypcie zespołu Hassana, a nie jak na ekranie Analizy całej klasy), zastosowanymi "
+                            "tylko do sygnałów pary "
                             "(schemat VSR: momenty na podstawie danych GSR diady) albo "
                             "nauczyciela i średniej sygnałów uczniów (schemat VSR: momenty na podstawie zagregowanych "
                             "danych nauczyciela i uczniów). Momenty pary nie zależą więc od tego, kto jeszcze jest w "
@@ -232,7 +234,9 @@ _TEXT: dict[str, dict[str, str]] = {
         "summary_stale": "moments outdated",
         "method_title": "8. Moments for VSR interviews",
         "method_selection": "Every interview's moments come from the analysis of its own two signals: the same "
-                            "functions and settings as the Analysis run, applied to the pair's two signals alone (the "
+                            "functions and settings as the Analysis run (except joining episodes across gaps: up to {gap} s, as in "
+                            "Hassan's team's script, not as on the whole-class Analysis screen), applied to the pair's "
+                            "two signals alone (the "
                             "VSR flow chart: moments based on the dyad's GSR data) or to "
                             "the teacher and the students' average signal (the VSR flow chart: moments based on the "
                             "teacher and student aggregated data). A pair's moments therefore do not depend on who "
@@ -273,10 +277,10 @@ _TEXT: dict[str, dict[str, str]] = {
 
 # The Analysis settings the section states, in the Analysis' own labels.
 _SETTINGS = (
-    "synchrony_threshold", "synchrony_window_seconds", "synchrony_step_seconds",
-    "synchrony_episode_min_duration_seconds", "synchrony_episode_max_gap_seconds", "synchrony_interview_threshold",
-    "synchrony_divergent_threshold", "synchrony_decoupled_threshold", "synchrony_decoupled_rule", "contagion_high_z",
-    "contagion_low_z",
+    "synchrony_threshold", "synchrony_window_seconds", "synchrony_step_seconds", "synchrony_correlation_method",
+    "synchrony_episode_min_duration_seconds", "synchrony_interview_episode_max_gap_seconds",
+    "synchrony_interview_threshold", "synchrony_divergent_threshold", "synchrony_decoupled_threshold",
+    "synchrony_decoupled_rule", "contagion_high_z", "contagion_low_z",
 )
 
 
@@ -534,7 +538,8 @@ def methodology_blocks(vsr: dict[str, Any], lang: str) -> list[dict[str, Any]]:
         shared = _t(lang, "shared_without_comovement" if settings["synchrony_interview_shared_without_comovement"]
                     else "shared_whole")
         selection = _t(lang, "method_selection", decoupling=decoupling, shared=shared,
-                       interview=params.display_number(settings["synchrony_interview_threshold"]))
+                       interview=params.display_number(settings["synchrony_interview_threshold"]),
+                       gap=params.display_number(settings["synchrony_interview_episode_max_gap_seconds"]))
     return [
         {"type": "h2", "text": _t(lang, "method_title")},
         _p(selection),

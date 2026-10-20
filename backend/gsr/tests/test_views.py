@@ -714,9 +714,9 @@ def test_analysis_settings_live_in_the_drawer_with_run_and_apply_buttons(client,
     assert '<form class="drawer-form" id="analysis-settings"' in form and "Analysis settings</h2>" in form
     assert '<input type="hidden" name="tab" value="synchronization" data-tab-input>' in form
     # The fixture keeps GSRv2's values, like a project saved before the VSR document values became the defaults:
-    # thresholds, correlation method and gap bridging differ from the defaults, and both surrogate counts.
+    # the synchronization threshold and correlation method differ from the defaults, and both surrogate counts.
     assert ("<li>Threshold: 0.6</li><li>Window: 30 s</li><li>High/Low z: 1/-1</li><li>Min. participants: 2</li>"
-            "<li>6 changed</li>") in _run_bar(page)
+            "<li>4 changed</li>") in _run_bar(page)
     assert 'class="hint"' not in form and 'role="tooltip" id="tip-contagion_surrogate_count"' in form
     assert ">Apply settings</button>" in form
     # Advanced sections holding a changed setting open (both surrogate counts differ here); others stay shut.

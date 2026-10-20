@@ -447,6 +447,29 @@ def test_student_average_z_scores_each_student_before_averaging() -> None:
     assert np.std(average) == pytest.approx(1.0)
 
 
+def test_the_interviews_own_analysis_joins_episodes_only_across_its_own_gap() -> None:
+    # Hassan's script joins no episodes across gaps; the whole-class Analysis keeps GSRv2's 15 s. Two shared waves a
+    # short gap apart are two synchronization episodes of the pair until the interview gap (not the class one) allows
+    # joining them.
+    minutes = np.arange(0, 900) / 60.0
+    rng = np.random.default_rng(7)
+    a, b = rng.normal(0, 0.3, len(minutes)), rng.normal(0, 0.3, len(minutes))
+    wave = np.sin(2 * np.pi * np.arange(60) / 20.0) * 2.0
+    for start in (300, 400):
+        a[start:start + 60] += wave
+        b[start:start + 60] += wave
+
+    def episodes(**update: float) -> list[dict]:
+        config = CONFIG.model_copy(update=update)
+        return pair_analysis(_zscore(a), _zscore(b), minutes, config, ("A", "B"))[0]["episodes"]
+
+    apart = episodes(synchrony_interview_episode_max_gap_seconds=0.0, synchrony_episode_max_gap_seconds=120.0)
+    joined = episodes(synchrony_interview_episode_max_gap_seconds=120.0, synchrony_episode_max_gap_seconds=0.0)
+
+    assert CONFIG.synchrony_interview_episode_max_gap_seconds == 0.0
+    assert len(apart) == 2 and len(joined) == 1
+
+
 def test_student_average_needs_at_least_one_student() -> None:
     with pytest.raises(PipelineError, match="at least one student signal"):
         aggregate_student_signal([])

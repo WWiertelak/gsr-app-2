@@ -205,8 +205,8 @@ SYNCHRONY_ADVANCED = (
         "synchrony_episode_max_gap_seconds",
         _("Max gap (s)"),
         _(
-            "Synchronization and divergent episodes closer than this are joined into one. 0 (default, as in Hassan's "
-            "script) joins none; GSRv2 joined gaps up to 15 s."
+            "Synchronization and divergent episodes of the whole class closer than this are joined into one (default "
+            "15 s, as in GSRv2). The interviews' own analysis of two signals has its own setting."
         ),
     ),
     Param("synchrony_cluster_distance_threshold", _("Clustering threshold")),
@@ -261,8 +261,8 @@ COAROUSAL_ADVANCED = (
         "contagion_min_episode_gap_seconds",
         _("Max gap (s)"),
         _(
-            "Episodes of one kind closer than this are joined into one. 0 (default, as in Hassan's script) joins only "
-            "windows that touch; GSRv2 joined gaps up to 30 s."
+            "Co-arousal episodes of one kind closer than this are joined into one (default 30 s, as in GSRv2). The "
+            "interviews' own analysis of two signals has its own setting."
         ),
     ),
     Param(
@@ -289,6 +289,14 @@ INTERVIEW_ESSENTIAL = (
             "The strength of correlation a moment needs to count as synchronous on the Interviews step: STEPS 1–2 "
             "take a co-movement episode whose r is at least this, STEP 4b a divergent one whose r is at most minus "
             "this (the VSR flow chart: “Synchronous = above 0.8”)."
+        ),
+    ),
+    Param(
+        "synchrony_interview_episode_max_gap_seconds",
+        _("Interview episodes: max gap (s)"),
+        _(
+            "The interviews' own analysis of two signals joins synchronization and co-arousal episodes closer than "
+            "this. 0 (default) joins none, as in Hassan's script; the whole-class Analysis keeps its own gaps."
         ),
     ),
     Param(

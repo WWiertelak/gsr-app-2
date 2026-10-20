@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: GSR_APP 2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-20 06:55+0000\n"
+"POT-Creation-Date: 2026-10-20 07:29+0000\n"
 "PO-Revision-Date: 2026-10-12 17:45+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -524,12 +524,13 @@ msgstr "Maks. przerwa (s)"
 
 #: gsr/params.py:208
 msgid ""
-"Synchronization and divergent episodes closer than this are joined into one. "
-"0 (default, as in Hassan's script) joins none; GSRv2 joined gaps up to 15 s."
+"Synchronization and divergent episodes of the whole class closer than this "
+"are joined into one (default 15 s, as in GSRv2). The interviews' own "
+"analysis of two signals has its own setting."
 msgstr ""
-"Epizody synchronizacji i rozbieżne bliższe niż ta wartość są łączone w "
-"jeden. 0 (domyślnie, jak w skrypcie Hassana) nie łączy żadnych; GSRv2 łączył "
-"przerwy do 15 s."
+"Epizody synchronizacji i rozbieżne całej klasy bliższe niż ta wartość są "
+"łączone w jeden (domyślnie 15 s, jak w GSRv2). Własna analiza dwóch sygnałów "
+"w wywiadach ma osobne ustawienie."
 
 #: gsr/params.py:212
 msgid "Clustering threshold"
@@ -617,12 +618,13 @@ msgstr ""
 
 #: gsr/params.py:264
 msgid ""
-"Episodes of one kind closer than this are joined into one. 0 (default, as in "
-"Hassan's script) joins only windows that touch; GSRv2 joined gaps up to 30 s."
+"Co-arousal episodes of one kind closer than this are joined into one "
+"(default 30 s, as in GSRv2). The interviews' own analysis of two signals has "
+"its own setting."
 msgstr ""
-"Epizody jednego rodzaju bliższe niż ta wartość są łączone w jeden. 0 "
-"(domyślnie, jak w skrypcie Hassana) łączy tylko stykające się okna; GSRv2 "
-"łączył przerwy do 30 s."
+"Epizody ko-pobudzenia jednego rodzaju bliższe niż ta wartość są łączone w "
+"jeden (domyślnie 30 s, jak w GSRv2). Własna analiza dwóch sygnałów w "
+"wywiadach ma osobne ustawienie."
 
 #: gsr/params.py:270
 msgid "Surrogate count"
@@ -657,10 +659,24 @@ msgstr ""
 "tej wartości (schemat VSR: „Synchronous = above 0.8”)."
 
 #: gsr/params.py:296
+msgid "Interview episodes: max gap (s)"
+msgstr "Epizody wywiadów: maks. przerwa (s)"
+
+#: gsr/params.py:298
+msgid ""
+"The interviews' own analysis of two signals joins synchronization and co-"
+"arousal episodes closer than this. 0 (default) joins none, as in Hassan's "
+"script; the whole-class Analysis keeps its own gaps."
+msgstr ""
+"Własna analiza dwóch sygnałów w wywiadach łączy epizody synchronizacji i ko-"
+"pobudzenia bliższe niż ta wartość. 0 (domyślnie) nie łączy żadnych, jak w "
+"skrypcie Hassana; Analiza całej klasy zachowuje własne przerwy."
+
+#: gsr/params.py:304
 msgid "Shared High/Low only without co-movement (STEPS 3–4)"
 msgstr "Wspólny stan Wysoki/Niski tylko bez ko-ruchu (KROKI 3–4)"
 
-#: gsr/params.py:298
+#: gsr/params.py:306
 msgid ""
 "Off (default, as in Hassan's script, where the categories may overlap): "
 "STEPS 3–4 take a whole shared High or Low episode, also one with co-movement "
@@ -671,7 +687,7 @@ msgstr ""
 "Niskiego, także z ko-ruchem w jego trakcie. Włączone: tylko epizody bez ko-"
 "ruchu o sile wymaganej w wywiadzie."
 
-#: gsr/params.py:327 gsr/views.py:367
+#: gsr/params.py:335 gsr/views.py:367
 msgid ""
 "The analysed period must lie inside the common window and end after it "
 "starts."
@@ -679,7 +695,7 @@ msgstr ""
 "Analizowany okres musi mieścić się we wspólnym oknie i kończyć się po swoim "
 "początku."
 
-#: gsr/params.py:400
+#: gsr/params.py:408
 #, python-format
 msgid "%(count)d changed"
 msgid_plural "%(count)d changed"
@@ -687,78 +703,78 @@ msgstr[0] "%(count)d zmieniony"
 msgstr[1] "%(count)d zmienione"
 msgstr[2] "%(count)d zmienionych"
 
-#: gsr/params.py:405 gsr/params.py:509
+#: gsr/params.py:413 gsr/params.py:517
 msgid "on"
 msgstr "wł."
 
-#: gsr/params.py:405 gsr/params.py:453 gsr/params.py:509
+#: gsr/params.py:413 gsr/params.py:461 gsr/params.py:517
 msgid "off"
 msgstr "wył."
 
-#: gsr/params.py:426
+#: gsr/params.py:434
 #, python-format
 msgid "%(section)s · %(label)s: %(value)s"
 msgstr "%(section)s · %(label)s: %(value)s"
 
-#: gsr/params.py:431
+#: gsr/params.py:439
 msgid "defaults"
 msgstr "domyślne"
 
-#: gsr/params.py:442 gsr/templates/gsr/partials/param_field.html:14
+#: gsr/params.py:450 gsr/templates/gsr/partials/param_field.html:14
 msgid "full range"
 msgstr "pełny zakres"
 
-#: gsr/params.py:449
+#: gsr/params.py:457
 #, python-format
 msgid "Signals: %(included)d/%(total)d"
 msgstr "Sygnały: %(included)d/%(total)d"
 
-#: gsr/params.py:450
+#: gsr/params.py:458
 #, python-format
 msgid "Window: %(window)s"
 msgstr "Okno: %(window)s"
 
-#: gsr/params.py:451
+#: gsr/params.py:459
 #, python-format
 msgid "Filters: %(enabled)d/%(total)d"
 msgstr "Filtry: %(enabled)d/%(total)d"
 
-#: gsr/params.py:453
+#: gsr/params.py:461
 #, python-format
 msgid "Median: %(value)s"
 msgstr "Mediana: %(value)s"
 
-#: gsr/params.py:472
+#: gsr/params.py:480
 #, python-format
 msgid "Threshold: %(value)s"
 msgstr "Próg: %(value)s"
 
-#: gsr/params.py:473
+#: gsr/params.py:481
 #, python-format
 msgid "Window: %(value)s s"
 msgstr "Okno: %(value)s s"
 
-#: gsr/params.py:475
+#: gsr/params.py:483
 #, python-format
 msgid "High/Low z: %(high)s/%(low)s"
 msgstr "Próg wysoki/niski z: %(high)s/%(low)s"
 
-#: gsr/params.py:478
+#: gsr/params.py:486
 #, python-format
 msgid "Min. participants: %(value)s"
 msgstr "Min. uczestników: %(value)s"
 
-#: gsr/params.py:482 gsr/templates/gsr/partials/analysis_main.html:13
+#: gsr/params.py:490 gsr/templates/gsr/partials/analysis_main.html:13
 #: gsr/views.py:1301 gsr/views.py:1327
 msgid "Synchronization"
 msgstr "Synchronizacja"
 
-#: gsr/params.py:483 gsr/templates/gsr/partials/analysis_main.html:17
+#: gsr/params.py:491 gsr/templates/gsr/partials/analysis_main.html:17
 #: gsr/views.py:1308 gsr/views.py:1329
 msgid "Co-arousal"
 msgstr "Ko-pobudzenie"
 
-#: gsr/params.py:484 gsr/views.py:107
+#: gsr/params.py:492 gsr/views.py:107
 msgid "Interviews"
 msgstr "Wywiady"
 
@@ -957,7 +973,7 @@ msgid "No results for this step yet. Set the parameters and run the analysis."
 msgstr "Brak wyników dla tego kroku. Ustaw parametry i uruchom analizę."
 
 #: gsr/templates/gsr/partials/analysis_main.html:25
-#: gsr/tests/test_views.py:1286
+#: gsr/tests/test_views.py:1287
 msgid "Run analysis"
 msgstr "Uruchom analizę"
 
@@ -1427,11 +1443,11 @@ msgstr "Ustawienia analizy"
 msgid ""
 "Defaults follow the VSR Interview Flow Chart (interview moments above 0.8) "
 "and, where it is silent, Hassan's script (Spearman correlation, co-movement "
-"detected from 0.3, episodes not joined across gaps)."
+"detected from 0.3, interview episodes not joined across gaps)."
 msgstr ""
 "Wartości domyślne są zgodne ze schematem VSR (momenty wywiadu powyżej 0,8), "
 "a tam, gdzie schemat milczy, ze skryptem Hassana (korelacja Spearmana, ko-"
-"ruch wykrywany od 0,3, epizody nie są sklejane przez przerwy)."
+"ruch wykrywany od 0,3, epizody wywiadów nie są sklejane przez przerwy)."
 
 #: gsr/templates/gsr/partials/analysis_settings.html:9
 msgid "Synchronization settings"
@@ -2592,7 +2608,7 @@ msgstr "Zapisano"
 msgid "Loaded"
 msgstr "Wczytany"
 
-#: gsr/templates/gsr/partials/upload_row.html:25 gsr/tests/test_views.py:1287
+#: gsr/templates/gsr/partials/upload_row.html:25 gsr/tests/test_views.py:1288
 #, python-format
 msgid "%(counter)s Excel fix"
 msgid_plural "%(counter)s Excel fixes"
@@ -3148,35 +3164,35 @@ msgstr "z ko-ruchem o sile wymaganej w wywiadzie w jego trakcie"
 msgid "no co-movement of interview strength"
 msgstr "bez ko-ruchu o sile wymaganej w wywiadzie"
 
-#: gsr/vsr_text.py:125
+#: gsr/vsr_text.py:126
 msgid "the signals moved in opposite directions"
 msgstr "sygnały zmieniały się w przeciwnych kierunkach"
 
-#: gsr/vsr_text.py:127
+#: gsr/vsr_text.py:128
 msgid ""
 "the teacher or the students' average in the High state, the other in the Low "
 "state"
 msgstr ""
 "nauczyciel albo średnia uczniów w stanie Wysokim, drugie w stanie Niskim"
 
-#: gsr/vsr_text.py:128
+#: gsr/vsr_text.py:129
 msgid "one person in the High state, the other in the Low state"
 msgstr "jedna osoba w stanie Wysokim, druga w stanie Niskim"
 
-#: gsr/vsr_text.py:131 gsr/vsr_text.py:134
+#: gsr/vsr_text.py:132 gsr/vsr_text.py:135
 msgid "the signals were not related"
 msgstr "sygnały nie były powiązane"
 
-#: gsr/vsr_text.py:133
+#: gsr/vsr_text.py:134
 msgid "the signals moved in the opposite direction"
 msgstr "sygnały zmieniały się w przeciwnym kierunku"
 
-#: gsr/vsr_text.py:137
+#: gsr/vsr_text.py:138
 #, python-format
 msgid "%(times)s outside the synchronization and co-arousal episodes"
 msgstr "%(times)s poza epizodami synchronizacji i ko-pobudzenia"
 
-#: gsr/vsr_text.py:148
+#: gsr/vsr_text.py:149
 #, python-format
 msgid "VSR flow chart step %(step)s: %(name)s"
 msgstr "Krok %(step)s schematu VSR: %(name)s"
