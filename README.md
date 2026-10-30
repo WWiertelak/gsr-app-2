@@ -120,7 +120,8 @@ The Cleaning settings show the current bounds, and the report records the bounds
 
 No saved project settings are migrated: an explicit saved upper limit (including 20 µS)
 is preserved. Projects without an explicit upper limit use the new 100 µS default when
-resolved; their earlier saved results become outdated and need recomputing.
+resolved; their earlier saved results become outdated and need recomputing. Until rerun,
+their exports and applied-settings views show the new 100 µS limit, not the 20 µS that was used.
 
 ## Layout
 
