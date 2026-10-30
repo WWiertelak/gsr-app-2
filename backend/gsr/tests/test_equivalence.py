@@ -1,8 +1,8 @@
 """The extracted pipeline must reproduce GSRv2 exactly.
 
-Every scenario runs the frozen GSRv2 pipeline (``legacy_gsrv2``) and the new
-pipeline on the same synthetic recordings and requires identical outputs for
-parsing, cleaning, synchronization, joint synchrony and co-arousal: same keys,
+Every scenario explicitly retains the old 20 µS upper bound, then runs the
+frozen GSRv2 pipeline (``legacy_gsrv2``) and the new pipeline on the same
+synthetic recordings and requires identical outputs for parsing, cleaning, synchronization, joint synchrony and co-arousal: same keys,
 same types, bit-identical floats (NaN only where GSRv2 has NaN).
 """
 
@@ -178,6 +178,7 @@ def scenario_runs(tmp_path_factory) -> dict[str, dict[str, Any]]:
     for name, (participants, formats, seconds, seed, kwargs) in SCENARIOS.items():
         directory = tmp_path_factory.mktemp(name)
         files = write_group(directory, name, participants, formats, seconds=seconds, seed=seed)
+        kwargs = {"clean_filter_physiological_max_us": 20.0, **kwargs}
         old_cfg = old_config.PipelineConfig(**kwargs)
         new_cfg = new_config.PipelineConfig(**kwargs)
         runs[name] = {
@@ -195,15 +196,18 @@ def test_legacy_snapshot_is_unmodified() -> None:
         assert hashlib.sha256((LEGACY_DIR / name).read_bytes()).hexdigest() == expected, name
 
 
-def test_shared_config_fields_have_identical_defaults() -> None:
+def test_shared_config_defaults_only_differ_in_the_wider_physiological_range() -> None:
     old_defaults = old_config.PipelineConfig().model_dump()
     new_defaults = new_config.PipelineConfig().model_dump()
     # Settings GSRv2 did not have (the VSR flow chart, Hassan's e-mail) take their defaults from the document values.
     added = set(new_defaults) - set(old_defaults)
     assert added <= set(new_config.VSR_DOCUMENT_SETTINGS)
     assert {key: new_defaults[key] for key in added} == {key: new_config.VSR_DOCUMENT_SETTINGS[key] for key in added}
-    assert {key: old_defaults[key] for key in new_defaults if key not in added} == {
-        key: value for key, value in new_defaults.items() if key not in added}
+    assert old_defaults["clean_filter_physiological_max_us"] == 20.0
+    assert new_defaults["clean_filter_physiological_max_us"] == 100.0
+    changed = {"clean_filter_physiological_max_us"}
+    assert {key: old_defaults[key] for key in new_defaults if key not in added | changed} == {
+        key: value for key, value in new_defaults.items() if key not in added | changed}
     assert new_config.MAX_DATASETS == old_config.MAX_DATASETS
 
 

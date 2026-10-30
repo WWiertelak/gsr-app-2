@@ -150,7 +150,7 @@ def _coerce(name: str, value: Any) -> Any:
 class PipelineConfig:
     """Pipeline tuning parameters, carried over from GSRv2.
 
-    Field names and defaults are unchanged, so a GSRv2 project config loads as-is
+    Field names are unchanged, so explicit GSRv2 project settings load as-is
     through ``from_dict`` (keys of the dropped segment/correlation analyses are
     ignored). ``model_fields_set`` keeps the GSRv2 explicitly-set-fields
     semantics, which select the legacy sample-based downsampling mode. Values are
@@ -168,7 +168,7 @@ class PipelineConfig:
     # Conservative EDA cleaning defaults: preserve sustained responses, remove
     # only extreme global outliers/jumps, and keep the aggressive IQR rule opt-in.
     clean_filter_physiological_min_us: float = 0.5
-    clean_filter_physiological_max_us: float = 20.0
+    clean_filter_physiological_max_us: float = 100.0
     clean_filter_zscore_threshold: float = 5.0
     clean_filter_jump_sigma: float = 5.0
     clean_filter_iqr_factor: float = 1.5

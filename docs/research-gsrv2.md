@@ -67,7 +67,8 @@ Per analysis run, for the selected datasets (in upload order):
    The window is reported as `alignment`.
 3. **Cleaning** (per recording, on the synchronized samples):
    - artifact masks: non-finite values; physiological range
-     (`0.5–20 µS`); global z-score (`> 5 SD`); jump (`|Δ| > mean|Δ| + 5 SD`); IQR
+     (`0.5–100 µS` by default; the original GSRv2 upper limit was 20 µS);
+     global z-score (`> 5 SD`); jump (`|Δ| > mean|Δ| + 5 SD`); IQR
      (`1.5×IQR`, **off** by default). Each mask is switchable; thresholds configurable.
    - rejected samples → NaN → linear interpolation (both directions), median fallback;
    - 4th-order Butterworth low-pass at 0.05 Hz (`filtfilt`, assumes fs = 5 Hz);
@@ -148,7 +149,7 @@ Port of a standalone "emotional contagion" script, corrected in GSRv2:
 | GSRv2 | GSR_APP 2.0 | Change |
 | --- | --- | --- |
 | `pipeline/parser.py` | `backend/gsr/pipeline/parser.py` | same parsing and messages; `ParseError` also carries a `code` (and `row`) for the UI |
-| `pipeline/config.py` | `backend/gsr/pipeline/config.py` | segment/correlation/UI fields removed; remaining fields and defaults identical |
+| `pipeline/config.py` | `backend/gsr/pipeline/config.py` | segment/correlation/UI fields removed; physiological upper default raised to 100 µS; explicit saved settings preserved |
 | `core.run_pipeline`, cleaning, merge, downsampling, `serialize_preview`, `serialize_signal_statistics`, `serialize_decimated_traces`, `build_stage_export_frame` | `backend/gsr/pipeline/preprocessing.py` | segmentation removed from `run_pipeline` and `PipelineResult` |
 | `core.compute_synchrony` and helpers | `backend/gsr/pipeline/synchrony.py` | unchanged code |
 | `core.compute_contagion` and helpers | `backend/gsr/pipeline/coarousal.py` | renamed `compute_coarousal`; payload keys unchanged |
@@ -159,7 +160,7 @@ Port of a standalone "emotional contagion" script, corrected in GSRv2:
 | — | `manage.py gsr_analyze A=a.csv B=b.csv --config '{…}'` | new CLI entry point, alongside the UI |
 
 Equivalence is enforced by `backend/gsr/tests/test_equivalence.py`: seven synthetic
-scenarios (app defaults, unscaled full rate, legacy factor downsampling, strict
+scenarios (legacy defaults with an explicit 20 µS upper limit, unscaled full rate, legacy factor downsampling, strict
 cleaning with time range, unsigned/phase/Spearman with 4 participants, surrogates
 disabled, midnight crossing with cp1250 and Excel-mangled values) are run through the
 frozen GSRv2 code and the new code, and parsing output, every cleaning/sync frame,

@@ -22,7 +22,7 @@ from .config import MAX_DATASETS, PipelineConfig
 from .parser import ParseError, load_esense_csv
 
 PHYSIO_MIN_US = 0.5
-PHYSIO_MAX_US = 20.0
+PHYSIO_MAX_US = 100.0
 ZSCORE_THRESHOLD = 5.0
 JUMP_SIGMA = 5.0
 IQR_FACTOR = 1.5

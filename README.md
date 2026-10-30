@@ -61,7 +61,7 @@ Enter a username, an optional email and a password when asked, then log in at
 
 ## Workflow notes
 
-The processing pipeline is extracted from GSRv2 with unchanged results; the
+The processing pipeline is extracted from GSRv2 with unchanged results under matching settings; the
 segment-based analysis was dropped. See [docs/research-gsrv2.md](docs/research-gsrv2.md)
 for how the pipeline works and what was carried over.
 
@@ -111,6 +111,17 @@ recordings' common start. Every result is computed on z-scores within the analys
 correlations, which no rescaling changes); the "Signals with marked episodes" chart, the PDF and
 `analysis_input_merged.csv` show the signals as z-scores (default, with the High/Low thresholds) or as
 0-1 min-max, switched next to the chart without rerunning anything.
+
+### Physiological cleaning range
+
+The physiological filter defaults to **0.5–100 µS**, so sustained skin conductance above
+20 µS is retained by that filter. The z-score and jump filters still apply independently.
+The Cleaning settings show the current bounds, and the report records the bounds used.
+
+No saved project settings are migrated: an explicit saved upper limit (including 20 µS)
+is preserved. Projects without an explicit upper limit use the new 100 µS default when
+resolved; their earlier saved results become outdated and need recomputing. Until rerun,
+their exports and applied-settings views show the new 100 µS limit, not the 20 µS that was used.
 
 ## Layout
 
