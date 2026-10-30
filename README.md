@@ -147,14 +147,13 @@ their exports and applied-settings views show the new 100 µS limit, not the 20 
 
 ## Run with Docker
 
-The app runs as one container: on start it applies migrations, then serves Django with
-gunicorn on container port 8000, published on host port 8017. The image compiles the
-`dtaidistance` C/OpenMP extensions at build time (see `backend/Dockerfile`); without them,
-class-sized synchrony analyses fall back to pure-Python DTW and exceed the HTTP worker
-timeout. Startup runs only the `gsr_dtw_c`-tagged Django check `gsr.E001`
+The app runs as one container: on start it runs the DTW library check, applies migrations,
+then serves Django with gunicorn on container port 8000, published on host port 8017. The
+image compiles the `dtaidistance` C/OpenMP extensions at build time (see `backend/Dockerfile`);
+without them, class-sized synchrony analyses fall back to pure-Python DTW and exceed the HTTP
+worker timeout. The startup check runs only the `gsr_dtw_c`-tagged Django check `gsr.E001`
 (`manage.py check --tag gsr_dtw_c --fail-level ERROR`), which fails when that library is missing
-and `GSR_REQUIRE_DTW_C=1` (set in the image).
-The SQLite database
+and `GSR_REQUIRE_DTW_C=1` (set in the image). The SQLite database
 (`/data/db.sqlite3`), uploaded files (`/data/storage`) and the generated secret key
 (`/data/secret_key`) live on the `gsr_data` volume, so they survive restarts and rebuilds.
 
