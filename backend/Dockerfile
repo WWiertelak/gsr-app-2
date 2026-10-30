@@ -8,12 +8,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Pango (with HarfBuzz and fontconfig) for WeasyPrint, the report's HTML-to-PDF converter.
+# build-essential: compile the dtaidistance C extensions; libgomp1: OpenMP runtime for dtw_cc_omp.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+    && apt-get install -y --no-install-recommends \
+        libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 libgomp1 build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt \
+    && pip install --no-cache-dir --force-reinstall --no-deps --no-binary dtaidistance dtaidistance==2.3.13 \
+    && apt-get purge -y --auto-remove build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV GSR_REQUIRE_DTW_C=1
 
 # Test image: adds pytest, ruff and the legacy GSRv2 reference dependencies.
 # Build with `--target test` (or `docker compose run --rm test`).

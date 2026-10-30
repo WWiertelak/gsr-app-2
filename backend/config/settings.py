@@ -132,6 +132,8 @@ MEDIA_ROOT = STORAGE_ROOT
 MEDIA_URL = "media/"
 
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "100"))
+# When true (default in the Docker image), startup fails if dtaidistance has no C extension.
+GSR_REQUIRE_DTW_C = os.getenv("GSR_REQUIRE_DTW_C", "0").lower() not in ("0", "false", "no")
 # The pipeline reads the same MAX_DATASETS variable directly (gsr.pipeline.config).
 MAX_DATASETS = int(os.getenv("MAX_DATASETS", "20"))
 
