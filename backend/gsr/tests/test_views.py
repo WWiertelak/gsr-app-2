@@ -503,6 +503,21 @@ def test_cleaning_preview_matches_pipeline_and_carries_the_raw_trace(client, pro
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("saved_upper, expected", [(None, "100"), (20.0, "20")])
+def test_cleaning_form_uses_wider_default_and_preserves_explicit_saved_limit(client, project, saved_upper, expected):
+    if saved_upper is not None:
+        project.pipeline_config = {**project.pipeline_config, "clean_filter_physiological_max_us": saved_upper}
+        project.save()
+    page = client.get(reverse("gsr:cleaning", args=[project.pk])).content.decode()
+    upper = re.search(r'name="clean_filter_physiological_max_us"[^>]*value="([^"]+)"', page)
+    lower = re.search(r'name="clean_filter_physiological_min_us"[^>]*value="([^"]+)"', page)
+    assert upper and upper.group(1) == expected
+    assert lower and lower.group(1) == "0.5"
+    project.refresh_from_db()
+    assert project.pipeline_config.get("clean_filter_physiological_max_us") == saved_upper
+
+
+@pytest.mark.django_db
 def test_cleaning_apply_saves_settings_and_signal_selection(client, project) -> None:
     form = _cleaning_form(project, time_range_from=0.5, time_range_to=3.0, clean_filter_zscore_threshold=4)
     form["datasets"] = [str(project.datasets.get(alias=alias).pk) for alias in ("A", "C")]

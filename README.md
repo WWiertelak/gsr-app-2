@@ -61,7 +61,7 @@ Enter a username, an optional email and a password when asked, then log in at
 
 ## Workflow notes
 
-The processing pipeline is extracted from GSRv2 with unchanged results; the
+The processing pipeline is extracted from GSRv2 with unchanged results under matching settings; the
 segment-based analysis was dropped. See [docs/research-gsrv2.md](docs/research-gsrv2.md)
 for how the pipeline works and what was carried over.
 
@@ -159,6 +159,16 @@ docker compose down             # keeps data; add -v to delete the gsr_data volu
 
 Without compose: `docker build -t gsr-app-2 backend` and
 `docker run --env-file .env.example -p 127.0.0.1:8017:8000 -v gsr_data:/data gsr-app-2`.
+
+### Physiological cleaning range
+
+The physiological filter defaults to **0.5–100 µS**, so sustained skin conductance above
+20 µS is retained by that filter. The z-score and jump filters still apply independently.
+The Cleaning settings show the current bounds, and the report records the bounds used.
+
+No saved project settings are migrated: an explicit saved upper limit (including 20 µS)
+is preserved. Projects without an explicit upper limit use the new 100 µS default when
+resolved; their earlier saved results become outdated and need recomputing.
 
 ### Environment variables
 

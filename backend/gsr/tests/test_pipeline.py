@@ -36,6 +36,7 @@ from gsr.pipeline.synchrony import (
 )
 
 from .esense_csv import build_esense_csv
+from .sample_data import write_esense_csv
 
 
 def test_pipeline_rejects_more_than_twenty_datasets(tmp_path: Path) -> None:
@@ -318,6 +319,26 @@ def test_cleaning_defaults_match_standalone_script_profile() -> None:
     legacy_masks = _detect_outlier_masks_pilot(values, None)
     for key in default_masks:
         assert np.array_equal(default_masks[key], legacy_masks[key]), key
+
+
+@pytest.mark.parametrize("config", [None, PipelineConfig()])
+def test_physiological_filter_defaults_preserve_values_up_to_100_us(config) -> None:
+    values = np.array([0.49, 0.5, 20.0, 31.6, 65.0, 100.0, 100.01])
+    masks = _detect_outlier_masks_pilot(values, config)
+    assert masks["physical"].tolist() == [True, False, False, False, False, False, True]
+
+
+def test_pipeline_preserves_sustained_high_conductance_with_new_defaults(tmp_path: Path) -> None:
+    values = 32.0 + np.sin(np.arange(600) / 50.0)
+    source = write_esense_csv(tmp_path / "high_conductance.csv", values)
+    default = run_pipeline({"A": source}, PipelineConfig())
+    assert default.cleaning_summary_by_alias["A"].artifact_rejected_points == 0
+    assert default.dataset_states["A"].clean["microsiemens"].min() > 20.0
+    # Explicit saved bounds retain their meaning; they are not upgraded to the default.
+    saved = PipelineConfig.from_dict({"clean_filter_physiological_max_us": 20.0})
+    assert saved.clean_filter_physiological_max_us == 20.0
+    legacy = run_pipeline({"A": source}, saved)
+    assert legacy.cleaning_summary_by_alias["A"].artifact_rejected_points == len(values)
 
 
 def test_from_dict_legacy_payload_fills_threshold_defaults() -> None:

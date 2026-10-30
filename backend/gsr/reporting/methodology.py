@@ -103,7 +103,8 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                         ("Reguła IQR", "odrzuca wartości poza [Q1 − 1.5·IQR, Q3 + 1.5·IQR]."),
                         ("Butterworth", "dolnoprzepustowy (domyślnie 0.05 Hz), dwukierunkowo (filtfilt, bez przesunięcia fazy)."),
                     ]),
-                    ("note", "Ustawienia domyślne", "Filtr medianowy ma okno 5, próg Z-score wynosi 5 SD, próg skoku "
+                    ("note", "Ustawienia domyślne", "Zakres fizjologiczny to 0.5–100 µS. Filtr medianowy ma okno 5, "
+                                                      "próg Z-score wynosi 5 SD, próg skoku "
                                                       "wynosi średnia zmiana + 5 SD, a filtr IQR jest domyślnie "
                                                       "wyłączony. Wszystkie filtry nadal można zmienić ręcznie."),
                     ("note", "Jakość sygnału", "Na podstawie udziału odrzuconych próbek aplikacja pokazuje ocenę: dobra "
@@ -297,7 +298,8 @@ METHODOLOGY: dict[str, dict[str, Any]] = {
                         ("IQR rule", "rejects values outside [Q1 − 1.5·IQR, Q3 + 1.5·IQR]."),
                         ("Butterworth", "low-pass (default 0.05 Hz), forward-backward (filtfilt, zero phase shift)."),
                     ]),
-                    ("note", "Default settings", "The median-filter window is 5, the Z-score threshold is 5 SD, the jump "
+                    ("note", "Default settings", "The physiological range is 0.5–100 µS. The median-filter window is 5, "
+                                                    "the Z-score threshold is 5 SD, the jump "
                                                     "threshold is mean change + 5 SD, and the IQR filter is disabled by "
                                                     "default. All filters remain manually configurable."),
                     ("note", "Signal quality", "Based on the rejected-sample share, the app reports: good < 10%, warning "
