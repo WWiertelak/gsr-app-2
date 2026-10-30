@@ -151,7 +151,9 @@ The app runs as one container: on start it applies migrations, then serves Djang
 gunicorn on container port 8000, published on host port 8017. The image compiles the
 `dtaidistance` C/OpenMP extensions at build time (see `backend/Dockerfile`); without them,
 class-sized synchrony analyses fall back to pure-Python DTW and exceed the HTTP worker
-timeout. Startup runs Django check `gsr.E001` when `GSR_REQUIRE_DTW_C=1` (set in the image).
+timeout. Startup runs only the `gsr_dtw_c`-tagged Django check `gsr.E001`
+(`manage.py check --tag gsr_dtw_c --fail-level ERROR`), which fails when that library is missing
+and `GSR_REQUIRE_DTW_C=1` (set in the image).
 The SQLite database
 (`/data/db.sqlite3`), uploaded files (`/data/storage`) and the generated secret key
 (`/data/secret_key`) live on the `gsr_data` volume, so they survive restarts and rebuilds.
@@ -197,7 +199,7 @@ least `ALLOWED_HOSTS` and, behind TLS, the `SECURE_*` settings.
 | `APP_PORT` | `8017` | Host port (compose only, bound to 127.0.0.1) |
 | `GUNICORN_WORKERS` | `2` | gunicorn worker count |
 | `GUNICORN_TIMEOUT` | `300` | gunicorn worker timeout in seconds (class-sized analysis ~8s with compiled DTW; omitting `--timeout` defaults to 30s) |
-| `GSR_REQUIRE_DTW_C` | `1` in the image | When enabled, `manage.py check` and startup fail if the compiled dtaidistance library is missing |
+| `GSR_REQUIRE_DTW_C` | `1` in the image | When enabled, the `gsr_dtw_c`-tagged check `gsr.E001` (run by `manage.py check` and at startup) fails if the compiled dtaidistance library is missing |
 
 ## Run locally
 

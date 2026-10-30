@@ -5,6 +5,8 @@ from __future__ import annotations
 from django.conf import settings
 from django.core.checks import Error, register
 
+DTW_C_LIBRARY_TAG = "gsr_dtw_c"
+
 
 def dtw_c_library_available() -> bool:
     try:
@@ -14,7 +16,7 @@ def dtw_c_library_available() -> bool:
     return bool(try_import_c())
 
 
-@register()
+@register(DTW_C_LIBRARY_TAG)
 def check_dtaidistance_c_library(app_configs, **kwargs):
     if not getattr(settings, "GSR_REQUIRE_DTW_C", False):
         return []
