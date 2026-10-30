@@ -1,8 +1,8 @@
 """The extracted pipeline must reproduce GSRv2 exactly.
 
 Every scenario explicitly retains the old 20 µS upper bound, then runs the
-frozen GSRv2 pipeline (``legacy_gsrv2``) and the new pipeline on the same synthetic recordings and requires identical outputs for
-parsing, cleaning, synchronization, joint synchrony and co-arousal: same keys,
+frozen GSRv2 pipeline (``legacy_gsrv2``) and the new pipeline on the same
+synthetic recordings and requires identical outputs for parsing, cleaning, synchronization, joint synchrony and co-arousal: same keys,
 same types, bit-identical floats (NaN only where GSRv2 has NaN).
 """
 
