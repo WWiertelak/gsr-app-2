@@ -1372,3 +1372,88 @@ def test_changed_settings_name_each_change_with_old_and_new_values() -> None:
         "Surrogate method: circular shift → phase randomization",
     ]
     assert params.changed_settings(before, dict(before)) == []
+
+
+# ─── Settings stored with a result ──────────────────────────────────────────
+
+
+def _as_legacy(stored: AnalysisResult, computed_with: dict, fields: tuple[str, ...] | None = None) -> AnalysisResult:
+    """A result as saved before its resolved settings were stored, computed with ``computed_with`` over its overrides
+    and signed over ``fields`` (by default the current settings of its kind)."""
+    from gsr.services.results import _fields_for, compute_signature
+
+    datasets = [Dataset.objects.get(pk=dataset_id) for dataset_id in stored.dataset_ids]
+    config = PipelineConfig.from_dict({**computed_with, **stored.config})
+    stored.resolved_config = None
+    stored.signature = compute_signature(datasets, config, fields or _fields_for(stored.kind))
+    stored.save()
+    return stored
+
+
+@pytest.mark.django_db
+def test_a_result_keeps_the_settings_it_was_computed_with(client, project) -> None:
+    from gsr.services.results import compute_cleaning, result_config, run_config
+
+    stored = compute_cleaning(project)
+    assert stored.resolved_config == run_config(project).model_dump()
+    assert "clean_filter_physiological_max_us" not in stored.config  # the overrides stay as saved
+    # As computed under another default: the result keeps saying 20 µS, whatever the default is now.
+    stored.resolved_config = {**stored.resolved_config, "clean_filter_physiological_max_us": 20.0}
+    stored.save()
+    assert result_config(stored).clean_filter_physiological_max_us == 20.0
+
+
+@pytest.mark.django_db
+def test_an_earlier_result_reads_the_defaults_it_was_computed_with(client, project) -> None:
+    from gsr.services.results import compute_cleaning, result_config
+
+    stored = _as_legacy(compute_cleaning(project), {"clean_filter_physiological_max_us": 20.0})
+    # A recording renamed since the run still counts as the run's recording.
+    dataset = project.datasets.first()
+    dataset.alias = "renamed"
+    dataset.save()
+    stored.refresh_from_db()
+    assert result_config(stored).clean_filter_physiological_max_us == 20.0
+    assert is_stale(project, stored)  # computed under the earlier default: still outdated
+
+    current = _as_legacy(compute_cleaning(project), {})
+    assert result_config(current).clean_filter_physiological_max_us == 100.0 and not is_stale(project, current)
+
+
+@pytest.mark.django_db
+def test_an_earlier_result_whose_settings_cannot_be_told_keeps_the_outdated_flag(client, project) -> None:
+    from gsr.services.results import compute_cleaning, result_config
+
+    stored = compute_cleaning(project)
+    stored.resolved_config = None
+    stored.signature = "0" * 64
+    stored.save()
+    assert result_config(stored).clean_filter_physiological_max_us == 100.0
+    assert is_stale(project, stored)
+
+
+@pytest.mark.django_db
+def test_export_and_settings_show_the_values_an_earlier_analysis_used(client, project) -> None:
+    _run_analysis(client, project)
+    analysis = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
+    _as_legacy(analysis, {"clean_filter_physiological_max_us": 20.0})
+    document = json.loads(client.get(reverse("gsr:export_file",
+                                             args=[project.pk, "run_settings_and_results.json"])).content)
+    assert document["config"]["clean_filter_physiological_max_us"] == 20.0
+    assert "clean_filter_physiological_max_us" not in document["config_overrides"]
+
+
+@pytest.mark.django_db
+def test_an_analysis_from_before_the_strength_rules_shows_the_values_it_used(client, project) -> None:
+    from gsr.services.results import CONFIG_FIELDS, FIELDS_ADDED_WITH_STRENGTH_RULES, result_config
+
+    _run_analysis(client, project)
+    analysis = AnalysisResult.objects.get(project=project, kind=AnalysisResult.KIND_ANALYSIS)
+    earlier_fields = tuple(name for name in CONFIG_FIELDS if name not in FIELDS_ADDED_WITH_STRENGTH_RULES)
+    _as_legacy(analysis, {"clean_filter_physiological_max_us": 20.0}, earlier_fields)
+    analysis.refresh_from_db()
+    assert result_config(analysis).clean_filter_physiological_max_us == 20.0
+    assert is_stale(project, analysis)
+    document = json.loads(client.get(reverse("gsr:export_file",
+                                             args=[project.pk, "run_settings_and_results.json"])).content)
+    assert document["config"]["clean_filter_physiological_max_us"] == 20.0

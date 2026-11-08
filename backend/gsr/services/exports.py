@@ -17,11 +17,10 @@ from django.utils import timezone, translation
 from .. import vsr_text
 from ..models import AnalysisResult, Project
 from ..pipeline.common import _zscore, clock_at, clock_start
-from ..pipeline.config import PipelineConfig
 from ..pipeline.preprocessing import analysed_range, build_stage_export_frame
 from ..pipeline.vsr import step_label
 from .display import MINMAX, chart_scale
-from .results import stored_pipeline_result
+from .results import result_config, stored_pipeline_result
 
 # Charts the Export screen captures from the same ECharts options as the screens,
 # by report section. The browser posts them as PNG data URLs (field "chart_<key>").
@@ -354,7 +353,7 @@ def results_document(project: Project, stored: AnalysisResult) -> dict[str, Any]
         "exported_at": timezone.now().isoformat(),
         "project": {"id": str(project.id), "name": project.name, "description": project.description},
         "run": {"computed_at": stored.computed_at.isoformat(), "duration_seconds": stored.duration_seconds},
-        "config": PipelineConfig.from_dict(stored.config).model_dump(),
+        "config": result_config(stored).model_dump(),
         "config_overrides": stored.config,
         "versions": versions(),
         "datasets": datasets,
@@ -364,7 +363,7 @@ def results_document(project: Project, stored: AnalysisResult) -> dict[str, Any]
         # the signals chart, the PDF report and analysis_input_merged.csv show them.
         "analysis_normalization": "z-score within the analysed window",
         "display": {"chart_scale": chart_scale(project)},
-        "time_range_minutes": analysed_range(preview, PipelineConfig.from_dict(stored.config).model_dump()),
+        "time_range_minutes": analysed_range(preview, result_config(stored).model_dump()),
         "cleaning_summary": preview.get("cleaning_summary"),
         "synchrony": synchrony,
         "coarousal": coarousal,

@@ -104,8 +104,12 @@ class AnalysisResult(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="results")
     kind = models.CharField(max_length=20, choices=KIND_CHOICES)
     signature = models.CharField(max_length=64)
-    # Resolved PipelineConfig values and the ordered dataset ids the result was computed from.
+    # The project's stored PipelineConfig overrides and the ordered dataset ids the result was computed from.
     config = models.JSONField(default=dict)
+    # Every PipelineConfig value the result was computed with (defaults merged with ``config``), so a later change
+    # of a default does not change what the result says it used. None on results saved before it was stored: their
+    # settings are resolved from ``config`` and ``signature`` (``services.results.result_config``).
+    resolved_config = models.JSONField(null=True, blank=True)
     dataset_ids = models.JSONField(default=list)
     payload = models.JSONField(default=dict)
     duration_seconds = models.FloatField(default=0.0)
