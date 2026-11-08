@@ -59,6 +59,7 @@ from .services.results import (
     is_stale,
     predates_rules,
     recording_overview,
+    result_config,
     signal_colors,
 )
 from .services.vsr import compute_interviews, interview_colors
@@ -96,7 +97,7 @@ def _applied_values(result: AnalysisResult | None) -> dict[str, Any] | None:
     if result is None:
         return None
     try:
-        return PipelineConfig.from_dict(result.config).model_dump()
+        return result_config(result).model_dump()
     except ValueError:
         return None
 
@@ -534,7 +535,7 @@ def _cleaning_context(project: Project, error: UserError | None = None) -> dict[
     }
     if result is not None:
         preview = result.payload["preview"]
-        result_values = PipelineConfig.from_dict(result.config).model_dump()
+        result_values = result_config(result).model_dump()
         context["charts"] = charts.cleaning_charts(preview, colors, result_values)
         context["summary"] = preview["cleaning_summary"]
         context["rejected_label"] = _rejected_label(preview["cleaning_summary"]["totals"]["artifact_rejected_points"])
@@ -688,7 +689,7 @@ def _analysis_context(project: Project, tab: str, error: UserError | None = None
         payload = result.payload
         synchrony = payload.get("synchrony", {})
         coarousal = payload.get("coarousal", {})
-        config = PipelineConfig.from_dict(result.config)
+        config = result_config(result)
         span = charts.timeline_span(synchrony)
         coarousal_chart = charts.coarousal_states(coarousal, charts.preview_clock(payload.get("preview", {})))
         def numbered(episodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1261,7 +1262,7 @@ def _attachment(content: bytes, filename: str, content_type: str) -> HttpRespons
 def _stale_causes(project: Project, result: AnalysisResult) -> list[str]:
     """What changed since the exported run: settings as "label old → new", then added, removed or renamed signals."""
     try:
-        causes = params.changed_settings(PipelineConfig.from_dict(result.config).model_dump(), _current_values(project))
+        causes = params.changed_settings(result_config(result).model_dump(), _current_values(project))
     except ValueError:
         causes = []
     before = dict(zip(result.dataset_ids, (row["alias"] for row in result.payload.get("datasets", []))))
@@ -1369,7 +1370,7 @@ def _export_context(project: Project, error: UserError | None = None) -> dict[st
     stale = export_is_stale(project)
     context: dict[str, Any] = {"result": result, "stale": stale, "error": error}
     if result is not None:
-        values = PipelineConfig.from_dict(result.config).model_dump()
+        values = result_config(result).model_dump()
         report_charts = charts.report_charts(result.payload, signal_colors(project), values, chart_scale(project))
         languages = _report_languages(project, result)
         vsr = vsr_report_data(project)
@@ -1465,7 +1466,7 @@ def report_payload(project: Project, result: AnalysisResult, chart_images: dict[
         "predates_rules": predates_rules(result),
         "dataset_aliases": [row["alias"] for row in payload.get("datasets", [])],
         "datasets": payload.get("datasets", []),
-        "config": PipelineConfig.from_dict(result.config).model_dump(),
+        "config": result_config(result).model_dump(),
         "chart_scale": chart_scale(project),
         "preview": payload.get("preview", {}),
         "synchrony": payload.get("synchrony"),

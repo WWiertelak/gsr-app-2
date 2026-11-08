@@ -50,6 +50,14 @@ FALLBACK_SIGNAL_COLOR = "#617080"
 # lets the screens say why, and marks the researcher's decisions on moments chosen under the earlier rules.
 RESULTS_VERSION = 2
 
+# PipelineConfig defaults of earlier releases that differ from the current ones, newest first, with only the values
+# that changed. ``result_config`` reads a result saved without its resolved settings over these when its signature
+# shows it was computed with them. Add an entry whenever a default changes.
+EARLIER_DEFAULTS: tuple[dict[str, Any], ...] = (
+    # Until 2026-10-30 the physiological filter's upper limit was 20 µS.
+    {"clean_filter_physiological_max_us": 20.0},
+)
+
 ANALYSIS_FIELD_PREFIXES = ("synchrony_", "contagion_")
 CONFIG_FIELDS = tuple(field.name for field in dataclasses.fields(PipelineConfig))
 CLEANING_FIELDS = tuple(name for name in CONFIG_FIELDS if not name.startswith(ANALYSIS_FIELD_PREFIXES))
@@ -81,9 +89,14 @@ def run_config(project: Project) -> PipelineConfig:
 
 
 def compute_signature(datasets: list[Dataset], config: PipelineConfig, fields: tuple[str, ...]) -> str:
+    return _signature([[str(dataset.id), dataset.alias, dataset.file_sha256] for dataset in datasets], config, fields)
+
+
+def _signature(datasets: list[list[str]], config: PipelineConfig, fields: tuple[str, ...]) -> str:
+    """The signature of datasets given as ``[id, alias, file_sha256]`` rows and the settings ``fields``."""
     values = config.model_dump()
     document = {
-        "datasets": [[str(dataset.id), dataset.alias, dataset.file_sha256] for dataset in datasets],
+        "datasets": datasets,
         "config": {name: values[name] for name in fields},
         "legacy_downsample": _should_use_legacy_downsample_factor(config),
     }
@@ -115,6 +128,44 @@ def current_signature(project: Project, kind: str) -> str | None:
 
 def get_result(project: Project, kind: str) -> AnalysisResult | None:
     return project.results.filter(kind=kind).first()
+
+
+def result_config(result: AnalysisResult) -> PipelineConfig:
+    """The settings a stored cleaning or analysis result was computed with.
+
+    A result stores them resolved (``AnalysisResult.resolved_config``). A result saved before that stores only the
+    project's overrides; its settings are the overrides over the defaults its signature shows it was computed with
+    (the current ones, or one of ``EARLIER_DEFAULTS``). When the signature matches none of them (a recording of the
+    run was deleted or renamed, or the run predates settings added since), the overrides are read over the current
+    defaults as before; such a result is outdated (``is_stale``) and recomputing it stores its settings.
+    Raises ``ValueError`` for settings ``PipelineConfig`` rejects.
+    """
+    if result.resolved_config is not None:
+        return PipelineConfig.from_dict(result.resolved_config)
+    overrides = result.config or {}
+    datasets = _computed_datasets(result)
+    if datasets is not None:
+        fields = _fields_for(result.kind)
+        for defaults in ({}, *EARLIER_DEFAULTS):
+            try:
+                config = PipelineConfig.from_dict({**defaults, **overrides})
+            except ValueError:
+                continue
+            if _signature(datasets, config, fields) == result.signature:
+                return config
+    return PipelineConfig.from_dict(overrides)
+
+
+def _computed_datasets(result: AnalysisResult) -> list[list[str]] | None:
+    """The ``[id, alias, file_sha256]`` rows of the recordings a result was computed from, with their aliases then."""
+    rows = result.payload.get("datasets") or []
+    if len(rows) != len(result.dataset_ids):
+        return None
+    hashes = dict(result.project.datasets.filter(id__in=result.dataset_ids).values_list("id", "file_sha256"))
+    hashes = {str(dataset_id): sha for dataset_id, sha in hashes.items()}
+    if any(dataset_id not in hashes for dataset_id in result.dataset_ids):
+        return None
+    return [[dataset_id, row.get("alias"), hashes[dataset_id]] for dataset_id, row in zip(result.dataset_ids, rows)]
 
 
 def predates_rules(result: AnalysisResult | None) -> bool:
@@ -200,6 +251,7 @@ def _store(
         defaults={
             "signature": compute_signature(datasets, config, _fields_for(kind)),
             "config": config_overrides(project),
+            "resolved_config": config.model_dump(),
             "dataset_ids": [str(dataset.id) for dataset in datasets],
             "payload": payload,
             "duration_seconds": round(time.perf_counter() - started, 2),
@@ -242,7 +294,7 @@ def stored_pipeline_result(project: Project, stored: AnalysisResult) -> tuple[Pi
         raise AnalysisError("A dataset of the last run was deleted. Run the analysis again.")
     datasets = [by_id[dataset_id] for dataset_id in stored.dataset_ids]
     try:
-        config = PipelineConfig.from_dict(stored.config)
+        config = result_config(stored)
     except ValueError as exc:
         raise AnalysisError(str(exc)) from exc
     aliases = [row["alias"] for row in stored.payload["datasets"]]
