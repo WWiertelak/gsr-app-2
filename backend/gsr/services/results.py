@@ -61,6 +61,16 @@ EARLIER_DEFAULTS: tuple[dict[str, Any], ...] = (
 ANALYSIS_FIELD_PREFIXES = ("synchrony_", "contagion_")
 CONFIG_FIELDS = tuple(field.name for field in dataclasses.fields(PipelineConfig))
 CLEANING_FIELDS = tuple(name for name in CONFIG_FIELDS if not name.startswith(ANALYSIS_FIELD_PREFIXES))
+# The settings 2026-10's correlation-strength rules (``RESULTS_VERSION`` 2) added; an Analysis result computed before
+# them has a signature over the settings without them.
+FIELDS_ADDED_WITH_STRENGTH_RULES = (
+    "synchrony_interview_threshold",
+    "synchrony_divergent_threshold",
+    "synchrony_decoupled_threshold",
+    "synchrony_decoupled_rule",
+    "synchrony_dyad_without_gap_joining",
+    "synchrony_interview_shared_without_comovement",
+)
 
 
 def signal_colors(project: Project) -> dict[str, str]:
@@ -126,6 +136,13 @@ def current_signature(project: Project, kind: str) -> str | None:
     return compute_signature(included_datasets(project), config, _fields_for(kind))
 
 
+def _earlier_fields_for(kind: str) -> tuple[tuple[str, ...], ...]:
+    """The settings a result's signature may cover: the current ones, then those of earlier releases."""
+    fields = _fields_for(kind)
+    earlier = tuple(name for name in fields if name not in FIELDS_ADDED_WITH_STRENGTH_RULES)
+    return (fields,) if earlier == fields else (fields, earlier)
+
+
 def get_result(project: Project, kind: str) -> AnalysisResult | None:
     return project.results.filter(kind=kind).first()
 
@@ -135,8 +152,9 @@ def result_config(result: AnalysisResult) -> PipelineConfig:
 
     A result stores them resolved (``AnalysisResult.resolved_config``). A result saved before that stores only the
     project's overrides; its settings are the overrides over the defaults its signature shows it was computed with
-    (the current ones, or one of ``EARLIER_DEFAULTS``). When the signature matches none of them (a recording of the
-    run was deleted or renamed, or the run predates settings added since), the overrides are read over the current
+    (the current ones, or one of ``EARLIER_DEFAULTS``), over the current settings or those of an earlier release
+    (before ``FIELDS_ADDED_WITH_STRENGTH_RULES``). When the signature matches none of them (a recording of the run
+    was deleted, or the run used settings or defaults not known here), the overrides are read over the current
     defaults as before; such a result is outdated (``is_stale``) and recomputing it stores its settings.
     Raises ``ValueError`` for settings ``PipelineConfig`` rejects.
     """
@@ -145,13 +163,13 @@ def result_config(result: AnalysisResult) -> PipelineConfig:
     overrides = result.config or {}
     datasets = _computed_datasets(result)
     if datasets is not None:
-        fields = _fields_for(result.kind)
         for defaults in ({}, *EARLIER_DEFAULTS):
             try:
                 config = PipelineConfig.from_dict({**defaults, **overrides})
             except ValueError:
                 continue
-            if _signature(datasets, config, fields) == result.signature:
+            if any(_signature(datasets, config, fields) == result.signature
+                   for fields in _earlier_fields_for(result.kind)):
                 return config
     return PipelineConfig.from_dict(overrides)
 

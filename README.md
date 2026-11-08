@@ -125,9 +125,10 @@ resolved; their earlier saved results become outdated and need recomputing.
 Every saved result stores the full settings it was computed with, so its exports and
 applied-settings views keep showing the values it used after a default changes. A result
 saved before the settings were stored is read against the defaults its signature shows it
-was computed with (for example the earlier 20 µS limit); when that cannot be told (a
-recording of the run was deleted, or the run predates settings added since) it shows the
-current defaults and stays outdated until rerun.
+was computed with (for example the earlier 20 µS limit), including Analysis runs from
+before the correlation-strength settings were added. When that cannot be told (a recording
+of the run was deleted, or its signature matches no known settings and defaults) it shows
+the current defaults and stays outdated until rerun.
 
 ## Layout
 
